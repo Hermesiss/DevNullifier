@@ -10,16 +10,17 @@
     <v-main>
       <v-container fluid>
         <ControlPanel :is-scanning="isScanning" :is-deleting="isDeleting" :folders-length="folders.length"
-          :max-depth="maxDepth.value" @scan="startScan" @select-all="selectAll" @deselect-all="deselectAll"
-          @update:maxDepth="(val) => (maxDepth.value = val)" />
+          :max-depth="maxDepth" @scan="startScan" @stop-scan="stopScan" @select-all="selectAll"
+          @deselect-all="deselectAll" @update:maxDepth="val => maxDepth = val" />
 
         <ResultsTable :folders="folders" v-model="selectedFolders" :is-scanning="isScanning" />
-
-        <ActionsBar class="mt-4" :status-text="statusText" :delete-progress="deleteProgress"
-          :selected-count="selectedFolders.length" :is-scanning="isScanning" :is-deleting="isDeleting"
-          @delete="confirmDelete" />
       </v-container>
     </v-main>
+
+    <v-footer app class="pa-0">
+      <ActionsBar :status-text="statusText" :delete-progress="deleteProgress" :selected-count="selectedFolders.length"
+        :is-scanning="isScanning" :is-deleting="isDeleting" @delete="confirmDelete" />
+    </v-footer>
 
     <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedFolders.length" :selected-size="selectedSize"
       @confirm="deleteFolders" />
@@ -84,38 +85,78 @@ export default {
     }
 
     // Scan logic
+    const stopScan = async () => {
+      // Don't change isScanning yet, just update status
+      statusText.value = 'Stopping scan...'
+
+      try {
+        await window.electronAPI.stopScan()
+        statusText.value = 'Ready'
+        showNotification('Scan stopped by user', 'info')
+      } catch (error) {
+        console.error('Error stopping scan:', error)
+        showNotification('Error stopping scan: ' + error.message, 'error')
+      } finally {
+        // Only disable scanning state after the worker is fully stopped
+        isScanning.value = false
+      }
+    }
+
     const startScan = async () => {
       try {
         isScanning.value = true
         statusText.value = 'Getting AppData paths...'
         folders.value = []
         selectedFolders.value = []
+        const seenPaths = new Set()
 
         const paths = await window.electronAPI.getAppDataPaths()
         if (paths.length === 0) {
           showNotification('No AppData paths found!', 'warning')
+          isScanning.value = false
           return
         }
 
         statusText.value = 'Scanning folders...'
         // Listen for real-time folder updates
         window.electronAPI.onScanFolderFound((folder) => {
-          folders.value.push(folder)
+          if (!seenPaths.has(folder.path)) {
+            seenPaths.add(folder.path)
+            // Check if folder already exists in the array
+            const existingIndex = folders.value.findIndex(f => f.path === folder.path)
+            if (existingIndex === -1) {
+              folders.value.push(folder)
+            } else {
+              // Update existing folder if size changed
+              if (folders.value[existingIndex].size !== folder.size) {
+                folders.value[existingIndex] = folder
+              }
+            }
+          }
         })
         await window.electronAPI.scanFolders(paths, maxDepth.value)
-        // Sort at the end for display
-        folders.value.sort((a, b) => b.size - a.size)
-        statusText.value = `Found ${folders.value.length} folders`
-        if (folders.value.length === 0) {
-          showNotification('No matching folders found', 'info')
-        } else {
-          showNotification(`Found ${folders.value.length} folders`, 'success')
+        // Only sort and show success if we weren't terminated
+        if (isScanning.value) {
+          // Sort at the end for display
+          folders.value.sort((a, b) => b.size - a.size)
+          statusText.value = `Found ${folders.value.length} folders`
+          if (folders.value.length === 0) {
+            showNotification('No matching folders found', 'info')
+          } else {
+            showNotification(`Found ${folders.value.length} folders`, 'success')
+          }
         }
       } catch (error) {
         console.error('Scan error:', error)
-        showNotification('Error during scan: ' + error.message, 'error')
+        // Only show error notification if we weren't terminated
+        if (isScanning.value) {
+          showNotification('Error during scan: ' + error.message, 'error')
+        }
       } finally {
-        isScanning.value = false
+        // Only update scanning state here if we haven't started stopping
+        if (statusText.value !== 'Stopping scan...') {
+          isScanning.value = false
+        }
       }
     }
 
@@ -135,14 +176,32 @@ export default {
 
         const results = await window.electronAPI.deleteFolders([...selectedFolders.value])
 
-        const successCount = results.filter((r) => r.success).length
-        const failCount = results.length - successCount
+        const successCount = results.filter((r) => r.success === true).length
+        const partialCount = results.filter((r) => r.success === 'partial').length
+        const failCount = results.filter((r) => r.success === false).length
 
-        if (failCount > 0) {
-          showNotification(`Deleted ${successCount} folders, ${failCount} failed`, 'warning')
+        // Build notification message based on results
+        let message = ''
+        let color = 'success'
+
+        if (failCount === 0 && partialCount === 0) {
+          message = `Successfully deleted ${successCount} folders`
+          color = 'success'
+        } else if (successCount === 0 && partialCount === 0) {
+          message = `Failed to delete ${failCount} folders`
+          color = 'error'
         } else {
-          showNotification(`Successfully deleted ${successCount} folders`, 'success')
+          // Mixed results
+          const parts = []
+          if (successCount > 0) parts.push(`${successCount} deleted`)
+          if (partialCount > 0) parts.push(`${partialCount} partial`)
+          if (failCount > 0) parts.push(`${failCount} failed`)
+
+          message = parts.join(', ')
+          color = partialCount > 0 || failCount > 0 ? 'warning' : 'success'
         }
+
+        showNotification(message, color)
 
         // Auto re-scan after deletion
         setTimeout(() => {
@@ -206,6 +265,7 @@ export default {
       selectAll,
       deselectAll,
       startScan,
+      stopScan,
       confirmDelete,
       deleteFolders,
     }

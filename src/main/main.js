@@ -3,8 +3,10 @@ const path = require("path");
 const fs = require("fs").promises;
 const fsSync = require("fs");
 const os = require("os");
+const { Worker } = require("worker_threads");
 
 let mainWindow;
+let currentScanWorker = null;
 
 const isDev =
   process.env.NODE_ENV === "development" || !!process.env.VITE_DEV_SERVER_URL;
@@ -19,6 +21,9 @@ const KEYWORDS = [
   "crashes",
   "pending"
 ];
+
+// Add scan cancellation flag
+let isScanCancelled = false;
 
 function createWindow() {
   console.log(
@@ -85,11 +90,13 @@ function getAppDataPaths() {
 
 // Calculate directory size
 async function getDirSize(dirPath) {
+  if (isScanCancelled) return 0;
   let size = 0;
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
     for (const entry of entries) {
+      if (isScanCancelled) return size;
       const fullPath = path.join(dirPath, entry.name);
 
       if (entry.isDirectory()) {
@@ -112,16 +119,23 @@ async function getDirSize(dirPath) {
 
 // Scan directories for matching folders
 async function scanDirectory(dirPath, maxDepth, currentDepth = 0) {
-  const results = [];
-
-  if (maxDepth > 0 && currentDepth > maxDepth) {
-    return results;
+  // Reset cancellation flag at the start of a new scan
+  if (currentDepth === 0) {
+    isScanCancelled = false;
   }
+
+  // Check for scan cancellation
+  if (isScanCancelled) {
+    return [];
+  }
+
+  const results = [];
 
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
     for (const entry of entries) {
+      if (isScanCancelled) return results;
       if (!entry.isDirectory()) continue;
 
       const fullPath = path.join(dirPath, entry.name);
@@ -129,6 +143,7 @@ async function scanDirectory(dirPath, maxDepth, currentDepth = 0) {
 
       // Check if folder name contains any keywords
       if (KEYWORDS.some(keyword => folderName.includes(keyword))) {
+        if (isScanCancelled) return results;
         try {
           const size = await getDirSize(fullPath);
           if (size > 0) {
@@ -139,13 +154,15 @@ async function scanDirectory(dirPath, maxDepth, currentDepth = 0) {
             });
 
             // Send progress update
-            mainWindow.webContents.send("scan-progress", results.length);
-            // Send each found folder in real-time
-            mainWindow.webContents.send("scan-folder-found", {
-              path: fullPath,
-              size: size,
-              name: entry.name
-            });
+            if (!isScanCancelled) {
+              mainWindow.webContents.send("scan-progress", results.length);
+              // Send each found folder in real-time
+              mainWindow.webContents.send("scan-folder-found", {
+                path: fullPath,
+                size: size,
+                name: entry.name
+              });
+            }
           }
         } catch (err) {
           // Skip folders that can't be accessed
@@ -156,15 +173,17 @@ async function scanDirectory(dirPath, maxDepth, currentDepth = 0) {
       }
 
       // Recurse into subdirectories
-      try {
-        const subResults = await scanDirectory(
-          fullPath,
-          maxDepth,
-          currentDepth + 1
-        );
-        results.push(...subResults);
-      } catch (err) {
-        // Skip directories that can't be accessed
+      if (!isScanCancelled) {
+        try {
+          const subResults = await scanDirectory(
+            fullPath,
+            maxDepth,
+            currentDepth + 1
+          );
+          results.push(...subResults);
+        } catch (err) {
+          // Skip directories that can't be accessed
+        }
       }
     }
   } catch (err) {
@@ -174,11 +193,76 @@ async function scanDirectory(dirPath, maxDepth, currentDepth = 0) {
   return results;
 }
 
-// Delete directory recursively
+// Delete directory recursively with partial deletion detection
 async function deleteDirectory(dirPath) {
   try {
-    await fs.rm(dirPath, { recursive: true, force: true });
-    return true;
+    // First, check if directory exists
+    const stats = await fs.stat(dirPath);
+    if (!stats.isDirectory()) {
+      return false;
+    }
+
+    let totalItems = 0;
+    let deletedItems = 0;
+    let hasErrors = false;
+
+    async function deleteRecursively(currentPath) {
+      try {
+        const entries = await fs.readdir(currentPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          const fullPath = path.join(currentPath, entry.name);
+          totalItems++;
+
+          try {
+            if (entry.isDirectory()) {
+              // Recursively delete subdirectory contents first
+              await deleteRecursively(fullPath);
+              // Then try to delete the empty directory
+              await fs.rmdir(fullPath);
+            } else {
+              // Delete file
+              await fs.unlink(fullPath);
+            }
+            deletedItems++;
+          } catch (err) {
+            console.error(`Failed to delete ${fullPath}:`, err);
+            hasErrors = true;
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to read directory ${currentPath}:`, err);
+        hasErrors = true;
+      }
+    }
+
+    // Delete all contents
+    await deleteRecursively(dirPath);
+
+    // Try to delete the root directory itself
+    try {
+      await fs.rmdir(dirPath);
+      deletedItems++; // Count the root directory
+      totalItems++;
+    } catch (err) {
+      console.error(`Failed to delete root directory ${dirPath}:`, err);
+      hasErrors = true;
+    }
+
+    // Determine result based on what was deleted
+    if (totalItems === 0) {
+      // Empty directory - consider it successfully deleted
+      return true;
+    } else if (deletedItems === totalItems && !hasErrors) {
+      // Everything deleted successfully
+      return true;
+    } else if (deletedItems === 0) {
+      // Nothing was deleted
+      return false;
+    } else {
+      // Some items were deleted, some weren't
+      return "partial";
+    }
   } catch (err) {
     console.error(`Failed to delete ${dirPath}:`, err);
     return false;
@@ -186,20 +270,81 @@ async function deleteDirectory(dirPath) {
 }
 
 // IPC Handlers
+ipcMain.handle("stop-scan", () => {
+  if (currentScanWorker) {
+    currentScanWorker.terminate();
+    currentScanWorker = null;
+  }
+  return true;
+});
+
 ipcMain.handle("get-appdata-paths", () => {
   return getAppDataPaths();
 });
 
 ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
-  const allResults = [];
-
-  for (const basePath of paths) {
-    mainWindow.webContents.send("scan-current-path", basePath);
-    const results = await scanDirectory(basePath, maxDepth);
-    allResults.push(...results);
+  // If there's an existing scan, terminate it
+  if (currentScanWorker) {
+    currentScanWorker.terminate();
   }
 
-  return allResults;
+  return new Promise((resolve, reject) => {
+    const workerPath = isDev
+      ? path.join(__dirname, "scanWorker.js")
+      : path.join(
+          process.resourcesPath,
+          "app.asar",
+          "src",
+          "main",
+          "scanWorker.js"
+        );
+
+    currentScanWorker = new Worker(workerPath);
+    const allResults = [];
+    let wasTerminated = false;
+
+    currentScanWorker.on("message", message => {
+      if (message.type === "progress") {
+        mainWindow.webContents.send("scan-progress", message.count);
+      } else if (message.type === "current-path") {
+        mainWindow.webContents.send("scan-current-path", message.path);
+      } else if (message.type === "folder-found") {
+        mainWindow.webContents.send("scan-folder-found", message.folder);
+        allResults.push(message.folder);
+      } else if (message.type === "done") {
+        currentScanWorker = null;
+        resolve(allResults);
+      }
+    });
+
+    currentScanWorker.on("error", error => {
+      currentScanWorker = null;
+      if (!wasTerminated) {
+        reject(error);
+      }
+    });
+
+    currentScanWorker.on("exit", code => {
+      currentScanWorker = null;
+      if (code !== 0 && !wasTerminated) {
+        reject(new Error(`Worker stopped with exit code ${code}`));
+      } else {
+        resolve(allResults);
+      }
+    });
+
+    // Store original terminate function
+    const originalTerminate = currentScanWorker.terminate.bind(
+      currentScanWorker
+    );
+    // Override terminate to set flag
+    currentScanWorker.terminate = () => {
+      wasTerminated = true;
+      return originalTerminate();
+    };
+
+    currentScanWorker.postMessage({ paths, maxDepth, keywords: KEYWORDS });
+  });
 });
 
 ipcMain.handle("delete-folders", async (event, folderPaths) => {

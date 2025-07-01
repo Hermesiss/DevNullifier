@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   scanFolders: (paths, maxDepth) =>
     ipcRenderer.invoke("scan-folders", { paths, maxDepth }),
 
+  // Stop scanning
+  stopScan: () => ipcRenderer.invoke("stop-scan"),
+
   // Delete folders
   deleteFolders: folderPaths =>
     ipcRenderer.invoke("delete-folders", folderPaths),
