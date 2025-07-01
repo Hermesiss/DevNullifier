@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs").promises;
 const fsSync = require("fs");
@@ -7,6 +7,7 @@ const { Worker } = require("worker_threads");
 
 let mainWindow;
 let currentScanWorker = null;
+let currentDeveloperScanWorker = null;
 
 const isDev =
   process.env.NODE_ENV === "development" || !!process.env.VITE_DEV_SERVER_URL;
@@ -269,6 +270,176 @@ async function deleteDirectory(dirPath) {
   }
 }
 
+// Helper function to check if directory contains detection files
+async function checkProjectType(projectPath, categories) {
+  const foundCategories = [];
+
+  try {
+    const entries = await fs.readdir(projectPath, { withFileTypes: true });
+    const fileNames = entries.map(entry => entry.name);
+
+    for (const category of categories) {
+      const hasDetectionFile = category.detectionFiles.some(pattern => {
+        if (pattern.includes("*")) {
+          // Handle wildcard patterns
+          const regex = new RegExp(pattern.replace(/\*/g, ".*"));
+          return fileNames.some(file => regex.test(file));
+        } else if (pattern.endsWith("/")) {
+          // Check for directory
+          return entries.some(
+            entry => entry.isDirectory() && entry.name === pattern.slice(0, -1)
+          );
+        } else {
+          // Check for exact file match
+          return fileNames.includes(pattern);
+        }
+      });
+
+      if (hasDetectionFile) {
+        foundCategories.push(category);
+      }
+    }
+  } catch (error) {
+    // Skip directories that can't be accessed
+  }
+
+  return foundCategories;
+}
+
+// Helper function to calculate cache sizes for a project
+async function calculateCacheSizes(projectPath, categories) {
+  const caches = [];
+  let totalSize = 0;
+
+  for (const category of categories) {
+    for (const pattern of category.cachePatterns) {
+      try {
+        const cachePath = path.join(projectPath, pattern);
+
+        // Check if cache directory/file exists
+        let exists = false;
+        let isDirectory = false;
+
+        try {
+          const stats = await fs.stat(cachePath);
+          exists = true;
+          isDirectory = stats.isDirectory();
+        } catch (error) {
+          // Path doesn't exist, skip
+          continue;
+        }
+
+        if (exists) {
+          let size = 0;
+          if (isDirectory) {
+            size = await getDirSize(cachePath);
+          } else {
+            const stats = await fs.stat(cachePath);
+            size = stats.size;
+          }
+
+          if (size > 0) {
+            caches.push({
+              path: cachePath,
+              type: pattern,
+              size: size
+            });
+            totalSize += size;
+          }
+        }
+      } catch (error) {
+        // Skip cache paths that can't be accessed
+      }
+    }
+  }
+
+  return { caches, totalSize };
+}
+
+// Scan for developer projects
+async function scanDeveloperProjects(basePaths, enabledCategories) {
+  const projects = [];
+
+  for (const basePath of basePaths) {
+    try {
+      await scanDeveloperProjectsRecursive(
+        basePath,
+        enabledCategories,
+        projects,
+        0,
+        3
+      ); // Max depth of 3
+    } catch (error) {
+      console.error(`Error scanning ${basePath}:`, error);
+    }
+  }
+
+  return projects;
+}
+
+// Recursive function to scan for developer projects
+async function scanDeveloperProjectsRecursive(
+  dirPath,
+  enabledCategories,
+  projects,
+  currentDepth,
+  maxDepth
+) {
+  if (currentDepth > maxDepth) return;
+
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    // Check if current directory is a project
+    const foundCategories = await checkProjectType(dirPath, enabledCategories);
+
+    if (foundCategories.length > 0) {
+      // This is a development project
+      const { caches, totalSize } = await calculateCacheSizes(
+        dirPath,
+        foundCategories
+      );
+
+      if (totalSize > 0) {
+        const project = {
+          path: dirPath,
+          type: foundCategories
+            .map(cat => cat.name.replace(/^[^\s]*\s+/, ""))
+            .join(", "), // Remove emoji
+          caches: caches,
+          totalCacheSize: totalSize
+        };
+
+        projects.push(project);
+
+        // Send real-time update
+        if (mainWindow) {
+          mainWindow.webContents.send("developer-project-found", project);
+        }
+      }
+
+      // Don't recurse into detected project directories to avoid nested scans
+      return;
+    }
+
+    // Recurse into subdirectories
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const fullPath = path.join(dirPath, entry.name);
+        await scanDeveloperProjectsRecursive(
+          fullPath,
+          enabledCategories,
+          projects,
+          currentDepth + 1,
+          maxDepth
+        );
+      }
+    }
+  } catch (error) {
+    // Skip directories that can't be accessed
+  }
+}
+
 // IPC Handlers
 ipcMain.handle("stop-scan", () => {
   if (currentScanWorker) {
@@ -370,6 +541,50 @@ ipcMain.handle("check-admin", () => {
     } catch (err) {
       return false;
     }
+  }
+  return true;
+});
+
+// Get user home directory
+ipcMain.handle("get-user-home", () => {
+  return os.homedir();
+});
+
+// Select directory
+ipcMain.handle("select-directory", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openDirectory"],
+    title: "Select Base Path for Scanning"
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0];
+  }
+
+  return null;
+});
+
+// Scan for developer caches
+ipcMain.handle(
+  "scan-developer-caches",
+  async (event, { basePaths, enabledCategories }) => {
+    try {
+      const projects = await scanDeveloperProjects(
+        basePaths,
+        enabledCategories
+      );
+      return projects;
+    } catch (error) {
+      throw new Error(`Developer scan failed: ${error.message}`);
+    }
+  }
+);
+
+// Stop developer scan
+ipcMain.handle("stop-developer-scan", () => {
+  if (currentDeveloperScanWorker) {
+    currentDeveloperScanWorker.terminate();
+    currentDeveloperScanWorker = null;
   }
   return true;
 });

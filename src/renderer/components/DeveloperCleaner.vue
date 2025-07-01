@@ -93,18 +93,34 @@
                             <v-col cols="auto">
                                 <v-btn variant="outlined" :disabled="isScanning || isDeleting" @click="selectBasePath">
                                     <v-icon left>mdi-folder-open</v-icon>
-                                    Choose Base Path
+                                    Add Base Path
+                                </v-btn>
+                            </v-col>
+
+                            <!-- Clear All Paths -->
+                            <v-col cols="auto" v-if="basePaths.length > 1">
+                                <v-btn variant="outlined" :disabled="isScanning || isDeleting" @click="clearAllPaths"
+                                    color="warning" size="small">
+                                    <v-icon left size="small">mdi-delete-sweep</v-icon>
+                                    Clear All
                                 </v-btn>
                             </v-col>
 
                             <v-spacer />
 
-                            <!-- Current base path -->
-                            <v-col cols="auto" v-if="basePath">
-                                <v-chip color="info" size="small">
-                                    <v-icon start size="small">mdi-folder</v-icon>
-                                    {{ basePath.split('/').pop() || basePath.split('\\').pop() }}
-                                </v-chip>
+                            <!-- Current base paths -->
+                            <v-col cols="auto" v-if="basePaths.length > 0">
+                                <div class="d-flex flex-wrap ga-2">
+                                    <v-tooltip v-for="path in basePaths" :key="path" :text="path" location="top">
+                                        <template v-slot:activator="{ props }">
+                                            <v-chip v-bind="props" color="info" size="small" closable
+                                                @click:close="removeBasePath(path)">
+                                                <v-icon start size="small">mdi-folder</v-icon>
+                                                {{ path.split('/').pop() || path.split('\\').pop() }}
+                                            </v-chip>
+                                        </template>
+                                    </v-tooltip>
+                                </div>
                             </v-col>
 
                             <!-- Spinner when scanning -->
@@ -215,7 +231,7 @@ const projects = ref([])
 const selectedProjects = ref([])
 const isScanning = ref(false)
 const isDeleting = ref(false)
-const basePath = ref('')
+const basePaths = ref([])
 const showCategories = ref(false)
 const showInfoDialog = ref(false)
 const selectedCategory = ref(null)
@@ -226,7 +242,9 @@ const emit = defineEmits(['update:statusText', 'showNotification'])
 // localStorage keys
 const STORAGE_KEYS = {
     CATEGORIES: 'developer-cleaner-categories',
-    SHOW_CATEGORIES: 'developer-cleaner-show-categories'
+    SHOW_CATEGORIES: 'developer-cleaner-show-categories',
+    BASE_PATHS: 'developer-cleaner-base-paths',
+    SELECTED_PROJECTS: 'developer-cleaner-selected-projects'
 }
 
 // Developer categories configuration
@@ -429,10 +447,12 @@ const showCategoryInfo = (category) => {
 
 const selectAll = () => {
     selectedProjects.value = projects.value.map(p => p.path)
+    saveSelectedProjects()
 }
 
 const deselectAll = () => {
     selectedProjects.value = []
+    saveSelectedProjects()
 }
 
 const selectBasePath = async () => {
@@ -443,7 +463,14 @@ const selectBasePath = async () => {
         }
         const result = await window.electronAPI.selectDirectory()
         if (result) {
-            basePath.value = result
+            // Check for duplicates
+            if (!basePaths.value.includes(result)) {
+                basePaths.value.push(result)
+                saveBasePaths()
+                emit('showNotification', 'Base path added successfully', 'success')
+            } else {
+                emit('showNotification', 'Path already exists', 'warning')
+            }
         }
     } catch (error) {
         emit('showNotification', 'Error selecting directory: ' + error.message, 'error')
@@ -451,8 +478,8 @@ const selectBasePath = async () => {
 }
 
 const startScan = async () => {
-    if (!basePath.value) {
-        emit('showNotification', 'Please select a base path first', 'warning')
+    if (basePaths.value.length === 0) {
+        emit('showNotification', 'Please select at least one base path first', 'warning')
         return
     }
 
@@ -464,18 +491,25 @@ const startScan = async () => {
     try {
         isScanning.value = true
         projects.value = []
-        selectedProjects.value = []
+        // Don't clear selected projects here - we'll preserve valid selections
 
-        emit('update:statusText', 'Scanning for development projects...')
+        const pathCount = basePaths.value.length
+        const pathText = pathCount === 1 ? '1 path' : `${pathCount} paths`
+        emit('update:statusText', `Scanning ${pathText} for development projects...`)
 
         const enabledCategories = categories.value.filter(cat => cat.enabled)
-        const result = await window.electronAPI.scanDeveloperCaches(basePath.value, enabledCategories)
+        const result = await window.electronAPI.scanDeveloperCaches(basePaths.value, enabledCategories)
 
         projects.value = result.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
 
+        // Preserve existing selections that are still valid
+        const validPaths = new Set(projects.value.map(p => p.path))
+        selectedProjects.value = selectedProjects.value.filter(path => validPaths.has(path))
+        saveSelectedProjects()
+
         const message = projects.value.length > 0
-            ? `Found ${projects.value.length} development projects`
-            : 'No development projects found'
+            ? `Found ${projects.value.length} development projects across ${pathText}`
+            : `No development projects found in ${pathText}`
 
         emit('showNotification', message, projects.value.length > 0 ? 'success' : 'info')
         emit('update:statusText', message)
@@ -534,7 +568,54 @@ const formatSize = (bytes) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// Set default base path on mount and load saved states
+const removeBasePath = (path) => {
+    basePaths.value = basePaths.value.filter(p => p !== path)
+    saveBasePaths()
+}
+
+const saveBasePaths = () => {
+    localStorage.setItem(STORAGE_KEYS.BASE_PATHS, JSON.stringify(basePaths.value))
+}
+
+const loadBasePaths = () => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEYS.BASE_PATHS)
+        if (stored) {
+            const paths = JSON.parse(stored)
+            if (Array.isArray(paths)) {
+                basePaths.value = paths
+            }
+        }
+    } catch (error) {
+        console.error('Error loading base paths:', error)
+    }
+}
+
+const saveSelectedProjects = () => {
+    localStorage.setItem(STORAGE_KEYS.SELECTED_PROJECTS, JSON.stringify(selectedProjects.value))
+}
+
+const loadSelectedProjects = () => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEYS.SELECTED_PROJECTS)
+        if (stored) {
+            const selected = JSON.parse(stored)
+            if (Array.isArray(selected)) {
+                selectedProjects.value = selected
+            }
+        }
+    } catch (error) {
+        console.error('Error loading selected projects:', error)
+    }
+}
+
+const clearAllPaths = () => {
+    basePaths.value = []
+    saveBasePaths()
+    emit('showNotification', 'All base paths cleared', 'info')
+}
+
+// Set default base paths on mount and load saved states
 onMounted(async () => {
     // Load saved category states
     loadCategoryStates()
@@ -545,21 +626,32 @@ onMounted(async () => {
         showCategories.value = JSON.parse(showCategoriesStored)
     }
 
-    try {
-        // Try to get user home if the API method exists
-        if (window.electronAPI.getUserHome) {
-            const userHome = await window.electronAPI.getUserHome()
-            basePath.value = userHome
-        } else {
+    // Load saved base paths
+    loadBasePaths()
+
+    // Load saved selected projects
+    loadSelectedProjects()
+
+    // If no saved paths, set default
+    if (basePaths.value.length === 0) {
+        try {
+            // Try to get user home if the API method exists
+            if (window.electronAPI.getUserHome) {
+                const userHome = await window.electronAPI.getUserHome()
+                basePaths.value = [userHome]
+            } else {
+                // Fallback to common paths
+                const isWindows = navigator.platform.indexOf('Win') > -1
+                basePaths.value = isWindows ? ['C:\\Users\\'] : ['/home/']
+            }
+            saveBasePaths()
+        } catch (error) {
+            console.error('Error getting user home:', error)
             // Fallback to common paths
             const isWindows = navigator.platform.indexOf('Win') > -1
-            basePath.value = isWindows ? 'C:\\Users\\' : '/home/'
+            basePaths.value = isWindows ? ['C:\\Users\\'] : ['/home/']
+            saveBasePaths()
         }
-    } catch (error) {
-        console.error('Error getting user home:', error)
-        // Fallback to common paths
-        const isWindows = navigator.platform.indexOf('Win') > -1
-        basePath.value = isWindows ? 'C:\\Users\\' : '/home/'
     }
 })
 
@@ -567,6 +659,11 @@ onMounted(async () => {
 watch(showCategories, (newValue) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_CATEGORIES, JSON.stringify(newValue))
 })
+
+// Watch for changes in selectedProjects and save to localStorage
+watch(selectedProjects, (newValue) => {
+    saveSelectedProjects()
+}, { deep: true })
 </script>
 
 <style scoped>

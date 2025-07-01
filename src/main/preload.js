@@ -8,8 +8,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
   scanFolders: (paths, maxDepth) =>
     ipcRenderer.invoke("scan-folders", { paths, maxDepth }),
 
+  // Scan for developer caches
+  scanDeveloperCaches: (basePaths, enabledCategories) =>
+    ipcRenderer.invoke("scan-developer-caches", {
+      basePaths,
+      enabledCategories
+    }),
+
   // Stop scanning
   stopScan: () => ipcRenderer.invoke("stop-scan"),
+
+  // Stop developer scanning
+  stopDeveloperScan: () => ipcRenderer.invoke("stop-developer-scan"),
 
   // Delete folders
   deleteFolders: folderPaths =>
@@ -17,6 +27,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Check admin privileges
   checkAdmin: () => ipcRenderer.invoke("check-admin"),
+
+  // Select directory
+  selectDirectory: () => ipcRenderer.invoke("select-directory"),
+
+  // Get user home directory
+  getUserHome: () => ipcRenderer.invoke("get-user-home"),
 
   // Listen for scan progress
   onScanProgress: callback => {
