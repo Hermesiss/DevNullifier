@@ -1,0 +1,63 @@
+{
+  "name": "devnullifier",
+  "version": "1.0.0",
+  "description": "DevNullifier: Clean AppData, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:3000 && npm run dev:main\"",
+    "dev:main": "cross-env NODE_ENV=development electron .",
+    "dev:renderer": "vite",
+    "build": "vite build && electron-builder",
+    "build:renderer": "vite build",
+    "build:main": "electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "vue",
+    "vuetify",
+    "appdata",
+    "cleaner",
+    "devnullifier",
+    "node_modules",
+    ".cache",
+    "Library",
+    "Binary",
+    "Intermediate",
+    "gamedev",
+    "dev-caches"
+  ],
+  "author": "DevNullifier",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "concurrently": "^8.2.0",
+    "electron": "^32.0.0",
+    "electron-builder": "^24.0.0",
+    "vite": "^5.0.0",
+    "wait-on": "^7.2.0",
+    "cross-env": "^7.0.3"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vuetify": "^3.4.0",
+    "@mdi/font": "^7.4.0",
+    "humanize-duration": "^3.29.0",
+    "filesize": "^10.1.0"
+  },
+  "build": {
+    "appId": "com.electron.devnullifier",
+    "productName": "DevNullifier",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist-renderer/**/*",
+      "src/main/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "requestedExecutionLevel": "requireAdministrator"
+    }
+  }
+}
