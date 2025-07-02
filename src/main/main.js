@@ -308,13 +308,14 @@ async function checkProjectType(projectPath, categories) {
 
 // Helper function to calculate cache sizes for a project
 async function calculateCacheSizes(projectPath, categories) {
-  const caches = [];
+  const cacheMap = new Map(); // Use Map to combine duplicate paths
   let totalSize = 0;
 
   for (const category of categories) {
     for (const pattern of category.cachePatterns) {
       try {
         const cachePath = path.join(projectPath, pattern);
+        const normalizedPath = cachePath.toLowerCase(); // Normalize for case-insensitive comparison
 
         // Check if cache directory/file exists
         let exists = false;
@@ -339,12 +340,28 @@ async function calculateCacheSizes(projectPath, categories) {
           }
 
           if (size > 0) {
-            caches.push({
-              path: cachePath,
-              type: pattern,
-              size: size
-            });
-            totalSize += size;
+            if (cacheMap.has(normalizedPath)) {
+              // Combine with existing cache entry
+              const existingCache = cacheMap.get(normalizedPath);
+              
+              // Add the pattern type if not already included
+              const existingTypes = existingCache.type.split(' / ');
+              if (!existingTypes.includes(pattern)) {
+                existingCache.type = [...existingTypes, pattern].join(',');
+              }
+              
+              // Use the size from the first scan (they should be the same since it's the same folder)
+              // But update the path to use the actual casing from the file system
+              existingCache.path = cachePath;
+            } else {
+              // Add new cache entry
+              cacheMap.set(normalizedPath, {
+                path: cachePath,
+                type: pattern,
+                size: size
+              });
+              totalSize += size;
+            }
           }
         }
       } catch (error) {
@@ -353,6 +370,9 @@ async function calculateCacheSizes(projectPath, categories) {
     }
   }
 
+  // Convert map to array
+  const caches = Array.from(cacheMap.values());
+  
   return { caches, totalSize };
 }
 
