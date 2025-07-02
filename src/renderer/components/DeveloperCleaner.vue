@@ -195,20 +195,98 @@
                             </template>
                             <template v-slot:item.cacheInfo="{ item }">
                                 <div class="text-caption">
-                                    <div v-for="cache in item.caches" :key="cache.path"
-                                        class="mb-1 d-flex align-center">
-                                        <v-checkbox v-model="cache.selected" color="primary" hide-details
-                                            density="compact" class="mr-2" @change="updateCacheSelection(item)" />
-                                        <v-btn icon variant="text" size="x-small" @click="openFolderTree(cache.path)"
-                                            :disabled="isScanning || isDeleting">
-                                            <v-icon size="small" color="primary">mdi-folder-open</v-icon>
-                                        </v-btn>
-                                        <div class="flex-grow-1">
-                                            <strong>{{ cache.type }}:</strong> {{ formatSize(cache.size) }}
-                                            <br>
+                                    <div v-for="cacheGroup in item.caches" :key="cacheGroup.pattern" class="mb-2">
+                                        <!-- Cache Group Header -->
+                                        <div class="d-flex align-center pa-2 bg-grey-lighten-4 rounded">
+                                            <!-- Master checkbox for the group -->
+                                            <v-checkbox :model-value="getCacheGroupCheckboxState(cacheGroup)"
+                                                :indeterminate="getCacheGroupCheckboxState(cacheGroup) === null"
+                                                color="primary" hide-details density="compact" class="mr-2"
+                                                @update:model-value="onCacheGroupCheckboxChange(cacheGroup, item, $event)" />
+
+                                            <!-- Expand/collapse button (only if multiple matches) -->
+                                            <v-btn v-if="cacheGroup.matches.length > 1" icon variant="text"
+                                                size="x-small" @click="cacheGroup.expanded = !cacheGroup.expanded">
+                                                <v-icon size="small" :class="{ 'rotate-90': cacheGroup.expanded }">
+                                                    mdi-chevron-right
+                                                </v-icon>
+                                            </v-btn>
+
+                                            <!-- Show folder button for single match on the same line -->
+                                            <v-btn v-if="cacheGroup.matches.length === 1" icon variant="text"
+                                                size="x-small" @click="openFolderTree(cacheGroup.matches[0].path)"
+                                                :disabled="isScanning || isDeleting" class="mr-2">
+                                                <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                                            </v-btn>
+
+                                            <div class="flex-grow-1"
+                                                :class="cacheGroup.matches.length > 1 ? 'ml-2' : 'ml-0'">
+                                                <div class="font-weight-medium">
+                                                    <!-- For single match, show actual path and size -->
+                                                    <span v-if="cacheGroup.matches.length === 1">
+                                                        {{ cacheGroup.matches[0].relativePath }} • {{
+                                                            formatSize(cacheGroup.matches[0].size) }}
+                                                    </span>
+                                                    <!-- For multiple matches, show pattern -->
+                                                    <span v-else>{{ cacheGroup.pattern }}</span>
+                                                </div>
+                                                <div class="text-grey">
+                                                    {{ cacheGroup.matches.length }}
+                                                    {{ cacheGroup.matches.length === 1 ? 'match' : 'matches' }} •
+                                                    {{ formatSize(cacheGroup.selectedSize) }} of {{
+                                                        formatSize(cacheGroup.totalSize) }} selected
+                                                </div>
+                                            </div>
+
+                                            <v-chip size="x-small"
+                                                :color="cacheGroup.category === 'Unity' ? 'purple' : getTypeColor(cacheGroup.category)">
+                                                {{ cacheGroup.category }}
+                                            </v-chip>
                                         </div>
 
+                                        <!-- Multiple Matches (expandable) -->
+                                        <v-expand-transition v-if="cacheGroup.matches.length > 1">
+                                            <div v-show="cacheGroup.expanded" class="ml-4 mt-2">
+                                                <!-- Group Selection Controls -->
+                                                <div class="d-flex justify-space-between align-center mb-2">
+                                                    <v-btn size="x-small" variant="text"
+                                                        @click="selectAllCaches(item, cacheGroup)"
+                                                        :disabled="allGroupCachesSelected(cacheGroup)">
+                                                        Select All
+                                                    </v-btn>
+                                                    <v-btn size="x-small" variant="text"
+                                                        @click="deselectAllCaches(item, cacheGroup)"
+                                                        :disabled="noGroupCachesSelected(cacheGroup)">
+                                                        Deselect All
+                                                    </v-btn>
+                                                    <v-chip size="x-small" color="primary">
+                                                        {{cacheGroup.matches.filter(m => m.selected).length}}/{{
+                                                            cacheGroup.matches.length }}
+                                                        selected
+                                                    </v-chip>
+                                                </div>
+
+                                                <!-- Individual Matches -->
+                                                <div v-for="match in cacheGroup.matches" :key="match.path"
+                                                    class="mb-1 d-flex align-center">
+                                                    <v-checkbox v-model="match.selected" color="primary" hide-details
+                                                        density="compact" class="mr-2"
+                                                        @change="updateCacheGroupSelection(cacheGroup); updateCacheSelection(item)" />
+                                                    <v-btn icon variant="text" size="x-small"
+                                                        @click="openFolderTree(match.path)"
+                                                        :disabled="isScanning || isDeleting">
+                                                        <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                                                    </v-btn>
+                                                    <div class="flex-grow-1">
+                                                        <div class="font-weight-medium">{{ match.relativePath }}</div>
+                                                        <div class="text-grey">{{ formatSize(match.size) }}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </v-expand-transition>
                                     </div>
+
+                                    <!-- Project-level controls -->
                                     <v-divider v-if="item.caches.length > 1" class="mt-2 mb-1" />
                                     <div class="d-flex justify-space-between align-center mt-1">
                                         <v-btn size="x-small" variant="text" @click="selectAllCaches(item)"
@@ -220,7 +298,8 @@
                                             Deselect All
                                         </v-btn>
                                         <v-chip size="x-small" color="primary">
-                                            {{item.caches.filter(c => c.selected).length}}/{{ item.caches.length }}
+                                            {{ getSelectedCacheCount(item) }} of {{item.caches.reduce((total, group) =>
+                                                total + group.matches.length, 0)}}
                                             selected
                                         </v-chip>
                                     </div>
@@ -345,6 +424,24 @@ const categories = ref([
         warningText: 'node_modules/ may exist in subfolders if using monorepos'
     },
     {
+        id: 'unity',
+        name: 'Unity',
+        enabled: true,
+        detectionFiles: ['Assets/', 'ProjectSettings/', 'Packages/', '*.unity'],
+        cachePatterns: ['Library/', 'Temp/', 'Obj/', 'Build/', 'Builds/', '.vs/', 'Logs/', 'MemoryCaptures/', 'UserSettings/'],
+        warning: true,
+        warningText: 'Library/ is only needed at the Unity project root — safe elsewhere'
+    },
+    {
+        id: 'unreal',
+        name: 'Unreal Engine',
+        enabled: true,
+        detectionFiles: ['*.uproject', 'Source/', 'Content/'],
+        cachePatterns: ['Binaries/', 'Build/', 'Intermediate/', 'Saved/', 'DerivedDataCache/', 'Plugins/**/Intermediate/', 'Plugins/**/Binaries/'],
+        warning: true,
+        warningText: 'Saved/Config/ might contain useful settings — review before deleting'
+    },
+    {
         id: 'rust',
         name: 'Rust',
         enabled: true,
@@ -386,24 +483,6 @@ const categories = ref([
         cachePatterns: ['DerivedData/', 'build/', '*.xcuserdata/', '*.xcuserdatad/'],
         warning: true,
         warningText: 'Global DerivedData/ lives in ~/Library/Developer/Xcode/DerivedData'
-    },
-    {
-        id: 'unity',
-        name: 'Unity',
-        enabled: true,
-        detectionFiles: ['Assets/', 'ProjectSettings/', 'Packages/', '*.unity'],
-        cachePatterns: ['Library/', 'Temp/', 'Obj/', 'Build/', 'Builds/', '.vs/', 'Logs/', 'MemoryCaptures/', 'UserSettings/'],
-        warning: true,
-        warningText: 'Library/ is only needed at the Unity project root — safe elsewhere'
-    },
-    {
-        id: 'unreal',
-        name: 'Unreal Engine',
-        enabled: true,
-        detectionFiles: ['*.uproject', 'Source/', 'Content/'],
-        cachePatterns: ['Binaries/', 'Build/', 'Intermediate/', 'Saved/', 'DerivedDataCache/', 'Plugins/**/Intermediate/', 'Plugins/**/Binaries/'],
-        warning: true,
-        warningText: 'Saved/Config/ might contain useful settings — review before deleting'
     },
     {
         id: 'php',
@@ -477,7 +556,9 @@ const enabledCount = computed(() =>
 
 const selectedCacheCount = computed(() => {
     return projects.value.reduce((total, project) => {
-        return total + project.caches.filter(cache => cache.selected).length
+        return total + project.caches.reduce((groupTotal, group) => {
+            return groupTotal + group.matches.filter(match => match.selected).length
+        }, 0)
     }, 0)
 })
 
@@ -492,7 +573,7 @@ const selectedCacheSize = computed(() => {
 
 const headers = [
     { title: 'Project Path', key: 'path', sortable: true },
-    { title: 'Type', key: 'type', sortable: true },
+    // { title: 'Type', key: 'type', sortable: true },
     { title: 'Last Updated', key: 'lastModified', sortable: true },
     { title: 'Selected Size', key: 'totalCacheSize', sortable: true },
     { title: 'Cache Details', key: 'cacheInfo', sortable: false },
@@ -747,66 +828,140 @@ const clearAllPaths = () => {
 // Helper function to process projects
 const processProject = (project) => {
     const processedCaches = project.caches
-        .map(cache => ({
-            ...cache,
-            selected: false // Default to unselected
+        .map(cacheGroup => ({
+            ...cacheGroup,
+            // Ensure all matches have selection state
+            matches: cacheGroup.matches.map(match => ({
+                ...match,
+                selected: match.selected || false
+            })),
+            selectedSize: 0, // Will be calculated below
+            expanded: false // Default to collapsed
         }))
-        .sort((a, b) => b.size - a.size) // Sort caches by size (largest first)
+        .sort((a, b) => b.totalSize - a.totalSize) // Sort cache groups by total size
+
+    // Calculate selected sizes for each group
+    processedCaches.forEach(cacheGroup => {
+        cacheGroup.selectedSize = cacheGroup.matches
+            .filter(match => match.selected)
+            .reduce((sum, match) => sum + match.size, 0)
+    })
 
     return {
         ...project,
         caches: processedCaches,
-        totalCacheSize: processedCaches.reduce((sum, cache) => sum + cache.size, 0),
-        selectedCacheSize: processedCaches.reduce((sum, cache) => cache.selected ? sum + cache.size : 0, 0)
+        totalCacheSize: processedCaches.reduce((sum, cacheGroup) => sum + cacheGroup.totalSize, 0),
+        selectedCacheSize: processedCaches.reduce((sum, cacheGroup) => sum + cacheGroup.selectedSize, 0)
     }
 }
 
 // Cache selection methods
-const selectAllCaches = (project = null) => {
-    if (project) {
-        // Single project
-        project.caches.forEach(cache => cache.selected = true)
+const selectAllCaches = (project = null, cacheGroup = null) => {
+    if (cacheGroup) {
+        // Single cache group - select all matches within the group
+        cacheGroup.matches.forEach(match => match.selected = true)
+        updateCacheGroupSelection(cacheGroup)
+        updateCacheSelection(project)
+    } else if (project) {
+        // Single project - select all matches in all cache groups
+        project.caches.forEach(group => {
+            group.matches.forEach(match => match.selected = true)
+            updateCacheGroupSelection(group)
+        })
         updateCacheSelection(project)
     } else {
-        // All projects
+        // All projects - select all matches in all cache groups
         projects.value.forEach(proj => {
-            proj.caches.forEach(cache => cache.selected = true)
+            proj.caches.forEach(group => {
+                group.matches.forEach(match => match.selected = true)
+                updateCacheGroupSelection(group)
+            })
             updateCacheSelection(proj)
         })
     }
 }
 
-const deselectAllCaches = (project = null) => {
-    if (project) {
-        // Single project
-        project.caches.forEach(cache => cache.selected = false)
+const deselectAllCaches = (project = null, cacheGroup = null) => {
+    if (cacheGroup) {
+        // Single cache group - deselect all matches within the group
+        cacheGroup.matches.forEach(match => match.selected = false)
+        updateCacheGroupSelection(cacheGroup)
+        updateCacheSelection(project)
+    } else if (project) {
+        // Single project - deselect all matches in all cache groups
+        project.caches.forEach(group => {
+            group.matches.forEach(match => match.selected = false)
+            updateCacheGroupSelection(group)
+        })
         updateCacheSelection(project)
     } else {
-        // All projects
+        // All projects - deselect all matches in all cache groups
         projects.value.forEach(proj => {
-            proj.caches.forEach(cache => cache.selected = false)
+            proj.caches.forEach(group => {
+                group.matches.forEach(match => match.selected = false)
+                updateCacheGroupSelection(group)
+            })
             updateCacheSelection(proj)
         })
     }
 }
 
 const allCachesSelected = (project) => {
-    return project.caches.length > 0 && project.caches.every(cache => cache.selected)
+    return project.caches.length > 0 && project.caches.every(group =>
+        group.matches.length > 0 && group.matches.every(match => match.selected)
+    )
 }
 
 const noCachesSelected = (project) => {
-    return !project.caches.some(cache => cache.selected)
+    return !project.caches.some(group => group.matches.some(match => match.selected))
+}
+
+const allGroupCachesSelected = (cacheGroup) => {
+    return cacheGroup.matches.length > 0 && cacheGroup.matches.every(match => match.selected)
+}
+
+const noGroupCachesSelected = (cacheGroup) => {
+    return !cacheGroup.matches.some(match => match.selected)
 }
 
 const getSelectedCacheCount = (project) => {
-    return project.caches.filter(cache => cache.selected).length
+    return project.caches.reduce((total, group) =>
+        total + group.matches.filter(match => match.selected).length, 0
+    )
+}
+
+const updateCacheGroupSelection = (cacheGroup) => {
+    // Recalculate selected cache size for the group
+    cacheGroup.selectedSize = cacheGroup.matches
+        .filter(match => match.selected)
+        .reduce((sum, match) => sum + match.size, 0)
 }
 
 const updateCacheSelection = (project) => {
-    // Recalculate selected cache size
+    // Recalculate selected cache size for the entire project
     project.selectedCacheSize = project.caches
-        .filter(cache => cache.selected)
-        .reduce((sum, cache) => sum + cache.size, 0)
+        .reduce((sum, group) => sum + group.selectedSize, 0)
+}
+
+// Get checkbox state for a cache group
+const getCacheGroupCheckboxState = (cacheGroup) => {
+    const selectedCount = cacheGroup.matches.filter(match => match.selected).length
+    const totalCount = cacheGroup.matches.length
+
+    if (selectedCount === 0) return false
+    if (selectedCount === totalCount) return true
+    return null // indeterminate state
+}
+
+// Handle cache group checkbox click
+const onCacheGroupCheckboxChange = (cacheGroup, project, newValue) => {
+    if (newValue) {
+        // Select all matches in this group
+        selectAllCaches(project, cacheGroup)
+    } else {
+        // Deselect all matches in this group
+        deselectAllCaches(project, cacheGroup)
+    }
 }
 
 const getTotalSelectedCacheSize = () => {
@@ -835,10 +990,12 @@ const deleteCaches = async () => {
         // Collect all selected cache paths from all projects
         const selectedCachePaths = []
         projects.value.forEach(project => {
-            project.caches.forEach(cache => {
-                if (cache.selected) {
-                    selectedCachePaths.push(cache.path)
-                }
+            project.caches.forEach(cacheGroup => {
+                cacheGroup.matches.forEach(match => {
+                    if (match.selected) {
+                        selectedCachePaths.push(match.path)
+                    }
+                })
             })
         })
 

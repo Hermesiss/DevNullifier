@@ -308,70 +308,112 @@ async function checkProjectType(projectPath, categories) {
 
 // Helper function to calculate cache sizes for a project
 async function calculateCacheSizes(projectPath, categories) {
-  const cacheMap = new Map(); // Use Map to combine duplicate paths
+  const allMatches = new Map(); // Map by actual path to collect all pattern info
   let totalSize = 0;
 
+  // First pass: collect all matches grouped by actual path
   for (const category of categories) {
     for (const pattern of category.cachePatterns) {
       try {
-        const cachePath = path.join(projectPath, pattern);
-        const normalizedPath = cachePath.toLowerCase(); // Normalize for case-insensitive comparison
+        // Expand glob pattern to get all matching paths
+        const matchingPaths = await expandGlobPattern(projectPath, pattern);
+        
+        for (const cachePath of matchingPaths) {
+          // Check if cache directory/file exists
+          let exists = false;
+          let isDirectory = false;
 
-        // Check if cache directory/file exists
-        let exists = false;
-        let isDirectory = false;
-
-        try {
-          const stats = await fs.stat(cachePath);
-          exists = true;
-          isDirectory = stats.isDirectory();
-        } catch (error) {
-          // Path doesn't exist, skip
-          continue;
-        }
-
-        if (exists) {
-          let size = 0;
-          if (isDirectory) {
-            size = await getDirSize(cachePath);
-          } else {
+          try {
             const stats = await fs.stat(cachePath);
-            size = stats.size;
+            exists = true;
+            isDirectory = stats.isDirectory();
+          } catch (error) {
+            // Path doesn't exist, skip
+            continue;
           }
 
-          if (size > 0) {
-            if (cacheMap.has(normalizedPath)) {
-              // Combine with existing cache entry
-              const existingCache = cacheMap.get(normalizedPath);
-              
-              // Add the pattern type if not already included
-              const existingTypes = existingCache.type.split(' / ');
-              if (!existingTypes.includes(pattern)) {
-                existingCache.type = [...existingTypes, pattern].join(',');
-              }
-              
-              // Use the size from the first scan (they should be the same since it's the same folder)
-              // But update the path to use the actual casing from the file system
-              existingCache.path = cachePath;
+          if (exists) {
+            let size = 0;
+            if (isDirectory) {
+              size = await getDirSize(cachePath);
             } else {
-              // Add new cache entry
-              cacheMap.set(normalizedPath, {
-                path: cachePath,
-                type: pattern,
-                size: size
-              });
-              totalSize += size;
+              const stats = await fs.stat(cachePath);
+              size = stats.size;
+            }
+
+            if (size > 0) {
+              const normalizedPath = cachePath.toLowerCase();
+              const relativePath = path.relative(projectPath, cachePath);
+              
+              if (allMatches.has(normalizedPath)) {
+                // Path already found by another pattern, combine the pattern info
+                const existing = allMatches.get(normalizedPath);
+                
+                // Add category and pattern if not already included
+                if (!existing.categories.includes(category.name)) {
+                  existing.categories.push(category.name);
+                }
+                if (!existing.patterns.includes(pattern)) {
+                  existing.patterns.push(pattern);
+                }
+              } else {
+                // New path, add it
+                allMatches.set(normalizedPath, {
+                  path: cachePath,
+                  relativePath: relativePath,
+                  size: size,
+                  selected: false,
+                  categories: [category.name],
+                  patterns: [pattern]
+                });
+                totalSize += size;
+              }
             }
           }
         }
+        
       } catch (error) {
-        // Skip cache paths that can't be accessed
+        // Skip cache patterns that can't be processed
+        console.error(`Error processing cache pattern '${pattern}' in ${projectPath}:`, error);
       }
     }
   }
 
+  // Second pass: group by primary pattern for display
+  const patternGroups = new Map();
+  
+  for (const match of allMatches.values()) {
+    // Use the first pattern as the primary grouping key
+    const primaryPattern = match.patterns[0];
+    const primaryCategory = match.categories[0];
+    const patternKey = `${primaryCategory}:${primaryPattern}`;
+    
+    // Create display name showing all patterns if multiple
+    const displayPattern = primaryPattern;
+    
+    // Create display category showing all categories if multiple  
+    const displayCategory = primaryCategory;
+    
+    if (patternGroups.has(patternKey)) {
+      // Add to existing group
+      const existing = patternGroups.get(patternKey);
+      existing.matches.push(match);
+      existing.totalSize += match.size;
+    } else {
+      // Create new pattern group
+      patternGroups.set(patternKey, {
+        pattern: displayPattern,
+        category: displayCategory,
+        matches: [match],
+        totalSize: match.size,
+        selectedSize: 0,
+        expanded: false
+      });
+    }
+  }
+
   // Convert map to array
-  const caches = Array.from(cacheMap.values());
+  const caches = Array.from(patternGroups.values());
   
   return { caches, totalSize };
 }
@@ -395,6 +437,101 @@ async function scanDeveloperProjects(basePaths, enabledCategories) {
   }
 
   return projects;
+}
+
+// Helper function to expand glob patterns like "Plugins/**/Binaries/"
+async function expandGlobPattern(projectPath, pattern) {
+  // Check if pattern contains glob wildcards
+  if (!pattern.includes('*')) {
+    // Simple pattern, return single path
+    const fullPath = path.join(projectPath, pattern);
+    return [fullPath];
+  }
+
+  const results = [];
+  const parts = pattern.split('/').filter(part => part !== '');
+  
+  // Start searching from project root
+  await searchGlobPattern(projectPath, parts, 0, results);
+  
+  // Remove duplicates by converting to Set and back to Array
+  const uniqueResults = [...new Set(results)];
+  
+  return uniqueResults;
+}
+
+// Recursive function to search for glob pattern matches
+async function searchGlobPattern(currentPath, patternParts, partIndex, results) {
+  if (partIndex >= patternParts.length) {
+    // We've matched all parts, add to results
+    results.push(currentPath);
+    return;
+  }
+
+  const currentPart = patternParts[partIndex];
+  
+  if (currentPart === '**') {
+    // Double asterisk - match zero or more directories
+    const nextPartIndex = partIndex + 1;
+    
+    if (nextPartIndex >= patternParts.length) {
+      // ** is the last part, match current directory
+      results.push(currentPath);
+      return;
+    }
+    
+    const nextPart = patternParts[nextPartIndex];
+    
+    // Try matching without consuming any directories (zero match)
+    await searchGlobPattern(currentPath, patternParts, nextPartIndex, results);
+    
+    // Try matching by going into subdirectories (one or more match)
+    try {
+      const entries = await fs.readdir(currentPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const subPath = path.join(currentPath, entry.name);
+          
+          // Check if this directory matches the next part after **
+          if (entry.name === nextPart) {
+            // Direct match with next part, skip **
+            await searchGlobPattern(subPath, patternParts, nextPartIndex + 1, results);
+          } else {
+            // Continue searching deeper with ** still active
+            await searchGlobPattern(subPath, patternParts, partIndex, results);
+          }
+        }
+      }
+    } catch (error) {
+      // Can't read directory, skip
+    }
+    
+  } else if (currentPart === '*') {
+    // Single asterisk - match any single directory name
+    try {
+      const entries = await fs.readdir(currentPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const subPath = path.join(currentPath, entry.name);
+          await searchGlobPattern(subPath, patternParts, partIndex + 1, results);
+        }
+      }
+    } catch (error) {
+      // Can't read directory, skip
+    }
+    
+  } else {
+    // Literal directory name
+    const nextPath = path.join(currentPath, currentPart);
+    try {
+      const stats = await fs.stat(nextPath);
+      if (stats.isDirectory()) {
+        await searchGlobPattern(nextPath, patternParts, partIndex + 1, results);
+      }
+    } catch (error) {
+      // Directory doesn't exist or can't be accessed, skip
+    }
+  }
 }
 
 // Recursive function to scan for developer projects
