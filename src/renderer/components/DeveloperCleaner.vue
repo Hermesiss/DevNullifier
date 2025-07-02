@@ -75,17 +75,37 @@
                                 </v-btn>
                             </v-col>
 
-                            <!-- Select / deselect -->
+                            <!-- Select / deselect projects -->
                             <v-col cols="auto">
                                 <v-btn variant="outlined" :disabled="projects.length === 0 || isScanning || isDeleting"
                                     @click="selectAll">
-                                    Select All
+                                    <v-icon left size="small">mdi-checkbox-marked</v-icon>
+                                    Select All Projects
                                 </v-btn>
                             </v-col>
                             <v-col cols="auto">
                                 <v-btn variant="outlined" :disabled="projects.length === 0 || isScanning || isDeleting"
                                     @click="deselectAll">
-                                    Deselect All
+                                    <v-icon left size="small">mdi-checkbox-blank-outline</v-icon>
+                                    Deselect All Projects
+                                </v-btn>
+                            </v-col>
+
+                            <!-- Select / deselect caches -->
+                            <v-col cols="auto">
+                                <v-btn variant="outlined" color="primary" size="small"
+                                    :disabled="projects.length === 0 || isScanning || isDeleting"
+                                    @click="selectAllCaches()">
+                                    <v-icon left size="small">mdi-folder-check</v-icon>
+                                    Select All Caches
+                                </v-btn>
+                            </v-col>
+                            <v-col cols="auto">
+                                <v-btn variant="outlined" color="warning" size="small"
+                                    :disabled="projects.length === 0 || isScanning || isDeleting"
+                                    @click="deselectAllCaches()">
+                                    <v-icon left size="small">mdi-folder-remove</v-icon>
+                                    Deselect All Caches
                                 </v-btn>
                             </v-col>
 
@@ -141,25 +161,60 @@
                         <v-icon left>mdi-folder-multiple</v-icon>
                         Development Projects ({{ projects.length }})
                         <v-spacer />
-                        <v-chip v-if="selectedProjects.length > 0" color="primary">
-                            {{ selectedProjects.length }} selected
-                        </v-chip>
+                        <div class="d-flex ga-2">
+                            <v-chip v-if="selectedProjects.length > 0" color="primary" size="small">
+                                {{ selectedProjects.length }} projects selected
+                            </v-chip>
+                            <v-chip v-if="getTotalSelectedCacheSize() > 0" color="success" size="small">
+                                {{ formatSize(getTotalSelectedCacheSize()) }} cache selected
+                            </v-chip>
+                        </div>
                     </v-card-title>
                     <v-card-text>
                         <v-data-table v-model="selectedProjects" :headers="headers" :items="projects"
                             :loading="isScanning" show-select item-value="path" class="elevation-1">
                             <template v-slot:item.type="{ item }">
-                                <v-chip size="small" :color="getTypeColor(item.type)">
-                                    {{ item.type }}
-                                </v-chip>
+                                <div class="d-flex flex-wrap ga-1">
+                                    <v-chip v-for="type in item.type.split(', ')" :key="type" size="small"
+                                        :color="getTypeColor(type.trim())">
+                                        {{ type.trim() }}
+                                    </v-chip>
+                                </div>
                             </template>
                             <template v-slot:item.size="{ item }">
-                                {{ formatSize(item.totalCacheSize) }}
+                                <div>
+                                    <div class="font-weight-medium">{{ formatSize(item.selectedCacheSize || 0) }}</div>
+                                    <div class="text-caption text-grey"
+                                        v-if="item.selectedCacheSize !== item.totalCacheSize">
+                                        of {{ formatSize(item.totalCacheSize) }} total
+                                    </div>
+                                </div>
                             </template>
                             <template v-slot:item.cacheInfo="{ item }">
                                 <div class="text-caption">
-                                    <div v-for="cache in item.caches" :key="cache.path" class="mb-1">
-                                        <strong>{{ cache.type }}:</strong> {{ formatSize(cache.size) }}
+                                    <div v-for="cache in item.caches" :key="cache.path"
+                                        class="mb-1 d-flex align-center">
+                                        <v-checkbox v-model="cache.selected" color="primary" hide-details
+                                            density="compact" class="mr-2" @change="updateCacheSelection(item)" />
+                                        <div class="flex-grow-1">
+                                            <strong>{{ cache.type }}:</strong> {{ formatSize(cache.size) }}
+                                            <br>
+                                            <span class="text-grey">{{ cache.path }}</span>
+                                        </div>
+                                    </div>
+                                    <v-divider v-if="item.caches.length > 1" class="mt-2 mb-1" />
+                                    <div class="d-flex justify-space-between align-center mt-1">
+                                        <v-btn size="x-small" variant="text" @click="selectAllCaches(item)"
+                                            :disabled="allCachesSelected(item)">
+                                            Select All
+                                        </v-btn>
+                                        <v-btn size="x-small" variant="text" @click="deselectAllCaches(item)"
+                                            :disabled="noCachesSelected(item)">
+                                            Deselect All
+                                        </v-btn>
+                                        <v-chip size="x-small" color="primary" v-if="getSelectedCacheCount(item) > 0">
+                                            {{ getSelectedCacheCount(item) }}/{{ item.caches.length }} selected
+                                        </v-chip>
                                     </div>
                                 </div>
                             </template>
@@ -251,7 +306,7 @@ const STORAGE_KEYS = {
 const categories = ref([
     {
         id: 'python',
-        name: '🐍 Python',
+        name: 'Python',
         enabled: true,
         detectionFiles: ['main.py', 'requirements.txt', 'pyproject.toml', '.venv/', '*.py'],
         cachePatterns: ['__pycache__/', '.pytest_cache/', '.mypy_cache/', '.tox/', '.hypothesis/', '.coverage', 'build/', 'dist/'],
@@ -260,7 +315,7 @@ const categories = ref([
     },
     {
         id: 'nodejs',
-        name: '🟨 Node.js / JavaScript / TypeScript',
+        name: 'Node.js / JavaScript / TypeScript',
         enabled: true,
         detectionFiles: ['package.json', 'yarn.lock', 'vite.config.js', 'next.config.js', 'tsconfig.json'],
         cachePatterns: ['node_modules/', 'dist/', 'build/', '.next/', '.nuxt/', '.angular/', '.vite/', '.turbo/', '.expo/', '.parcel-cache/', '.eslintcache', '.cache/'],
@@ -269,7 +324,7 @@ const categories = ref([
     },
     {
         id: 'rust',
-        name: '🦀 Rust',
+        name: 'Rust',
         enabled: true,
         detectionFiles: ['Cargo.toml', 'Cargo.lock'],
         cachePatterns: ['target/', '.cargo/.package-cache/'],
@@ -277,7 +332,7 @@ const categories = ref([
     },
     {
         id: 'java',
-        name: '☕ Java / Kotlin / Android',
+        name: 'Java / Kotlin / Android',
         enabled: true,
         detectionFiles: ['build.gradle', 'pom.xml', 'AndroidManifest.xml', 'src/main/java/'],
         cachePatterns: ['build/', 'out/', '.gradle/', '.idea/', 'target/', '.settings/'],
@@ -286,7 +341,7 @@ const categories = ref([
     },
     {
         id: 'dotnet',
-        name: '⚙️ .NET / C#',
+        name: '.NET / C#',
         enabled: true,
         detectionFiles: ['.csproj', '*.sln', 'Program.cs'],
         cachePatterns: ['bin/', 'obj/', 'TestResults/'],
@@ -294,7 +349,7 @@ const categories = ref([
     },
     {
         id: 'cpp',
-        name: '🧪 C/C++',
+        name: 'C/C++',
         enabled: true,
         detectionFiles: ['CMakeLists.txt', 'Makefile', '.vscode/launch.json', '*.cpp', '*.h'],
         cachePatterns: ['build/', 'CMakeFiles/', 'cmake-build-debug/', 'cmake-build-release/', 'Debug/', 'Release/'],
@@ -303,7 +358,7 @@ const categories = ref([
     },
     {
         id: 'xcode',
-        name: '📱 Xcode / iOS / macOS',
+        name: 'Xcode / iOS / macOS',
         enabled: true,
         detectionFiles: ['*.xcodeproj', 'Info.plist', 'Podfile', '*.swift'],
         cachePatterns: ['DerivedData/', 'build/', '*.xcuserdata/', '*.xcuserdatad/'],
@@ -312,7 +367,7 @@ const categories = ref([
     },
     {
         id: 'unity',
-        name: '🎮 Unity',
+        name: 'Unity',
         enabled: true,
         detectionFiles: ['Assets/', 'ProjectSettings/', 'Packages/', '*.unity'],
         cachePatterns: ['Library/', 'Temp/', 'Obj/', 'Build/', 'Builds/', '.vs/', 'Logs/', 'MemoryCaptures/', 'UserSettings/'],
@@ -321,7 +376,7 @@ const categories = ref([
     },
     {
         id: 'unreal',
-        name: '🎮 Unreal Engine',
+        name: 'Unreal Engine',
         enabled: true,
         detectionFiles: ['*.uproject', 'Source/', 'Content/'],
         cachePatterns: ['Binaries/', 'Build/', 'Intermediate/', 'Saved/', 'DerivedDataCache/', 'Plugins/**/Intermediate/', 'Plugins/**/Binaries/'],
@@ -330,7 +385,7 @@ const categories = ref([
     },
     {
         id: 'php',
-        name: '🐘 PHP / Laravel',
+        name: 'PHP / Laravel',
         enabled: true,
         detectionFiles: ['artisan', 'composer.json', 'routes/web.php', 'app/'],
         cachePatterns: ['vendor/', 'bootstrap/cache/', 'storage/framework/cache/', '.phpunit.result.cache'],
@@ -339,7 +394,7 @@ const categories = ref([
     },
     {
         id: 'symfony',
-        name: '🐘 Symfony',
+        name: 'Symfony',
         enabled: true,
         detectionFiles: ['bin/console', 'config/', 'composer.json', 'symfony.lock'],
         cachePatterns: ['var/cache/', 'var/logs/', 'vendor/'],
@@ -347,7 +402,7 @@ const categories = ref([
     },
     {
         id: 'ml',
-        name: '🧠 Machine Learning / Data Science',
+        name: 'Machine Learning / Data Science',
         enabled: true,
         detectionFiles: ['.ipynb', 'notebooks/', 'train.py', 'requirements.txt', 'wandb/'],
         cachePatterns: ['checkpoints/', 'runs/', 'logs/', '.ipynb_checkpoints/', '.cache/', 'wandb/', 'mlruns/'],
@@ -356,7 +411,7 @@ const categories = ref([
     },
     {
         id: 'docker',
-        name: '⚙️ Docker / DevOps',
+        name: 'Docker / DevOps',
         enabled: true,
         detectionFiles: ['Dockerfile', 'docker-compose.yml', '.env', '.docker/'],
         cachePatterns: ['tmp/', '.cache/', 'coverage/', 'report/'],
@@ -364,7 +419,7 @@ const categories = ref([
     },
     {
         id: 'static',
-        name: '🌐 Static Site Generators',
+        name: 'Static Site Generators',
         enabled: true,
         detectionFiles: ['gatsby-config.js', 'config.toml', '_config.yml', 'content/'],
         cachePatterns: ['public/', '.cache/', 'dist/'],
@@ -372,7 +427,7 @@ const categories = ref([
     },
     {
         id: 'testing',
-        name: '🧪 Testing Tools',
+        name: 'Testing Tools',
         enabled: true,
         detectionFiles: ['jest.config.js', 'pytest.ini', '.coveragerc', 'tests/'],
         cachePatterns: ['.coverage/', 'coverage/', 'reports/', '.nyc_output/', '.jest/', '.test_cache/'],
@@ -380,7 +435,7 @@ const categories = ref([
     },
     {
         id: 'ides',
-        name: '🧰 IDEs / Editors',
+        name: 'IDEs / Editors',
         enabled: true,
         detectionFiles: ['.idea/', '.vscode/', '.history/', '*.sublime-*', '.DS_Store'],
         cachePatterns: ['.idea/workspace.xml', '.idea/caches/', '.vscode/ipch/', '.DS_Store', 'Thumbs.db'],
@@ -401,7 +456,7 @@ const enabledCount = computed(() =>
 const headers = [
     { title: 'Project Path', key: 'path', sortable: true },
     { title: 'Type', key: 'type', sortable: true },
-    { title: 'Cache Size', key: 'size', sortable: true },
+    { title: 'Selected Size', key: 'size', sortable: true },
     { title: 'Cache Details', key: 'cacheInfo', sortable: false },
 ]
 
@@ -497,10 +552,39 @@ const startScan = async () => {
         const pathText = pathCount === 1 ? '1 path' : `${pathCount} paths`
         emit('update:statusText', `Scanning ${pathText} for development projects...`)
 
-        const enabledCategories = categories.value.filter(cat => cat.enabled)
-        const result = await window.electronAPI.scanDeveloperCaches(basePaths.value, enabledCategories)
+        // Create serializable data - convert Vue reactive arrays to plain arrays/objects
+        const plainBasePaths = [...basePaths.value]
+        const enabledCategories = categories.value
+            .filter(cat => cat.enabled)
+            .map(cat => ({
+                id: cat.id,
+                name: cat.name,
+                detectionFiles: [...cat.detectionFiles],
+                cachePatterns: [...cat.cachePatterns],
+                warning: cat.warning,
+                warningText: cat.warningText
+            }))
 
-        projects.value = result.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
+        const result = await window.electronAPI.scanDeveloperCaches(plainBasePaths, enabledCategories)
+
+        // Initialize cache selection state and calculate totals
+        const processedProjects = result.map(project => {
+            const processedCaches = project.caches
+                .map(cache => ({
+                    ...cache,
+                    selected: true // Default to selected
+                }))
+                .sort((a, b) => b.size - a.size) // Sort caches by size (largest first)
+
+            return {
+                ...project,
+                caches: processedCaches,
+                totalCacheSize: processedCaches.reduce((sum, cache) => sum + cache.size, 0),
+                selectedCacheSize: processedCaches.reduce((sum, cache) => cache.selected ? sum + cache.size : 0, 0)
+            }
+        })
+
+        projects.value = processedProjects.sort((a, b) => b.selectedCacheSize - a.selectedCacheSize)
 
         // Preserve existing selections that are still valid
         const validPaths = new Set(projects.value.map(p => p.path))
@@ -541,21 +625,21 @@ const stopScan = async () => {
 const getTypeColor = (type) => {
     const colors = {
         'Python': 'green',
-        'Node.js': 'yellow',
+        'Node.js / JavaScript / TypeScript': 'orange',
         'Rust': 'orange',
-        'Java': 'red',
-        '.NET': 'purple',
-        'C++': 'blue',
-        'Xcode': 'cyan',
+        'Java / Kotlin / Android': 'red',
+        '.NET / C#': 'purple',
+        'C/C++': 'blue',
+        'Xcode / iOS / macOS': 'cyan',
         'Unity': 'indigo',
-        'Unreal': 'pink',
-        'PHP': 'purple',
+        'Unreal Engine': 'pink',
+        'PHP / Laravel': 'purple',
         'Symfony': 'deep-purple',
-        'Machine Learning': 'teal',
-        'Docker': 'blue-grey',
-        'Static Sites': 'light-green',
-        'Testing': 'amber',
-        'IDEs': 'brown'
+        'Machine Learning / Data Science': 'teal',
+        'Docker / DevOps': 'blue-grey',
+        'Static Site Generators': 'light-green',
+        'Testing Tools': 'amber',
+        'IDEs / Editors': 'brown'
     }
     return colors[type] || 'grey'
 }
@@ -613,6 +697,60 @@ const clearAllPaths = () => {
     basePaths.value = []
     saveBasePaths()
     emit('showNotification', 'All base paths cleared', 'info')
+}
+
+// Cache selection methods
+const selectAllCaches = (project = null) => {
+    if (project) {
+        // Single project
+        project.caches.forEach(cache => cache.selected = true)
+        updateCacheSelection(project)
+    } else {
+        // All projects
+        projects.value.forEach(proj => {
+            proj.caches.forEach(cache => cache.selected = true)
+            updateCacheSelection(proj)
+        })
+    }
+}
+
+const deselectAllCaches = (project = null) => {
+    if (project) {
+        // Single project
+        project.caches.forEach(cache => cache.selected = false)
+        updateCacheSelection(project)
+    } else {
+        // All projects
+        projects.value.forEach(proj => {
+            proj.caches.forEach(cache => cache.selected = false)
+            updateCacheSelection(proj)
+        })
+    }
+}
+
+const allCachesSelected = (project) => {
+    return project.caches.length > 0 && project.caches.every(cache => cache.selected)
+}
+
+const noCachesSelected = (project) => {
+    return !project.caches.some(cache => cache.selected)
+}
+
+const getSelectedCacheCount = (project) => {
+    return project.caches.filter(cache => cache.selected).length
+}
+
+const updateCacheSelection = (project) => {
+    // Recalculate selected cache size
+    project.selectedCacheSize = project.caches
+        .filter(cache => cache.selected)
+        .reduce((sum, cache) => sum + cache.size, 0)
+}
+
+const getTotalSelectedCacheSize = () => {
+    return projects.value.reduce((total, project) => {
+        return total + (project.selectedCacheSize || 0)
+    }, 0)
 }
 
 // Set default base paths on mount and load saved states

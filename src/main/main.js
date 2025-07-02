@@ -367,8 +367,8 @@ async function scanDeveloperProjects(basePaths, enabledCategories) {
         enabledCategories,
         projects,
         0,
-        3
-      ); // Max depth of 3
+        10
+      ); // Max depth of 10
     } catch (error) {
       console.error(`Error scanning ${basePath}:`, error);
     }
@@ -403,9 +403,7 @@ async function scanDeveloperProjectsRecursive(
       if (totalSize > 0) {
         const project = {
           path: dirPath,
-          type: foundCategories
-            .map(cat => cat.name.replace(/^[^\s]*\s+/, ""))
-            .join(", "), // Remove emoji
+          type: foundCategories.map(cat => cat.name).join(", "),
           caches: caches,
           totalCacheSize: totalSize
         };
@@ -416,10 +414,14 @@ async function scanDeveloperProjectsRecursive(
         if (mainWindow) {
           mainWindow.webContents.send("developer-project-found", project);
         }
+
+        // Only stop recursing if we found a project WITH caches to avoid nested scans
+        // If no caches found, continue scanning subdirectories
+        return;
       }
 
-      // Don't recurse into detected project directories to avoid nested scans
-      return;
+      // If this directory matches project detection but has no caches,
+      // continue scanning subdirectories (might be a parent directory with projects inside)
     }
 
     // Recurse into subdirectories
@@ -575,6 +577,7 @@ ipcMain.handle(
       );
       return projects;
     } catch (error) {
+      console.error("Developer scan error:", error);
       throw new Error(`Developer scan failed: ${error.message}`);
     }
   }
