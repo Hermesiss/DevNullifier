@@ -5,10 +5,9 @@ const fsSync = require("fs");
 const os = require("os");
 const { Worker } = require("worker_threads");
 const appDataCleaner = require("./appDataCleaner");
-const developerCleaner = require("./developerCleaner");
 
 let mainWindow;
-let currentScanWorker = null;
+let currentAppDataScanWorker = null;
 let currentDeveloperScanWorker = null;
 
 const isDev =
@@ -58,29 +57,11 @@ app.on("activate", () => {
   }
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // IPC Handlers
-ipcMain.handle("stop-scan", () => {
-  if (currentScanWorker) {
-    currentScanWorker.terminate();
-    currentScanWorker = null;
+ipcMain.handle("stop-appdata-scan", () => {
+  if (currentAppDataScanWorker) {
+    currentAppDataScanWorker.terminate();
+    currentAppDataScanWorker = null;
   }
   return true;
 });
@@ -91,26 +72,26 @@ ipcMain.handle("get-appdata-paths", () => {
 
 ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
   // If there's an existing scan, terminate it
-  if (currentScanWorker) {
-    currentScanWorker.terminate();
+  if (currentAppDataScanWorker) {
+    currentAppDataScanWorker.terminate();
   }
 
   return new Promise((resolve, reject) => {
     const workerPath = isDev
-      ? path.join(__dirname, "scanWorker.js")
+      ? path.join(__dirname, "addDataScanWorker.js")
       : path.join(
           process.resourcesPath,
           "app.asar",
           "src",
           "main",
-          "scanWorker.js"
+          "addDataScanWorker.js"
         );
 
-    currentScanWorker = new Worker(workerPath);
+    currentAppDataScanWorker = new Worker(workerPath);
     const allResults = [];
     let wasTerminated = false;
 
-    currentScanWorker.on("message", message => {
+    currentAppDataScanWorker.on("message", message => {
       if (message.type === "progress") {
         mainWindow.webContents.send("scan-progress", message.count);
       } else if (message.type === "current-path") {
@@ -119,20 +100,20 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
         mainWindow.webContents.send("scan-folder-found", message.folder);
         allResults.push(message.folder);
       } else if (message.type === "done") {
-        currentScanWorker = null;
+        currentAppDataScanWorker = null;
         resolve(allResults);
       }
     });
 
-    currentScanWorker.on("error", error => {
-      currentScanWorker = null;
+    currentAppDataScanWorker.on("error", error => {
+      currentAppDataScanWorker = null;
       if (!wasTerminated) {
         reject(error);
       }
     });
 
-    currentScanWorker.on("exit", code => {
-      currentScanWorker = null;
+    currentAppDataScanWorker.on("exit", code => {
+      currentAppDataScanWorker = null;
       if (code !== 0 && !wasTerminated) {
         reject(new Error(`Worker stopped with exit code ${code}`));
       } else {
@@ -141,16 +122,16 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
     });
 
     // Store original terminate function
-    const originalTerminate = currentScanWorker.terminate.bind(
-      currentScanWorker
+    const originalTerminate = currentAppDataScanWorker.terminate.bind(
+      currentAppDataScanWorker
     );
     // Override terminate to set flag
-    currentScanWorker.terminate = () => {
+    currentAppDataScanWorker.terminate = () => {
       wasTerminated = true;
       return originalTerminate();
     };
 
-    currentScanWorker.postMessage({ paths, maxDepth, keywords: appDataCleaner.KEYWORDS });
+    currentAppDataScanWorker.postMessage({ paths, maxDepth, keywords: appDataCleaner.KEYWORDS });
   });
 });
 
@@ -204,25 +185,67 @@ ipcMain.handle("select-directory", async () => {
 ipcMain.handle(
   "scan-developer-caches",
   async (event, { basePaths, enabledCategories }) => {
-    try {
-      const progressCallback = {
-        onProjectFound: (project) => {
-          if (mainWindow) {
-            mainWindow.webContents.send("developer-project-found", project);
+    // If there's an existing scan, terminate it
+    if (currentDeveloperScanWorker) {
+      currentDeveloperScanWorker.terminate();
+    }
+
+    return new Promise((resolve, reject) => {
+      const workerPath = isDev
+        ? path.join(__dirname, "developerScanWorker.js")
+        : path.join(
+            process.resourcesPath,
+            "app.asar",
+            "src",
+            "main",
+            "developerScanWorker.js"
+          );
+
+      currentDeveloperScanWorker = new Worker(workerPath);
+      let wasTerminated = false;
+
+      currentDeveloperScanWorker.on("message", message => {
+        if (message.type === "current-path") {
+          mainWindow.webContents.send("developer-scan-current-path", message.path);
+        } else if (message.type === "project-found") {
+          mainWindow.webContents.send("developer-project-found", message.project);
+        } else if (message.type === "done") {
+          currentDeveloperScanWorker = null;
+          resolve(message.projects);
+        } else if (message.type === "error") {
+          currentDeveloperScanWorker = null;
+          if (!wasTerminated) {
+            reject(new Error(message.error));
           }
         }
-      };
-      
-      const projects = await developerCleaner.scanDeveloperProjects(
-        basePaths,
-        enabledCategories,
-        progressCallback
+      });
+
+      currentDeveloperScanWorker.on("error", error => {
+        currentDeveloperScanWorker = null;
+        if (!wasTerminated) {
+          reject(error);
+        }
+      });
+
+      currentDeveloperScanWorker.on("exit", code => {
+        currentDeveloperScanWorker = null;
+        if (code !== 0 && !wasTerminated) {
+          reject(new Error(`Developer scan worker stopped with exit code ${code}`));
+        }
+      });
+
+      // Store original terminate function
+      const originalTerminate = currentDeveloperScanWorker.terminate.bind(
+        currentDeveloperScanWorker
       );
-      return projects;
-    } catch (error) {
-      console.error("Developer scan error:", error);
-      throw new Error(`Developer scan failed: ${error.message}`);
-    }
+      // Override terminate to set flag
+      currentDeveloperScanWorker.terminate = () => {
+        wasTerminated = true;
+        return originalTerminate();
+      };
+
+      currentDeveloperScanWorker.postMessage({ basePaths, enabledCategories });
+    });
   }
 );
 

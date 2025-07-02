@@ -13,9 +13,6 @@ const KEYWORDS = [
   "pending"
 ];
 
-// Add scan cancellation flag
-let isScanCancelled = false;
-
 // Get AppData paths
 function getAppDataPaths() {
   const paths = [];
@@ -35,114 +32,6 @@ function getAppDataPaths() {
   }
 
   return paths;
-}
-
-// Calculate directory size
-async function getDirSize(dirPath) {
-  if (isScanCancelled) return 0;
-  let size = 0;
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      if (isScanCancelled) return size;
-      const fullPath = path.join(dirPath, entry.name);
-
-      if (entry.isDirectory()) {
-        size += await getDirSize(fullPath);
-      } else {
-        try {
-          const stats = await fs.stat(fullPath);
-          size += stats.size;
-        } catch (err) {
-          // Skip files that can't be accessed
-        }
-      }
-    }
-  } catch (err) {
-    // Skip directories that can't be accessed
-  }
-
-  return size;
-}
-
-// Scan directories for matching folders
-async function scanDirectory(
-  dirPath,
-  maxDepth,
-  currentDepth = 0,
-  progressCallback
-) {
-  // Reset cancellation flag at the start of a new scan
-  if (currentDepth === 0) {
-    isScanCancelled = false;
-  }
-
-  // Check for scan cancellation
-  if (isScanCancelled) {
-    return [];
-  }
-
-  const results = [];
-
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      if (isScanCancelled) return results;
-      if (!entry.isDirectory()) continue;
-
-      const fullPath = path.join(dirPath, entry.name);
-      const folderName = entry.name.toLowerCase();
-
-      // Check if folder name contains any keywords
-      if (KEYWORDS.some(keyword => folderName.includes(keyword))) {
-        if (isScanCancelled) return results;
-        try {
-          const size = await getDirSize(fullPath);
-          if (size > 0) {
-            const result = {
-              path: fullPath,
-              size: size,
-              name: entry.name
-            };
-
-            results.push(result);
-
-            // Send progress update via callback
-            if (progressCallback && !isScanCancelled) {
-              progressCallback.onProgress(results.length);
-              progressCallback.onFolderFound(result);
-            }
-          }
-        } catch (err) {
-          // Skip folders that can't be accessed
-        }
-
-        // Don't recurse into matched folders
-        continue;
-      }
-
-      // Recurse into subdirectories
-      if (!isScanCancelled) {
-        try {
-          const subResults = await scanDirectory(
-            fullPath,
-            maxDepth,
-            currentDepth + 1,
-            progressCallback
-          );
-          results.push(...subResults);
-        } catch (err) {
-          // Skip directories that can't be accessed
-        }
-      }
-    }
-  } catch (err) {
-    // Skip directories that can't be accessed
-  }
-
-  return results;
 }
 
 // Delete directory recursively with partial deletion detection
@@ -221,22 +110,8 @@ async function deleteDirectory(dirPath) {
   }
 }
 
-// Cancel ongoing scan
-function cancelScan() {
-  isScanCancelled = true;
-}
-
-// Reset scan cancellation flag
-function resetScanCancellation() {
-  isScanCancelled = false;
-}
-
 module.exports = {
   getAppDataPaths,
-  getDirSize,
-  scanDirectory,
   deleteDirectory,
-  cancelScan,
-  resetScanCancellation,
   KEYWORDS
 };

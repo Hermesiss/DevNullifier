@@ -1,5 +1,8 @@
+const { parentPort } = require("worker_threads");
 const fs = require("fs").promises;
 const path = require("path");
+
+// Categories will be passed from the frontend - no hardcoded categories needed
 
 // Helper function to check if directory contains detection files
 async function checkProjectType(projectPath, categories) {
@@ -37,7 +40,7 @@ async function checkProjectType(projectPath, categories) {
   return foundCategories;
 }
 
-// Calculate directory size (used by calculateCacheSizes)
+// Calculate directory size
 async function getDirSize(dirPath) {
   let size = 0;
   try {
@@ -292,12 +295,13 @@ async function scanDeveloperProjectsRecursive(
   enabledCategories,
   projects,
   currentDepth,
-  maxDepth,
-  progressCallback
+  maxDepth
 ) {
   if (currentDepth > maxDepth) return;
 
   try {
+    parentPort.postMessage({ type: "current-path", path: dirPath });
+
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
     // Check if current directory is a project
@@ -330,10 +334,8 @@ async function scanDeveloperProjectsRecursive(
 
         projects.push(project);
 
-        // Send real-time update via callback
-        if (progressCallback) {
-          progressCallback.onProjectFound(project);
-        }
+        // Send real-time update
+        parentPort.postMessage({ type: "project-found", project });
 
         // Only stop recursing if we found a project WITH caches to avoid nested scans
         // If no caches found, continue scanning subdirectories
@@ -353,8 +355,7 @@ async function scanDeveloperProjectsRecursive(
           enabledCategories,
           projects,
           currentDepth + 1,
-          maxDepth,
-          progressCallback
+          maxDepth
         );
       }
     }
@@ -363,12 +364,8 @@ async function scanDeveloperProjectsRecursive(
   }
 }
 
-// Scan for developer projects
-async function scanDeveloperProjects(
-  basePaths,
-  enabledCategories,
-  progressCallback
-) {
+// Main scan function
+async function scanDeveloperProjects(basePaths, enabledCategories) {
   const projects = [];
 
   for (const basePath of basePaths) {
@@ -378,8 +375,7 @@ async function scanDeveloperProjects(
         enabledCategories,
         projects,
         0,
-        10, // Max depth of 10
-        progressCallback
+        10 // Max depth of 10
       );
     } catch (error) {
       console.error(`Error scanning ${basePath}:`, error);
@@ -389,11 +385,22 @@ async function scanDeveloperProjects(
   return projects;
 }
 
-module.exports = {
-  checkProjectType,
-  calculateCacheSizes,
-  scanDeveloperProjects,
-  scanDeveloperProjectsRecursive,
-  expandGlobPattern,
-  searchGlobPattern
-};
+// Listen for messages from the main thread
+parentPort.on("message", async ({ basePaths, enabledCategories }) => {
+  try {
+    console.log("Developer scan worker started with:", {
+      basePaths: basePaths,
+      categoryCount: enabledCategories.length,
+      categoryNames: enabledCategories.map(cat => cat.name)
+    });
+
+    // enabledCategories already contains the full category objects from the frontend
+    const projects = await scanDeveloperProjects(basePaths, enabledCategories);
+
+    console.log(`Developer scan completed. Found ${projects.length} projects`);
+    parentPort.postMessage({ type: "done", projects });
+  } catch (error) {
+    console.error("Developer scan worker error:", error);
+    parentPort.postMessage({ type: "error", error: error.message });
+  }
+});

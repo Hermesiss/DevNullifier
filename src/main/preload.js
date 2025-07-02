@@ -16,7 +16,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     }),
 
   // Stop scanning
-  stopScan: () => ipcRenderer.invoke("stop-scan"),
+  stopAppDataScan: () => ipcRenderer.invoke("stop-appdata-scan"),
 
   // Stop developer scanning
   stopDeveloperScan: () => ipcRenderer.invoke("stop-developer-scan"),

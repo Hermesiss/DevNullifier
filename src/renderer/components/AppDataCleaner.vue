@@ -128,7 +128,7 @@ const stopScan = async () => {
     statusText.value = 'Stopping scan...'
 
     try {
-        await window.electronAPI.stopScan()
+        await window.electronAPI.stopAppDataScan()
         statusText.value = 'Ready'
         emit('showNotification', 'Scan stopped by user', 'info')
     } catch (error) {
