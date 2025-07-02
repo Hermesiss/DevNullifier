@@ -8,14 +8,22 @@
 
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedFolders.length" :selected-size="selectedSize"
             @confirm="deleteFolders" />
+
+        <!-- Actions Bar -->
+        <v-footer app class="pa-0">
+            <ActionsBar :status-text="statusText" :delete-progress="deleteProgress"
+                :selected-count="selectedFolders.length" :is-scanning="isScanning" :is-deleting="isDeleting"
+                @delete="confirmDelete" />
+        </v-footer>
     </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import ControlPanel from './ControlPanel.vue'
 import ResultsTable from './ResultsTable.vue'
 import DeleteDialog from './DeleteDialog.vue'
+import ActionsBar from './ActionsBar.vue'
 
 // Reactive state
 const folders = ref([])
@@ -24,9 +32,11 @@ const maxDepth = ref(3)
 const isScanning = ref(false)
 const isDeleting = ref(false)
 const showDeleteDialog = ref(false)
+const statusText = ref('Ready')
+const deleteProgress = ref(0)
 
 // Emit events to parent
-const emit = defineEmits(['update:statusText', 'update:deleteProgress', 'showNotification'])
+const emit = defineEmits(['showNotification'])
 
 // Computed properties
 const selectedSize = computed(() => {
@@ -47,11 +57,11 @@ const deselectAll = () => {
 
 // Scan logic
 const stopScan = async () => {
-    emit('update:statusText', 'Stopping scan...')
+    statusText.value = 'Stopping scan...'
 
     try {
         await window.electronAPI.stopScan()
-        emit('update:statusText', 'Ready')
+        statusText.value = 'Ready'
         emit('showNotification', 'Scan stopped by user', 'info')
     } catch (error) {
         console.error('Error stopping scan:', error)
@@ -64,7 +74,7 @@ const stopScan = async () => {
 const startScan = async () => {
     try {
         isScanning.value = true
-        emit('update:statusText', 'Getting AppData paths...')
+        statusText.value = 'Getting AppData paths...'
         folders.value = []
         selectedFolders.value = []
         const seenPaths = new Set()
@@ -76,7 +86,7 @@ const startScan = async () => {
             return
         }
 
-        emit('update:statusText', 'Scanning folders...')
+        statusText.value = 'Scanning folders...'
         // Listen for real-time folder updates
         window.electronAPI.onScanFolderFound((folder) => {
             if (!seenPaths.has(folder.path)) {
@@ -98,7 +108,7 @@ const startScan = async () => {
         if (isScanning.value) {
             // Sort at the end for display
             folders.value.sort((a, b) => b.size - a.size)
-            emit('update:statusText', `Found ${folders.value.length} folders`)
+            statusText.value = `Found ${folders.value.length} folders`
             if (folders.value.length === 0) {
                 emit('showNotification', 'No matching folders found', 'info')
             } else {
@@ -128,8 +138,8 @@ const deleteFolders = async () => {
     try {
         showDeleteDialog.value = false
         isDeleting.value = true
-        emit('update:deleteProgress', 0)
-        emit('update:statusText', 'Deleting folders...')
+        deleteProgress.value = 0
+        statusText.value = 'Deleting folders...'
 
         const results = await window.electronAPI.deleteFolders([...selectedFolders.value])
 
@@ -169,9 +179,40 @@ const deleteFolders = async () => {
         emit('showNotification', 'Error during deletion: ' + error.message, 'error')
     } finally {
         isDeleting.value = false
-        emit('update:deleteProgress', 0)
+        deleteProgress.value = 0
     }
 }
+
+// Event listeners setup
+const setupEventListeners = () => {
+    // Ensure no duplicate listeners first
+    window.electronAPI.removeAllListeners('scan-progress')
+    window.electronAPI.removeAllListeners('scan-current-path')
+    window.electronAPI.removeAllListeners('delete-progress')
+    window.electronAPI.removeAllListeners('scan-folder-found')
+
+    // Attach listeners
+    window.electronAPI.onScanProgress((count) => {
+        statusText.value = `Found ${count} folders`
+    })
+
+    window.electronAPI.onScanCurrentPath((path) => {
+        statusText.value = `Scanning: ${path}`
+    })
+
+    window.electronAPI.onDeleteProgress((count) => {
+        deleteProgress.value = (count / selectedFolders.value.length) * 100
+    })
+}
+
+const removeEventListeners = () => {
+    window.electronAPI.removeAllListeners('scan-progress')
+    window.electronAPI.removeAllListeners('scan-current-path')
+    window.electronAPI.removeAllListeners('delete-progress')
+}
+
+onMounted(setupEventListeners)
+onUnmounted(removeEventListeners)
 
 // Expose methods and computed properties for parent
 defineExpose({

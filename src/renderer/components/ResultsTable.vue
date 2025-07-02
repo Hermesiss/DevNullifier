@@ -8,7 +8,7 @@
             </v-chip>
         </v-card-title>
 
-        <v-data-table v-model="selected" :headers="headers" :items="uniqueItems" :items-per-page="25" item-value="path"
+        <v-data-table v-model="selected" :headers="headers" :items="uniqueItems" :items-per-page="50" item-value="path"
             show-select :loading="isScanning" loading-text="Scanning for folders..."
             :sort-by="[{ key: 'size', order: 'desc' }]" class="elevation-1">
             <template #item.size="{ item }">

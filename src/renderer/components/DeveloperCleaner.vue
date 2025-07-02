@@ -1,5 +1,9 @@
 <template>
     <div>
+        <!-- Delete Dialog -->
+        <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedCacheCount" :selected-size="selectedCacheSize"
+            @confirm="deleteCaches" />
+
         <!-- Categories Panel -->
         <v-row class="mb-4">
             <v-col cols="12">
@@ -75,40 +79,6 @@
                                 </v-btn>
                             </v-col>
 
-                            <!-- Select / deselect projects -->
-                            <v-col cols="auto">
-                                <v-btn variant="outlined" :disabled="projects.length === 0 || isScanning || isDeleting"
-                                    @click="selectAll">
-                                    <v-icon left size="small">mdi-checkbox-marked</v-icon>
-                                    Select All Projects
-                                </v-btn>
-                            </v-col>
-                            <v-col cols="auto">
-                                <v-btn variant="outlined" :disabled="projects.length === 0 || isScanning || isDeleting"
-                                    @click="deselectAll">
-                                    <v-icon left size="small">mdi-checkbox-blank-outline</v-icon>
-                                    Deselect All Projects
-                                </v-btn>
-                            </v-col>
-
-                            <!-- Select / deselect caches -->
-                            <v-col cols="auto">
-                                <v-btn variant="outlined" color="primary" size="small"
-                                    :disabled="projects.length === 0 || isScanning || isDeleting"
-                                    @click="selectAllCaches()">
-                                    <v-icon left size="small">mdi-folder-check</v-icon>
-                                    Select All Caches
-                                </v-btn>
-                            </v-col>
-                            <v-col cols="auto">
-                                <v-btn variant="outlined" color="warning" size="small"
-                                    :disabled="projects.length === 0 || isScanning || isDeleting"
-                                    @click="deselectAllCaches()">
-                                    <v-icon left size="small">mdi-folder-remove</v-icon>
-                                    Deselect All Caches
-                                </v-btn>
-                            </v-col>
-
                             <!-- Base Path Selection -->
                             <v-col cols="auto">
                                 <v-btn variant="outlined" :disabled="isScanning || isDeleting" @click="selectBasePath">
@@ -158,21 +128,33 @@
             <v-col cols="12">
                 <v-card>
                     <v-card-title>
-                        <v-icon left>mdi-folder-multiple</v-icon>
-                        Development Projects ({{ projects.length }})
-                        <v-spacer />
                         <div class="d-flex ga-2">
-                            <v-chip v-if="selectedProjects.length > 0" color="primary" size="small">
-                                {{ selectedProjects.length }} projects selected
-                            </v-chip>
+                            <v-icon left>mdi-folder-multiple</v-icon>
+                            Development Projects ({{ projects.length }})
+                            <v-spacer />
+                            <!-- Select / deselect caches -->
                             <v-chip v-if="getTotalSelectedCacheSize() > 0" color="success" size="small">
                                 {{ formatSize(getTotalSelectedCacheSize()) }} cache selected
                             </v-chip>
+                            <v-btn variant="outlined" color="primary" size="small"
+                                :disabled="projects.length === 0 || isScanning || isDeleting"
+                                @click="selectAllCaches()">
+                                <v-icon left size="small">mdi-folder-check</v-icon>
+                                Select All Caches
+                            </v-btn>
+
+                            <v-btn variant="outlined" color="warning" size="small"
+                                :disabled="projects.length === 0 || isScanning || isDeleting"
+                                @click="deselectAllCaches()">
+                                <v-icon left size="small">mdi-folder-remove</v-icon>
+                                Deselect All Caches
+                            </v-btn>
+
                         </div>
                     </v-card-title>
                     <v-card-text>
-                        <v-data-table v-model="selectedProjects" :headers="headers" :items="projects"
-                            :loading="isScanning" show-select item-value="path" class="elevation-1">
+                        <v-data-table :headers="headers" :items="projects" :items-per-page="50" :loading="isScanning"
+                            item-value="path" class="elevation-1">
                             <template v-slot:item.type="{ item }">
                                 <div class="d-flex flex-wrap ga-1">
                                     <v-chip v-for="type in item.type.split(', ')" :key="type" size="small"
@@ -212,8 +194,10 @@
                                             :disabled="noCachesSelected(item)">
                                             Deselect All
                                         </v-btn>
-                                        <v-chip size="x-small" color="primary" v-if="getSelectedCacheCount(item) > 0">
-                                            {{ getSelectedCacheCount(item) }}/{{ item.caches.length }} selected
+                                        <v-chip size="x-small" color="primary"
+                                            v-if="item.caches.filter(c => c.selected).length > 0">
+                                            {{item.caches.filter(c => c.selected).length}}/{{ item.caches.length }}
+                                            selected
                                         </v-chip>
                                     </div>
                                 </div>
@@ -275,11 +259,20 @@
                 </v-card-actions>
             </v-card>
         </v-dialog>
+
+        <!-- Actions Bar -->
+        <v-footer app class="pa-0">
+            <ActionsBar :status-text="statusText" :delete-progress="0" :selected-count="selectedCacheCount"
+                :is-scanning="isScanning" :is-deleting="isDeleting" @delete="confirmDelete" />
+        </v-footer>
     </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import DeleteDialog from './DeleteDialog.vue'
+import ActionsBar from './ActionsBar.vue'
+import { filesize } from 'filesize'
 
 // Reactive state
 const projects = ref([])
@@ -290,9 +283,11 @@ const basePaths = ref([])
 const showCategories = ref(false)
 const showInfoDialog = ref(false)
 const selectedCategory = ref(null)
+const showDeleteDialog = ref(false)
+const statusText = ref('Ready')
 
 // Emit events to parent
-const emit = defineEmits(['update:statusText', 'showNotification'])
+const emit = defineEmits(['showNotification'])
 
 // localStorage keys
 const STORAGE_KEYS = {
@@ -453,6 +448,21 @@ const enabledCount = computed(() =>
     categories.value.filter(cat => cat.enabled).length
 )
 
+const selectedCacheCount = computed(() => {
+    return projects.value.reduce((total, project) => {
+        return total + project.caches.filter(cache => cache.selected).length
+    }, 0)
+})
+
+const selectedCacheSize = computed(() => {
+    return projects.value.reduce((total, project) => {
+        if (project.selectedCacheSize) {
+            console.log(`${project.path} has selectedCacheSize: ${project.selectedCacheSize}`)
+        }
+        return total + (project.selectedCacheSize || 0)
+    }, 0)
+})
+
 const headers = [
     { title: 'Project Path', key: 'path', sortable: true },
     { title: 'Type', key: 'type', sortable: true },
@@ -500,16 +510,6 @@ const showCategoryInfo = (category) => {
     showInfoDialog.value = true
 }
 
-const selectAll = () => {
-    selectedProjects.value = projects.value.map(p => p.path)
-    saveSelectedProjects()
-}
-
-const deselectAll = () => {
-    selectedProjects.value = []
-    saveSelectedProjects()
-}
-
 const selectBasePath = async () => {
     try {
         if (!window.electronAPI.selectDirectory) {
@@ -550,7 +550,7 @@ const startScan = async () => {
 
         const pathCount = basePaths.value.length
         const pathText = pathCount === 1 ? '1 path' : `${pathCount} paths`
-        emit('update:statusText', `Scanning ${pathText} for development projects...`)
+        statusText.value = `Scanning ${pathText} for development projects...`
 
         // Create serializable data - convert Vue reactive arrays to plain arrays/objects
         const plainBasePaths = [...basePaths.value]
@@ -572,7 +572,7 @@ const startScan = async () => {
             const processedCaches = project.caches
                 .map(cache => ({
                     ...cache,
-                    selected: true // Default to selected
+                    selected: false // Default to unselected
                 }))
                 .sort((a, b) => b.size - a.size) // Sort caches by size (largest first)
 
@@ -589,14 +589,13 @@ const startScan = async () => {
         // Preserve existing selections that are still valid
         const validPaths = new Set(projects.value.map(p => p.path))
         selectedProjects.value = selectedProjects.value.filter(path => validPaths.has(path))
-        saveSelectedProjects()
 
         const message = projects.value.length > 0
             ? `Found ${projects.value.length} development projects across ${pathText}`
             : `No development projects found in ${pathText}`
 
         emit('showNotification', message, projects.value.length > 0 ? 'success' : 'info')
-        emit('update:statusText', message)
+        statusText.value = message
 
     } catch (error) {
         console.error('Scan error:', error)
@@ -607,7 +606,7 @@ const startScan = async () => {
 }
 
 const stopScan = async () => {
-    emit('update:statusText', 'Stopping scan...')
+    statusText.value = 'Stopping scan...'
     try {
         if (window.electronAPI.stopDeveloperScan) {
             await window.electronAPI.stopDeveloperScan()
@@ -644,13 +643,7 @@ const getTypeColor = (type) => {
     return colors[type] || 'grey'
 }
 
-const formatSize = (bytes) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+const formatSize = (bytes) => filesize(bytes, { binary: true })
 
 const removeBasePath = (path) => {
     basePaths.value = basePaths.value.filter(p => p !== path)
@@ -672,24 +665,6 @@ const loadBasePaths = () => {
         }
     } catch (error) {
         console.error('Error loading base paths:', error)
-    }
-}
-
-const saveSelectedProjects = () => {
-    localStorage.setItem(STORAGE_KEYS.SELECTED_PROJECTS, JSON.stringify(selectedProjects.value))
-}
-
-const loadSelectedProjects = () => {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEYS.SELECTED_PROJECTS)
-        if (stored) {
-            const selected = JSON.parse(stored)
-            if (Array.isArray(selected)) {
-                selectedProjects.value = selected
-            }
-        }
-    } catch (error) {
-        console.error('Error loading selected projects:', error)
     }
 }
 
@@ -753,6 +728,84 @@ const getTotalSelectedCacheSize = () => {
     }, 0)
 }
 
+
+
+// Delete functionality
+const confirmDelete = () => {
+    if (selectedCacheCount.value === 0) {
+        emit('showNotification', 'No caches selected for deletion', 'warning')
+        return
+    }
+    showDeleteDialog.value = true
+}
+
+const deleteCaches = async () => {
+    showDeleteDialog.value = false
+    isDeleting.value = true
+    statusText.value = 'Preparing to delete selected caches...'
+
+    try {
+        // Collect all selected cache paths from all projects
+        const selectedCachePaths = []
+        projects.value.forEach(project => {
+            project.caches.forEach(cache => {
+                if (cache.selected) {
+                    selectedCachePaths.push(cache.path)
+                }
+            })
+        })
+
+        if (selectedCachePaths.length === 0) {
+            emit('showNotification', 'No caches selected', 'warning')
+            return
+        }
+
+        statusText.value = `Deleting ${selectedCachePaths.length} cache folders...`
+
+        const results = await window.electronAPI.deleteFolders([...selectedCachePaths])
+
+        const successCount = results.filter(r => r.success).length
+        const failCount = results.length - successCount
+
+        let message = ''
+        if (failCount === 0) {
+            message = `Successfully deleted ${successCount} cache folders`
+        } else if (successCount === 0) {
+            message = `Failed to delete ${failCount} cache folders`
+        } else {
+            message = `Deleted ${successCount} cache folders, ${failCount} failed`
+        }
+
+        const parts = []
+        if (successCount > 0) parts.push(`${successCount} deleted`)
+        if (failCount > 0) parts.push(`${failCount} failed`)
+
+        emit('showNotification', message, failCount === 0 ? 'success' : 'warning')
+        statusText.value = `Deletion complete: ${parts.join(', ')}`
+
+        // Refresh the project list to update cache sizes
+        if (successCount > 0) {
+            // Re-scan to get updated cache information
+            startScan()
+        }
+
+    } catch (error) {
+        console.error('Delete error:', error)
+        emit('showNotification', 'Error during deletion: ' + error.message, 'error')
+        statusText.value = 'Deletion failed'
+    } finally {
+        isDeleting.value = false
+    }
+}
+
+// Expose for parent component
+defineExpose({
+    confirmDelete,
+    selectedCount: selectedCacheCount,
+    isScanning: isScanning,
+    isDeleting: isDeleting
+})
+
 // Set default base paths on mount and load saved states
 onMounted(async () => {
     // Load saved category states
@@ -766,9 +819,6 @@ onMounted(async () => {
 
     // Load saved base paths
     loadBasePaths()
-
-    // Load saved selected projects
-    loadSelectedProjects()
 
     // If no saved paths, set default
     if (basePaths.value.length === 0) {
@@ -798,10 +848,6 @@ watch(showCategories, (newValue) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_CATEGORIES, JSON.stringify(newValue))
 })
 
-// Watch for changes in selectedProjects and save to localStorage
-watch(selectedProjects, (newValue) => {
-    saveSelectedProjects()
-}, { deep: true })
 </script>
 
 <style scoped>
