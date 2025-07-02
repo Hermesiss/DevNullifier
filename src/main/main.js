@@ -601,3 +601,59 @@ ipcMain.handle("stop-developer-scan", () => {
   }
   return true;
 });
+
+// Get folder contents
+ipcMain.handle("get-folder-contents", async (event, folderPath) => {
+  try {
+    const entries = await fs.readdir(folderPath, { withFileTypes: true });
+    const contents = [];
+
+    // Limit to first 1000 entries to prevent UI freezing
+    const limitedEntries = entries.slice(0, 1000);
+
+    for (const entry of limitedEntries) {
+      const fullPath = path.resolve(path.join(folderPath, entry.name));
+      let size = 0;
+      let itemCount = undefined;
+
+      try {
+        if (entry.isDirectory()) {
+          // For directories, count immediate children (limited to prevent slowdown)
+          try {
+            const subEntries = await fs.readdir(fullPath);
+            itemCount = subEntries.length;
+          } catch {
+            itemCount = 0; // Can't access directory
+          }
+        } else {
+          // For files, get size
+          const stats = await fs.stat(fullPath);
+          size = stats.size;
+        }
+
+        contents.push({
+          name: entry.name,
+          path: fullPath,
+          isDirectory: entry.isDirectory(),
+          size: size,
+          itemCount: itemCount
+        });
+      } catch (error) {
+        // Skip files/folders that can't be accessed
+        console.warn(`Cannot access ${fullPath}:`, error.message);
+      }
+    }
+
+    // Sort: directories first, then by name
+    contents.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return contents;
+  } catch (error) {
+    throw new Error(`Cannot read folder ${folderPath}: ${error.message}`);
+  }
+});

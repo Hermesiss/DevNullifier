@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Get user home directory
   getUserHome: () => ipcRenderer.invoke("get-user-home"),
 
+  // Get folder contents
+  getFolderContents: folderPath =>
+    ipcRenderer.invoke("get-folder-contents", folderPath),
+
   // Listen for scan progress
   onScanProgress: callback => {
     ipcRenderer.on("scan-progress", (event, count) => callback(count));

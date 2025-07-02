@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "vue": "^3.4.0",
-    "vuetify": "^3.4.0",
+    "vuetify": "^3.5.9",
     "@mdi/font": "^7.4.0",
     "humanize-duration": "^3.29.0",
     "filesize": "^10.1.0"

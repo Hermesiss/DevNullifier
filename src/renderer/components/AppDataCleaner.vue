@@ -4,10 +4,46 @@
             :max-depth="maxDepth" @scan="startScan" @stop-scan="stopScan" @select-all="selectAll"
             @deselect-all="deselectAll" @update:maxDepth="val => maxDepth = val" />
 
-        <ResultsTable :folders="folders" v-model="selectedFolders" :is-scanning="isScanning" />
+        <!-- Results Table -->
+        <v-card>
+            <v-card-title>
+                <span>Found Folders</span>
+                <v-spacer />
+                <v-chip v-if="totalSize > 0" color="info" variant="outlined">
+                    {{ formatSize(selectedSize) }} / {{ formatSize(totalSize) }}
+                </v-chip>
+            </v-card-title>
+
+            <v-data-table v-model="selectedFolders" :headers="headers" :items="uniqueItems" :items-per-page="50"
+                item-value="path" show-select :loading="isScanning" loading-text="Scanning for folders..."
+                :sort-by="[{ key: 'size', order: 'desc' }]" class="elevation-1">
+                <template #item.size="{ item }">
+                    {{ formatSize(item.size) }}
+                </template>
+
+                <template #item.path="{ item }">
+                    <div class="d-flex align-center">
+                        <v-tooltip :text="item.path">
+                            <template #activator="{ props }">
+                                <span v-bind="props" class="text-truncate flex-grow-1" style="max-width: 400px;">
+                                    {{ item.path }}
+                                </span>
+                            </template>
+                        </v-tooltip>
+                        <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)"
+                            :disabled="isScanning || isDeleting" class="ml-2">
+                            <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                        </v-btn>
+                    </div>
+                </template>
+            </v-data-table>
+        </v-card>
 
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedFolders.length" :selected-size="selectedSize"
             @confirm="deleteFolders" />
+
+        <!-- Folder Tree Viewer -->
+        <FolderTreeViewer v-model="showFolderTree" :folder-path="selectedFolderPath" />
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
@@ -21,9 +57,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import ControlPanel from './ControlPanel.vue'
-import ResultsTable from './ResultsTable.vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
+import FolderTreeViewer from './FolderTreeViewer.vue'
+import { filesize } from 'filesize'
 
 // Reactive state
 const folders = ref([])
@@ -32,6 +69,8 @@ const maxDepth = ref(3)
 const isScanning = ref(false)
 const isDeleting = ref(false)
 const showDeleteDialog = ref(false)
+const showFolderTree = ref(false)
+const selectedFolderPath = ref('')
 const statusText = ref('Ready')
 const deleteProgress = ref(0)
 
@@ -46,6 +85,30 @@ const selectedSize = computed(() => {
     }, 0)
 })
 
+// Create unique items with IDs for the table
+const uniqueItems = computed(() => {
+    const seen = new Map();
+    return folders.value.map(folder => {
+        const existingFolder = seen.get(folder.path);
+        if (existingFolder) {
+            return existingFolder;
+        }
+        const uniqueFolder = {
+            ...folder,
+            id: `${folder.path}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        };
+        seen.set(folder.path, uniqueFolder);
+        return uniqueFolder;
+    });
+})
+
+const totalSize = computed(() => uniqueItems.value.reduce((sum, f) => sum + f.size, 0))
+
+const headers = [
+    { title: 'Path', key: 'path', sortable: true },
+    { title: 'Size', key: 'size', sortable: true, width: '150px' },
+]
+
 // Selection helpers
 const selectAll = () => {
     selectedFolders.value = folders.value.map((f) => f.path)
@@ -53,6 +116,14 @@ const selectAll = () => {
 
 const deselectAll = () => {
     selectedFolders.value = []
+}
+
+// Utility functions
+const formatSize = (bytes) => filesize(bytes, { binary: true })
+
+const openFolderTree = (folderPath) => {
+    selectedFolderPath.value = folderPath
+    showFolderTree.value = true
 }
 
 // Scan logic
@@ -222,3 +293,11 @@ defineExpose({
     isScanning
 })
 </script>
+
+<style scoped>
+.text-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>

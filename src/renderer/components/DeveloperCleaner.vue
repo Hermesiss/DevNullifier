@@ -4,6 +4,9 @@
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedCacheCount" :selected-size="selectedCacheSize"
             @confirm="deleteCaches" />
 
+        <!-- Folder Tree Viewer -->
+        <FolderTreeViewer v-model="showFolderTree" :folder-path="selectedFolderPath" />
+
         <!-- Categories Panel -->
         <v-row class="mb-4">
             <v-col cols="12">
@@ -187,8 +190,11 @@
                                         <div class="flex-grow-1">
                                             <strong>{{ cache.type }}:</strong> {{ formatSize(cache.size) }}
                                             <br>
-                                            <span class="text-grey">{{ cache.path }}</span>
                                         </div>
+                                        <v-btn icon variant="text" size="x-small" @click="openFolderTree(cache.path)"
+                                            :disabled="isScanning || isDeleting">
+                                            <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                                        </v-btn>
                                     </div>
                                     <v-divider v-if="item.caches.length > 1" class="mt-2 mb-1" />
                                     <div class="d-flex justify-space-between align-center mt-1">
@@ -278,6 +284,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
+import FolderTreeViewer from './FolderTreeViewer.vue'
 import { filesize } from 'filesize'
 
 // Reactive state
@@ -290,6 +297,8 @@ const showCategories = ref(false)
 const showInfoDialog = ref(false)
 const selectedCategory = ref(null)
 const showDeleteDialog = ref(false)
+const showFolderTree = ref(false)
+const selectedFolderPath = ref('')
 const statusText = ref('Ready')
 
 // Emit events to parent
@@ -515,6 +524,11 @@ const disableAll = () => {
 const showCategoryInfo = (category) => {
     selectedCategory.value = category
     showInfoDialog.value = true
+}
+
+const openFolderTree = (folderPath) => {
+    selectedFolderPath.value = folderPath
+    showFolderTree.value = true
 }
 
 const selectBasePath = async () => {
