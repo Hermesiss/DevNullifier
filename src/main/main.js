@@ -270,7 +270,7 @@ ipcMain.handle("get-folder-contents", async (event, folderPath) => {
     for (const entry of limitedEntries) {
       const fullPath = path.resolve(path.join(folderPath, entry.name));
       let size = 0;
-      let itemCount = undefined;
+      let itemCount = 0;
 
       try {
         if (entry.isDirectory()) {
@@ -279,7 +279,8 @@ ipcMain.handle("get-folder-contents", async (event, folderPath) => {
             const subEntries = await fs.readdir(fullPath);
             itemCount = subEntries.length;
           } catch {
-            itemCount = 0; // Can't access directory
+            // Skip directories that can't be accessed
+            console.warn(`Cannot access ${fullPath}:`, error.message);
           }
         } else {
           // For files, get size

@@ -29,6 +29,53 @@ async function getDirSize(dirPath) {
   return size;
 }
 
+// Process a single directory entry
+async function processDirectoryEntry(
+  entry,
+  dirPath,
+  maxDepth,
+  keywords,
+  currentDepth
+) {
+  const results = [];
+  const fullPath = path.join(dirPath, entry.name);
+  const folderName = entry.name.toLowerCase();
+
+  // Check if folder name contains any keywords
+  if (keywords.some(keyword => folderName.includes(keyword))) {
+    try {
+      const size = await getDirSize(fullPath);
+      if (size > 0) {
+        const folder = {
+          path: fullPath,
+          size: size,
+          name: entry.name
+        };
+        results.push(folder);
+        parentPort.postMessage({ type: "folder-found", folder });
+      }
+    } catch (err) {
+      console.warn(`Cannot access ${fullPath}:`, err.message);
+    }
+    return results;
+  }
+
+  // Recurse into subdirectories
+  try {
+    const subResults = await scanDirectory(
+      fullPath,
+      maxDepth,
+      keywords,
+      currentDepth + 1
+    );
+    results.push(...subResults);
+  } catch (err) {
+    console.warn(`Cannot access ${fullPath}:`, err.message);
+  }
+
+  return results;
+}
+
 // Scan directories for matching folders
 async function scanDirectory(dirPath, maxDepth, keywords, currentDepth = 0) {
   const results = [];
@@ -43,44 +90,17 @@ async function scanDirectory(dirPath, maxDepth, keywords, currentDepth = 0) {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
 
-      const fullPath = path.join(dirPath, entry.name);
-      const folderName = entry.name.toLowerCase();
-
-      // Check if folder name contains any keywords
-      if (keywords.some(keyword => folderName.includes(keyword))) {
-        try {
-          const size = await getDirSize(fullPath);
-          if (size > 0) {
-            const folder = {
-              path: fullPath,
-              size: size,
-              name: entry.name
-            };
-
-            results.push(folder);
-            parentPort.postMessage({ type: "folder-found", folder });
-          }
-        } catch (err) {
-          // Skip folders that can't be accessed
-        }
-        continue;
-      }
-
-      // Recurse into subdirectories
-      try {
-        const subResults = await scanDirectory(
-          fullPath,
-          maxDepth,
-          keywords,
-          currentDepth + 1
-        );
-        results.push(...subResults);
-      } catch (err) {
-        // Skip directories that can't be accessed
-      }
+      const entryResults = await processDirectoryEntry(
+        entry,
+        dirPath,
+        maxDepth,
+        keywords,
+        currentDepth
+      );
+      results.push(...entryResults);
     }
   } catch (err) {
-    // Skip directories that can't be accessed
+    console.warn(`Cannot access ${dirPath}:`, err.message);
   }
 
   return results;
@@ -100,7 +120,7 @@ parentPort.on("message", async ({ paths, maxDepth, keywords }) => {
       parentPort.postMessage({ type: "progress", count: totalCount });
     }
 
-    parentPort.postMessage({ type: "done" });
+    parentPort.postMessage({ type: "done", results: allResults });
   } catch (error) {
     parentPort.postMessage({ type: "error", error: error.message });
   }

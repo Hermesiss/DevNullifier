@@ -88,6 +88,112 @@ async function expandGlobPattern(projectPath, pattern) {
   return uniqueResults;
 }
 
+// Helper function to safely read directory entries
+async function readDirectoryEntries(dirPath) {
+  try {
+    return await fs.readdir(dirPath, { withFileTypes: true });
+  } catch (error) {
+    return [];
+  }
+}
+
+// Helper function to handle double asterisk (**) pattern
+async function handleDoubleAsteriskPattern(
+  currentPath,
+  patternParts,
+  partIndex,
+  results
+) {
+  const nextPartIndex = partIndex + 1;
+
+  if (nextPartIndex >= patternParts.length) {
+    results.push(currentPath);
+    return;
+  }
+
+  const nextPart = patternParts[nextPartIndex];
+
+  // Try matching without consuming any directories (zero match)
+  await searchGlobPattern(currentPath, patternParts, nextPartIndex, results);
+
+  // Try matching by going into subdirectories (one or more match)
+  await processDoubleAsteriskSubdirectories(
+    currentPath,
+    patternParts,
+    partIndex,
+    nextPartIndex,
+    nextPart,
+    results
+  );
+}
+
+// Helper function to process subdirectories for double asterisk pattern
+async function processDoubleAsteriskSubdirectories(
+  currentPath,
+  patternParts,
+  partIndex,
+  nextPartIndex,
+  nextPart,
+  results
+) {
+  const entries = await readDirectoryEntries(currentPath);
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const subPath = path.join(currentPath, entry.name);
+
+      if (entry.name === nextPart) {
+        // Direct match with next part, skip **
+        await searchGlobPattern(
+          subPath,
+          patternParts,
+          nextPartIndex + 1,
+          results
+        );
+      } else {
+        // Continue searching deeper with ** still active
+        await searchGlobPattern(subPath, patternParts, partIndex, results);
+      }
+    }
+  }
+}
+
+// Helper function to handle single asterisk (*) pattern
+async function handleSingleAsteriskPattern(
+  currentPath,
+  patternParts,
+  partIndex,
+  results
+) {
+  const entries = await readDirectoryEntries(currentPath);
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const subPath = path.join(currentPath, entry.name);
+      await searchGlobPattern(subPath, patternParts, partIndex + 1, results);
+    }
+  }
+}
+
+// Helper function to handle literal directory pattern
+async function handleLiteralPattern(
+  currentPath,
+  currentPart,
+  patternParts,
+  partIndex,
+  results
+) {
+  const nextPath = path.join(currentPath, currentPart);
+  try {
+    const stats = await fs.stat(nextPath);
+    if (stats.isDirectory()) {
+      await searchGlobPattern(nextPath, patternParts, partIndex + 1, results);
+    }
+  } catch (error) {
+    // Directory doesn't exist or can't be accessed, skip
+  }
+}
+
 // Recursive function to search for glob pattern matches
 async function searchGlobPattern(
   currentPath,
@@ -96,7 +202,6 @@ async function searchGlobPattern(
   results
 ) {
   if (partIndex >= patternParts.length) {
-    // We've matched all parts, add to results
     results.push(currentPath);
     return;
   }
@@ -104,177 +209,152 @@ async function searchGlobPattern(
   const currentPart = patternParts[partIndex];
 
   if (currentPart === "**") {
-    // Double asterisk - match zero or more directories
-    const nextPartIndex = partIndex + 1;
-
-    if (nextPartIndex >= patternParts.length) {
-      // ** is the last part, match current directory
-      results.push(currentPath);
-      return;
-    }
-
-    const nextPart = patternParts[nextPartIndex];
-
-    // Try matching without consuming any directories (zero match)
-    await searchGlobPattern(currentPath, patternParts, nextPartIndex, results);
-
-    // Try matching by going into subdirectories (one or more match)
-    try {
-      const entries = await fs.readdir(currentPath, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const subPath = path.join(currentPath, entry.name);
-
-          // Check if this directory matches the next part after **
-          if (entry.name === nextPart) {
-            // Direct match with next part, skip **
-            await searchGlobPattern(
-              subPath,
-              patternParts,
-              nextPartIndex + 1,
-              results
-            );
-          } else {
-            // Continue searching deeper with ** still active
-            await searchGlobPattern(subPath, patternParts, partIndex, results);
-          }
-        }
-      }
-    } catch (error) {
-      // Can't read directory, skip
-    }
+    await handleDoubleAsteriskPattern(
+      currentPath,
+      patternParts,
+      partIndex,
+      results
+    );
   } else if (currentPart === "*") {
-    // Single asterisk - match any single directory name
-    try {
-      const entries = await fs.readdir(currentPath, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const subPath = path.join(currentPath, entry.name);
-          await searchGlobPattern(
-            subPath,
-            patternParts,
-            partIndex + 1,
-            results
-          );
-        }
-      }
-    } catch (error) {
-      // Can't read directory, skip
-    }
+    await handleSingleAsteriskPattern(
+      currentPath,
+      patternParts,
+      partIndex,
+      results
+    );
   } else {
-    // Literal directory name
-    const nextPath = path.join(currentPath, currentPart);
-    try {
-      const stats = await fs.stat(nextPath);
-      if (stats.isDirectory()) {
-        await searchGlobPattern(nextPath, patternParts, partIndex + 1, results);
-      }
-    } catch (error) {
-      // Directory doesn't exist or can't be accessed, skip
-    }
+    await handleLiteralPattern(
+      currentPath,
+      currentPart,
+      patternParts,
+      partIndex,
+      results
+    );
   }
 }
 
-// Helper function to calculate cache sizes for a project
-async function calculateCacheSizes(projectPath, categories) {
-  const allMatches = new Map(); // Map by actual path to collect all pattern info
-  let totalSize = 0;
+// Helper function to process a single matching path
+async function processMatchingPath(
+  cachePath,
+  projectPath,
+  category,
+  pattern,
+  allMatches
+) {
+  let exists = false;
+  let isDirectory = false;
 
-  // First pass: collect all matches grouped by actual path
-  for (const category of categories) {
-    for (const pattern of category.cachePatterns) {
-      try {
-        // Expand glob pattern to get all matching paths
-        const matchingPaths = await expandGlobPattern(projectPath, pattern);
-
-        for (const cachePath of matchingPaths) {
-          // Check if cache directory/file exists
-          let exists = false;
-          let isDirectory = false;
-
-          try {
-            const stats = await fs.stat(cachePath);
-            exists = true;
-            isDirectory = stats.isDirectory();
-          } catch (error) {
-            // Path doesn't exist, skip
-            continue;
-          }
-
-          if (exists) {
-            let size = 0;
-            if (isDirectory) {
-              size = await getDirSize(cachePath);
-            } else {
-              const stats = await fs.stat(cachePath);
-              size = stats.size;
-            }
-
-            if (size > 0) {
-              const normalizedPath = cachePath.toLowerCase();
-              const relativePath = path.relative(projectPath, cachePath);
-
-              if (allMatches.has(normalizedPath)) {
-                // Path already found by another pattern, combine the pattern info
-                const existing = allMatches.get(normalizedPath);
-
-                // Add category and pattern if not already included
-                if (!existing.categories.includes(category.name)) {
-                  existing.categories.push(category.name);
-                }
-                if (!existing.patterns.includes(pattern)) {
-                  existing.patterns.push(pattern);
-                }
-              } else {
-                // New path, add it
-                allMatches.set(normalizedPath, {
-                  path: cachePath,
-                  relativePath: relativePath,
-                  size: size,
-                  selected: false,
-                  categories: [category.name],
-                  patterns: [pattern]
-                });
-                totalSize += size;
-              }
-            }
-          }
-        }
-      } catch (error) {
-        // Skip cache patterns that can't be processed
-        console.error(
-          `Error processing cache pattern '${pattern}' in ${projectPath}:`,
-          error
-        );
-      }
-    }
+  try {
+    const stats = await fs.stat(cachePath);
+    exists = true;
+    isDirectory = stats.isDirectory();
+  } catch (error) {
+    return 0; // Path doesn't exist, return 0 size
   }
 
-  // Second pass: group by primary pattern for display
+  if (!exists) return 0;
+
+  let size = 0;
+  if (isDirectory) {
+    size = await getDirSize(cachePath);
+  } else {
+    const stats = await fs.stat(cachePath);
+    size = stats.size;
+  }
+
+  if (size > 0) {
+    addMatchToCollection(
+      cachePath,
+      projectPath,
+      size,
+      category,
+      pattern,
+      allMatches
+    );
+  }
+
+  return size;
+}
+
+// Helper function to add a match to the collection
+function addMatchToCollection(
+  cachePath,
+  projectPath,
+  size,
+  category,
+  pattern,
+  allMatches
+) {
+  const normalizedPath = cachePath.toLowerCase();
+  const relativePath = path.relative(projectPath, cachePath);
+
+  if (allMatches.has(normalizedPath)) {
+    // Path already found by another pattern, combine the pattern info
+    const existing = allMatches.get(normalizedPath);
+
+    if (!existing.categories.includes(category.name)) {
+      existing.categories.push(category.name);
+    }
+    if (!existing.patterns.includes(pattern)) {
+      existing.patterns.push(pattern);
+    }
+  } else {
+    // New path, add it
+    allMatches.set(normalizedPath, {
+      path: cachePath,
+      relativePath: relativePath,
+      size: size,
+      selected: false,
+      categories: [category.name],
+      patterns: [pattern]
+    });
+  }
+}
+
+// Helper function to process a single cache pattern
+async function processCachePattern(projectPath, category, pattern, allMatches) {
+  let patternSize = 0;
+
+  try {
+    const matchingPaths = await expandGlobPattern(projectPath, pattern);
+
+    for (const cachePath of matchingPaths) {
+      const size = await processMatchingPath(
+        cachePath,
+        projectPath,
+        category,
+        pattern,
+        allMatches
+      );
+      patternSize += size;
+    }
+  } catch (error) {
+    console.error(
+      `Error processing cache pattern '${pattern}' in ${projectPath}:`,
+      error
+    );
+  }
+
+  return patternSize;
+}
+
+// Helper function to create pattern groups from matches
+function createPatternGroups(allMatches) {
   const patternGroups = new Map();
 
   for (const match of allMatches.values()) {
-    // Use the first pattern as the primary grouping key
     const primaryPattern = match.patterns[0];
     const primaryCategory = match.categories[0];
     const patternKey = `${primaryCategory}:${primaryPattern}`;
 
-    // Create display name showing all patterns if multiple
-    const displayPattern = primaryPattern;
-
-    // Create display category showing all categories if multiple
-    const displayCategory = primaryCategory;
-
     if (patternGroups.has(patternKey)) {
-      // Add to existing group
       const existing = patternGroups.get(patternKey);
       existing.matches.push(match);
       existing.totalSize += match.size;
     } else {
-      // Create new pattern group
       patternGroups.set(patternKey, {
-        pattern: displayPattern,
-        category: displayCategory,
+        pattern: primaryPattern,
+        category: primaryCategory,
         matches: [match],
         totalSize: match.size,
         selectedSize: 0,
@@ -283,8 +363,29 @@ async function calculateCacheSizes(projectPath, categories) {
     }
   }
 
-  // Convert map to array
-  const caches = Array.from(patternGroups.values());
+  return Array.from(patternGroups.values());
+}
+
+// Helper function to calculate cache sizes for a project
+async function calculateCacheSizes(projectPath, categories) {
+  const allMatches = new Map();
+  let totalSize = 0;
+
+  // First pass: collect all matches grouped by actual path
+  for (const category of categories) {
+    for (const pattern of category.cachePatterns) {
+      const patternSize = await processCachePattern(
+        projectPath,
+        category,
+        pattern,
+        allMatches
+      );
+      totalSize += patternSize;
+    }
+  }
+
+  // Second pass: group by primary pattern for display
+  const caches = createPatternGroups(allMatches);
 
   return { caches, totalSize };
 }

@@ -159,16 +159,13 @@ const startScan = async () => {
         window.electronAPI.onScanFolderFound((folder) => {
             if (!seenPaths.has(folder.path)) {
                 seenPaths.add(folder.path)
-                // Check if folder already exists in the array
                 const existingIndex = folders.value.findIndex(f => f.path === folder.path)
                 if (existingIndex === -1) {
                     folders.value.push(folder)
-                } else {
-                    // Update existing folder if size changed
-                    if (folders.value[existingIndex].size !== folder.size) {
-                        folders.value[existingIndex] = folder
-                    }
+                } else if (folders.value[existingIndex].size !== folder.size) {
+                    folders.value[existingIndex] = folder
                 }
+
             }
         })
         await window.electronAPI.scanFolders(paths, maxDepth.value)
@@ -221,7 +218,6 @@ const deleteFolders = async () => {
 
         if (failCount === 0 && partialCount === 0) {
             message = `Successfully deleted ${successCount} folders`
-            color = 'success'
         } else if (successCount === 0 && partialCount === 0) {
             message = `Failed to delete ${failCount} folders`
             color = 'error'
