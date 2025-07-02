@@ -58,7 +58,7 @@
     "win": {
       "target": "nsis",
       "requestedExecutionLevel": "requireAdministrator",
-      "icon": "src/assets/icon.png"
+      "icon": "src/assets/icon-256.png"
     }
   }
 }

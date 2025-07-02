@@ -564,9 +564,6 @@ const selectedCacheCount = computed(() => {
 
 const selectedCacheSize = computed(() => {
     return projects.value.reduce((total, project) => {
-        if (project.selectedCacheSize) {
-            console.log(`${project.path} has selectedCacheSize: ${project.selectedCacheSize}`)
-        }
         return total + (project.selectedCacheSize || 0)
     }, 0)
 })

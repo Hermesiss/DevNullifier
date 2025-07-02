@@ -3,7 +3,7 @@
     <v-app-bar color="primary" dark>
       <v-app-bar-title>
         <v-icon left>mdi-broom</v-icon>
-        System Cleaner
+        DevNullifier
       </v-app-bar-title>
     </v-app-bar>
 
