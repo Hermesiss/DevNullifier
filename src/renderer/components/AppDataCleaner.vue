@@ -23,17 +23,14 @@
 
                 <template #item.path="{ item }">
                     <div class="d-flex align-center">
-                        <v-tooltip :text="item.path">
-                            <template #activator="{ props }">
-                                <span v-bind="props" class="text-truncate flex-grow-1" style="max-width: 400px;">
-                                    {{ item.path }}
-                                </span>
-                            </template>
-                        </v-tooltip>
                         <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)"
                             :disabled="isScanning || isDeleting" class="ml-2">
                             <v-icon size="small" color="primary">mdi-folder-open</v-icon>
                         </v-btn>
+                        <span class="flex-grow-1">
+                            {{ item.path }}
+                        </span>
+
                     </div>
                 </template>
             </v-data-table>

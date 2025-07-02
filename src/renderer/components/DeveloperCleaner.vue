@@ -158,6 +158,18 @@
                     <v-card-text>
                         <v-data-table :headers="headers" :items="projects" :items-per-page="50" :loading="isScanning"
                             item-value="path" class="elevation-1">
+                            <template v-slot:item.path="{ item }">
+                                <div class="d-flex align-center">
+                                    <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)"
+                                        :disabled="isScanning || isDeleting" class="ml-2">
+                                        <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                                    </v-btn>
+                                    <div class="flex-grow-1 text-truncate mr-2">
+                                        {{ item.path }}
+                                    </div>
+
+                                </div>
+                            </template>
                             <template v-slot:item.type="{ item }">
                                 <div class="d-flex flex-wrap ga-1">
                                     <v-chip v-for="type in item.type.split(', ')" :key="type" size="small"
@@ -187,14 +199,15 @@
                                         class="mb-1 d-flex align-center">
                                         <v-checkbox v-model="cache.selected" color="primary" hide-details
                                             density="compact" class="mr-2" @change="updateCacheSelection(item)" />
-                                        <div class="flex-grow-1">
-                                            <strong>{{ cache.type }}:</strong> {{ formatSize(cache.size) }}
-                                            <br>
-                                        </div>
                                         <v-btn icon variant="text" size="x-small" @click="openFolderTree(cache.path)"
                                             :disabled="isScanning || isDeleting">
                                             <v-icon size="small" color="primary">mdi-folder-open</v-icon>
                                         </v-btn>
+                                        <div class="flex-grow-1">
+                                            <strong>{{ cache.type }}:</strong> {{ formatSize(cache.size) }}
+                                            <br>
+                                        </div>
+
                                     </div>
                                     <v-divider v-if="item.caches.length > 1" class="mt-2 mb-1" />
                                     <div class="d-flex justify-space-between align-center mt-1">
@@ -206,8 +219,7 @@
                                             :disabled="noCachesSelected(item)">
                                             Deselect All
                                         </v-btn>
-                                        <v-chip size="x-small" color="primary"
-                                            v-if="item.caches.filter(c => c.selected).length > 0">
+                                        <v-chip size="x-small" color="primary">
                                             {{item.caches.filter(c => c.selected).length}}/{{ item.caches.length }}
                                             selected
                                         </v-chip>
