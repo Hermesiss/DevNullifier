@@ -54,6 +54,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("scan-folder-found", (event, folder) => callback(folder));
   },
 
+  // Listen for developer-project-found (real-time project updates)
+  onDeveloperProjectFound: callback => {
+    ipcRenderer.on("developer-project-found", (event, project) =>
+      callback(project)
+    );
+  },
+
   // Remove listeners
   removeAllListeners: channel => {
     ipcRenderer.removeAllListeners(channel);

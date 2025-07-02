@@ -548,6 +548,11 @@ const startScan = async () => {
         projects.value = []
         // Don't clear selected projects here - we'll preserve valid selections
 
+        // Clean up any existing listeners
+        if (window.electronAPI.removeAllListeners) {
+            window.electronAPI.removeAllListeners('developer-project-found')
+        }
+
         const pathCount = basePaths.value.length
         const pathText = pathCount === 1 ? '1 path' : `${pathCount} paths`
         statusText.value = `Scanning ${pathText} for development projects...`
@@ -565,26 +570,37 @@ const startScan = async () => {
                 warningText: cat.warningText
             }))
 
+        // Listen for real-time project updates
+        const handleProjectFound = (project) => {
+            const processedProject = processProject(project)
+
+            // Check if project already exists (avoid duplicates)
+            const existingIndex = projects.value.findIndex(p => p.path === project.path)
+            if (existingIndex === -1) {
+                projects.value.push(processedProject)
+                // Keep sorted by total cache size
+                projects.value.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
+            }
+        }
+
+        // Set up real-time listener
+        if (window.electronAPI.onDeveloperProjectFound) {
+            window.electronAPI.onDeveloperProjectFound(handleProjectFound)
+        }
+
         const result = await window.electronAPI.scanDeveloperCaches(plainBasePaths, enabledCategories)
 
-        // Initialize cache selection state and calculate totals
-        const processedProjects = result.map(project => {
-            const processedCaches = project.caches
-                .map(cache => ({
-                    ...cache,
-                    selected: false // Default to unselected
-                }))
-                .sort((a, b) => b.size - a.size) // Sort caches by size (largest first)
-
-            return {
-                ...project,
-                caches: processedCaches,
-                totalCacheSize: processedCaches.reduce((sum, cache) => sum + cache.size, 0),
-                selectedCacheSize: processedCaches.reduce((sum, cache) => cache.selected ? sum + cache.size : 0, 0)
+        // Process any remaining projects not caught by real-time updates
+        result.forEach(project => {
+            const existingIndex = projects.value.findIndex(p => p.path === project.path)
+            if (existingIndex === -1) {
+                const processedProject = processProject(project)
+                projects.value.push(processedProject)
             }
         })
 
-        projects.value = processedProjects.sort((a, b) => b.selectedCacheSize - a.selectedCacheSize)
+        // Final sort
+        projects.value.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
 
         // Preserve existing selections that are still valid
         const validPaths = new Set(projects.value.map(p => p.path))
@@ -672,6 +688,23 @@ const clearAllPaths = () => {
     basePaths.value = []
     saveBasePaths()
     emit('showNotification', 'All base paths cleared', 'info')
+}
+
+// Helper function to process projects
+const processProject = (project) => {
+    const processedCaches = project.caches
+        .map(cache => ({
+            ...cache,
+            selected: false // Default to unselected
+        }))
+        .sort((a, b) => b.size - a.size) // Sort caches by size (largest first)
+
+    return {
+        ...project,
+        caches: processedCaches,
+        totalCacheSize: processedCaches.reduce((sum, cache) => sum + cache.size, 0),
+        selectedCacheSize: processedCaches.reduce((sum, cache) => cache.selected ? sum + cache.size : 0, 0)
+    }
 }
 
 // Cache selection methods
@@ -846,6 +879,13 @@ onMounted(async () => {
 // Watch for changes in showCategories and save to localStorage
 watch(showCategories, (newValue) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_CATEGORIES, JSON.stringify(newValue))
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+    if (window.electronAPI.removeAllListeners) {
+        window.electronAPI.removeAllListeners('developer-project-found')
+    }
 })
 
 </script>
