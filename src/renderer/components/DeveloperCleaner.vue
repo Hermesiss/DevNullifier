@@ -169,7 +169,7 @@
                                     <div class="text-grey">{{ getRelativeTime(item.lastModified) }}</div>
                                 </div>
                             </template>
-                            <template v-slot:item.size="{ item }">
+                            <template v-slot:item.totalCacheSize="{ item }">
                                 <div>
                                     <div class="font-weight-medium">{{ formatSize(item.selectedCacheSize || 0) }}</div>
                                     <div class="text-caption text-grey"
@@ -473,7 +473,7 @@ const headers = [
     { title: 'Project Path', key: 'path', sortable: true },
     { title: 'Type', key: 'type', sortable: true },
     { title: 'Last Updated', key: 'lastModified', sortable: true },
-    { title: 'Selected Size', key: 'size', sortable: true },
+    { title: 'Selected Size', key: 'totalCacheSize', sortable: true },
     { title: 'Cache Details', key: 'cacheInfo', sortable: false },
 ]
 
