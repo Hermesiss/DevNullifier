@@ -11,7 +11,7 @@
                 </v-btn>
             </v-card-title>
 
-            <v-card-text class="pa-0" style="height: 500px;">
+            <v-card-text class="pa-0" style="height: 500px; overflow-y: auto;">
                 <v-progress-linear v-if="loading" indeterminate color="primary" />
 
                 <div v-if="error" class="pa-4">
@@ -21,24 +21,46 @@
                     </v-alert>
                 </div>
 
-                <v-treeview v-if="!loading && !error && treeData.length > 0" :items="treeData" item-key="id"
-                    item-title="title" item-children="children" density="compact" class="pa-2" open-strategy="multiple">
-                    <template v-slot:prepend="{ item }">
-                        <v-icon :color="getIconColor(item)" size="small">
-                            {{ getItemIcon(item) }}
-                        </v-icon>
-                    </template>
+                <div v-if="!loading && !error && treeData.length > 0" class="tree-container">
+                    <div v-for="treeItem in flattenTreeData(treeData)" :key="treeItem.item.id"
+                        class="tree-item d-flex align-center pa-1" :style="{
+                            marginLeft: treeItem.depth * 12 + 'px',
+                            borderLeft: treeItem.depth > 0 ? '2px solid rgba(0,0,0,0.12)' : 'none',
+                            backgroundColor: treeItem.depth > 0 ? 'rgba(0,0,0,' + (treeItem.depth * 0.015) + ')' : 'transparent'
+                        }" @click="toggleItem(treeItem.item)">
 
-                    <template v-slot:append="{ item }">
-                        <v-chip v-if="!item.isDirectory" size="x-small" variant="outlined" color="grey">
-                            {{ formatSize(item.size) }}
+
+                        <!-- Expand/Collapse Button -->
+                        <v-btn v-if="treeItem.item.isDirectory" icon variant="text" size="x-small"
+                            class="me-1 flex-shrink-0" @click.stop="toggleItem(treeItem.item)">
+                            <v-icon size="small">
+                                {{ treeItem.isExpanded ? 'mdi-menu-down' : 'mdi-menu-right' }}
+                            </v-icon>
+                        </v-btn>
+
+                        <!-- Spacer for files -->
+                        <div v-else class="me-1" style="width: 24px;"></div>
+
+                        <!-- File/Folder Icon -->
+                        <v-icon :color="getIconColor(treeItem.item)" size="small" class="me-2 flex-shrink-0">
+                            {{ getItemIcon(treeItem.item) }}
+                        </v-icon>
+
+                        <!-- Name -->
+                        <span class="text-body-2 flex-grow-1 text-truncate">{{ treeItem.item.name }}</span>
+
+                        <!-- Size/Count Info -->
+                        <v-chip v-if="!treeItem.item.isDirectory && treeItem.item.size" size="x-small"
+                            variant="outlined" color="grey" class="ms-2 flex-shrink-0">
+                            {{ formatSize(treeItem.item.size) }}
                         </v-chip>
-                        <v-chip v-else-if="item.itemCount !== undefined" size="x-small" variant="outlined"
-                            color="amber">
-                            {{ item.itemCount }} items
+
+                        <v-chip v-else-if="treeItem.item.isDirectory && treeItem.item.itemCount" size="x-small"
+                            variant="outlined" color="amber" class="ms-2 flex-shrink-0">
+                            {{ treeItem.item.itemCount }} items
                         </v-chip>
-                    </template>
-                </v-treeview>
+                    </div>
+                </div>
 
                 <div v-if="!loading && !error && treeData.length === 0" class="pa-4 text-center">
                     <v-icon size="64" color="grey">mdi-folder-open</v-icon>
@@ -73,6 +95,8 @@ const isOpen = ref(false)
 const loading = ref(false)
 const error = ref(null)
 const treeData = ref([])
+const expandedItems = ref(new Set())
+const loadedItems = ref(new Set())
 
 // Watch for prop changes
 watch(() => props.modelValue, (newVal) => {
@@ -91,6 +115,8 @@ const close = () => {
     isOpen.value = false
     treeData.value = []
     error.value = null
+    expandedItems.value.clear()
+    loadedItems.value.clear()
 }
 
 const formatSize = (bytes) => {
@@ -177,15 +203,39 @@ const getItemIcon = (item) => {
     if (item.isDirectory) {
         return 'mdi-folder'
     }
-    return getFileIcon(item.name || item.title)
+    return getFileIcon(item.name)
 }
 
 const getIconColor = (item) => {
-    // Special color for "more items" indicator
-    if (item.name && item.name.startsWith('... and ') && item.name.includes('more items')) {
-        return 'grey'
-    }
     return item.isDirectory ? 'amber' : 'blue-grey'
+}
+
+// Inline TreeItem component rendering
+const renderTreeItem = (item, depth = 0) => {
+    const isExpanded = expandedItems.value.has(item.id)
+    const hasChildren = item.isDirectory && item.children && item.children.length > 0
+
+    return {
+        item,
+        depth,
+        isExpanded,
+        hasChildren,
+        depthIndicator: depth
+    }
+}
+
+const flattenTreeData = (items, depth = 0) => {
+    const result = []
+
+    for (const item of items) {
+        result.push(renderTreeItem(item, depth))
+
+        if (expandedItems.value.has(item.id) && item.children && item.children.length > 0) {
+            result.push(...flattenTreeData(item.children, depth + 1))
+        }
+    }
+
+    return result
 }
 
 const loadFolderContents = async () => {
@@ -195,8 +245,13 @@ const loadFolderContents = async () => {
     error.value = null
 
     try {
-        const treeStructure = await loadFolderTreeRecursive(props.folderPath, 0, 2) // Max 2 levels deep
-        treeData.value = treeStructure
+        const contents = await window.electronAPI.getFolderContents(props.folderPath)
+        treeData.value = contents.map(item => ({
+            ...item,
+            id: item.path,
+            name: item.name,
+            children: []
+        }))
     } catch (err) {
         error.value = `Failed to load folder contents: ${err.message}`
         console.error('Error loading folder contents:', err)
@@ -205,61 +260,40 @@ const loadFolderContents = async () => {
     }
 }
 
-// Recursively load folder tree up to a maximum depth
-const loadFolderTreeRecursive = async (folderPath, currentDepth = 0, maxDepth = 2) => {
+// Toggle item expansion
+const toggleItem = (item) => {
+    if (!item.isDirectory) return
+
+    if (expandedItems.value.has(item.id)) {
+        expandedItems.value.delete(item.id)
+    } else {
+        expandedItems.value.add(item.id)
+        // Load children if not loaded yet
+        if (!loadedItems.value.has(item.id)) {
+            loadItemChildren(item)
+        }
+    }
+}
+
+// Load children for an item
+const loadItemChildren = async (item) => {
+    if (!item.isDirectory || loadedItems.value.has(item.id)) return
+
     try {
-        const contents = await window.electronAPI.getFolderContents(folderPath)
-        const items = []
+        const contents = await window.electronAPI.getFolderContents(item.path)
 
-        // Limit number of items per directory to prevent UI freezing
-        const limitedContents = contents.slice(0, 100)
+        item.children = contents.map(childItem => ({
+            ...childItem,
+            id: childItem.path,
+            name: childItem.name,
+            children: []
+        }))
 
-        for (const item of limitedContents) {
-            const treeItem = {
-                ...item,
-                id: item.path,
-                title: item.name,
-                children: undefined
-            }
+        loadedItems.value.add(item.id)
 
-            // If it's a directory and we haven't reached max depth, load its children
-            if (item.isDirectory && currentDepth < maxDepth) {
-                try {
-                    // Only load children for first few directories to prevent explosion
-                    if (items.filter(i => i.isDirectory).length < 10) {
-                        treeItem.children = await loadFolderTreeRecursive(item.path, currentDepth + 1, maxDepth)
-                    } else {
-                        treeItem.children = [] // Mark as expandable but don't load
-                    }
-                } catch (childError) {
-                    console.warn(`Could not load children for ${item.path}:`, childError.message)
-                    treeItem.children = []
-                }
-            } else if (item.isDirectory) {
-                // Directory at max depth - mark as expandable but don't load children
-                treeItem.children = []
-            }
-
-            items.push(treeItem)
-        }
-
-        // If we had to limit contents, add a note
-        if (contents.length > limitedContents.length) {
-            items.push({
-                id: `${folderPath}_more`,
-                name: `... and ${contents.length - limitedContents.length} more items`,
-                title: `... and ${contents.length - limitedContents.length} more items`,
-                isDirectory: false,
-                size: 0,
-                itemCount: undefined,
-                children: undefined
-            })
-        }
-
-        return items
     } catch (error) {
-        console.error(`Error loading folder tree for ${folderPath}:`, error)
-        return []
+        console.error(`Failed to load children for ${item.name}:`, error.message)
+        item.children = []
     }
 }
 
@@ -267,7 +301,63 @@ const loadFolderTreeRecursive = async (folderPath, currentDepth = 0, maxDepth = 
 </script>
 
 <style scoped>
-.v-treeview {
+.tree-container {
     font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+}
+
+.tree-item {
+    cursor: pointer;
+    min-height: 36px;
+    border-radius: 0;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.tree-item:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+.tree-item:before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: transparent;
+    transition: background-color 0.2s;
+}
+
+.tree-item:hover:before {
+    background-color: rgba(25, 118, 210, 0.3);
+}
+
+.tree-item.selected {
+    background-color: rgba(25, 118, 210, 0.12);
+}
+
+.flex-shrink-0 {
+    flex-shrink: 0;
+}
+
+.flex-grow-1 {
+    flex-grow: 1;
+}
+
+.text-truncate {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.depth-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: rgba(0, 0, 0, 0.08);
+    pointer-events: none;
+    z-index: 1;
 }
 </style>
