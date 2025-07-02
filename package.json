@@ -57,7 +57,8 @@
     ],
     "win": {
       "target": "nsis",
-      "requestedExecutionLevel": "requireAdministrator"
+      "requestedExecutionLevel": "requireAdministrator",
+      "icon": "src/assets/icon.png"
     }
   }
 }

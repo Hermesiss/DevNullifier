@@ -416,7 +416,7 @@ const categories = ref([
     },
     {
         id: 'nodejs',
-        name: 'Node.js / JavaScript / TypeScript',
+        name: 'Node.js / JS / TS',
         enabled: true,
         detectionFiles: ['package.json', 'yarn.lock', 'vite.config.js', 'next.config.js', 'tsconfig.json'],
         cachePatterns: ['node_modules/', 'dist/', 'build/', '.next/', '.nuxt/', '.angular/', '.vite/', '.turbo/', '.expo/', '.parcel-cache/', '.eslintcache', '.cache/'],
@@ -503,7 +503,7 @@ const categories = ref([
     },
     {
         id: 'ml',
-        name: 'Machine Learning / Data Science',
+        name: 'ML / Data Science',
         enabled: true,
         detectionFiles: ['.ipynb', 'notebooks/', 'train.py', 'requirements.txt', 'wandb/'],
         cachePatterns: ['checkpoints/', 'runs/', 'logs/', '.ipynb_checkpoints/', '.cache/', 'wandb/', 'mlruns/'],
@@ -754,7 +754,7 @@ const stopScan = async () => {
 const getTypeColor = (type) => {
     const colors = {
         'Python': 'green',
-        'Node.js / JavaScript / TypeScript': 'orange',
+        'Node.js / JS / TS': 'orange',
         'Rust': 'orange',
         'Java / Kotlin / Android': 'red',
         '.NET / C#': 'purple',
@@ -764,7 +764,7 @@ const getTypeColor = (type) => {
         'Unreal Engine': 'pink',
         'PHP / Laravel': 'purple',
         'Symfony': 'deep-purple',
-        'Machine Learning / Data Science': 'teal',
+        'ML / Data Science': 'teal',
         'Docker / DevOps': 'blue-grey',
         'Static Site Generators': 'light-green',
         'Testing Tools': 'amber',
