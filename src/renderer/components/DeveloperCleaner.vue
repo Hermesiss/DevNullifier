@@ -163,6 +163,12 @@
                                     </v-chip>
                                 </div>
                             </template>
+                            <template v-slot:item.lastModified="{ item }">
+                                <div class="text-caption">
+                                    <div>{{ formatDate(item.lastModified) }}</div>
+                                    <div class="text-grey">{{ getRelativeTime(item.lastModified) }}</div>
+                                </div>
+                            </template>
                             <template v-slot:item.size="{ item }">
                                 <div>
                                     <div class="font-weight-medium">{{ formatSize(item.selectedCacheSize || 0) }}</div>
@@ -466,6 +472,7 @@ const selectedCacheSize = computed(() => {
 const headers = [
     { title: 'Project Path', key: 'path', sortable: true },
     { title: 'Type', key: 'type', sortable: true },
+    { title: 'Last Updated', key: 'lastModified', sortable: true },
     { title: 'Selected Size', key: 'size', sortable: true },
     { title: 'Cache Details', key: 'cacheInfo', sortable: false },
 ]
@@ -660,6 +667,27 @@ const getTypeColor = (type) => {
 }
 
 const formatSize = (bytes) => filesize(bytes, { binary: true })
+
+const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown'
+    const date = new Date(dateString)
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+const getRelativeTime = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now - date
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return '1 day ago'
+    if (diffDays < 7) return `${diffDays} days ago`
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
+    return `${Math.floor(diffDays / 365)} years ago`
+}
 
 const removeBasePath = (path) => {
     basePaths.value = basePaths.value.filter(p => p !== path)

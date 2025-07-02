@@ -401,11 +401,21 @@ async function scanDeveloperProjectsRecursive(
       );
 
       if (totalSize > 0) {
+        // Get directory's last modified time
+        let lastModified;
+        try {
+          const stats = await fs.stat(dirPath);
+          lastModified = stats.mtime.toISOString();
+        } catch (error) {
+          lastModified = null;
+        }
+
         const project = {
           path: dirPath,
           type: foundCategories.map(cat => cat.name).join(", "),
           caches: caches,
-          totalCacheSize: totalSize
+          totalCacheSize: totalSize,
+          lastModified: lastModified
         };
 
         projects.push(project);
