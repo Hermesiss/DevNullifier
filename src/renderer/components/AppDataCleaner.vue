@@ -142,14 +142,14 @@ const stopScan = async () => {
 const startScan = async () => {
     try {
         isScanning.value = true
-        statusText.value = 'Getting AppData paths...'
+        statusText.value = 'Getting application data paths...'
         folders.value = []
         selectedFolders.value = []
         const seenPaths = new Set()
 
         const paths = await window.electronAPI.getAppDataPaths()
         if (paths.length === 0) {
-            emit('showNotification', 'No AppData paths found!', 'warning')
+            emit('showNotification', 'No application data paths found!', 'warning')
             isScanning.value = false
             return
         }
@@ -201,7 +201,7 @@ const rescanAffectedDirectories = async (deletedPaths) => {
         const allAppDataPaths = await window.electronAPI.getAppDataPaths()
 
         deletedPaths.forEach(deletedPath => {
-            // Find which AppData path contains this deleted folder
+            // Find which application data path contains this deleted folder
             const containingPath = allAppDataPaths.find(appDataPath =>
                 deletedPath.startsWith(appDataPath)
             )

@@ -1,6 +1,7 @@
 const fs = require("fs").promises;
 const fsSync = require("fs");
 const path = require("path");
+const os = require("os");
 
 // Keywords to search for in folder names
 const KEYWORDS = [
@@ -13,7 +14,7 @@ const KEYWORDS = [
   "pending"
 ];
 
-// Get AppData paths
+// Get AppData paths (Windows) or equivalent user directories (Linux)
 function getAppDataPaths() {
   const paths = [];
 
@@ -29,6 +30,24 @@ function getAppDataPaths() {
       paths.push(localAppData);
     if (localLowAppData && fsSync.existsSync(localLowAppData))
       paths.push(localLowAppData);
+  } else if (process.platform === "linux") {
+    const homeDir = os.homedir();
+
+    // Common Linux user directories where apps store data
+    const linuxPaths = [
+      path.join(homeDir, ".config"), // User configuration files
+      path.join(homeDir, ".cache"), // User cache files
+      path.join(homeDir, ".local/share"), // User data files
+      path.join(homeDir, ".local/state"), // User state files
+      "/tmp" // System temporary files
+    ];
+
+    // Add paths that exist
+    linuxPaths.forEach(dirPath => {
+      if (fsSync.existsSync(dirPath)) {
+        paths.push(dirPath);
+      }
+    });
   }
 
   return paths;

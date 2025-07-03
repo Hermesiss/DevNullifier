@@ -2,15 +2,101 @@ name: Build and Release
 
 on:
   push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
-    types: [closed]
+    branches: ["main", "develop"]
 
 jobs:
-  build-and-release:
+  build-windows:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.package-version.outputs.version }}
+      prerelease: ${{ steps.package-version.outputs.prerelease }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build:win
+
+      - name: Create ZIP archive from unpacked
+        run: |
+          Compress-Archive -Path "dist/win-unpacked/*" -DestinationPath "dist/DevNullifier-win-unpacked.zip"
+        shell: powershell
+
+      - name: Get version from package.json
+        id: package-version
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $shortHash = git rev-parse --short HEAD
+          $branch = "${{ github.ref_name }}"
+
+          if ($branch -eq "develop") {
+            $finalVersion = "v$version-dev-$shortHash"
+            echo "version=$finalVersion" >> $env:GITHUB_OUTPUT
+            echo "prerelease=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "version=v$version" >> $env:GITHUB_OUTPUT
+            echo "prerelease=false" >> $env:GITHUB_OUTPUT
+          }
+        shell: powershell
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.package-version.outputs.version }}
+          release_name: ${{ github.ref_name == 'develop' && 'DevNullifier [Pre-release]' || 'DevNullifier' }} ${{ steps.package-version.outputs.version }}
+          draft: false
+          prerelease: ${{ steps.package-version.outputs.prerelease == 'true' }}
+
+      - name: Find installer file
+        id: find-installer
+        run: |
+          $installer = Get-ChildItem -Path "dist" -Filter "DevNullifier Setup*.exe" | Select-Object -First 1
+          echo "installer_path=dist/$($installer.Name)" >> $env:GITHUB_OUTPUT
+        shell: powershell
+
+      - name: Upload Windows Installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.find-installer.outputs.installer_path }}
+          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-Setup-dev.exe' || 'DevNullifier-Setup.exe' }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows ZIP Archive
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/DevNullifier-win-unpacked.zip
+          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-win-unpacked-dev.zip' || 'DevNullifier-win-unpacked.zip' }}
+          asset_content_type: application/zip
+
+  build-linux:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    needs: build-windows
 
     permissions:
       contents: write
@@ -29,54 +115,49 @@ jobs:
         run: npm ci
 
       - name: Build application
-        run: npm run build
+        run: npm run build:linux
 
       - name: Create ZIP archive from unpacked
         run: |
-          Compress-Archive -Path "dist/win-unpacked/*" -DestinationPath "dist/DevNullifier-win-unpacked.zip"
-        shell: powershell
+          cd dist
+          zip -r DevNullifier-linux-unpacked.zip linux-unpacked/
 
-      - name: Get version from package.json
-        id: package-version
-        run: |
-          $version = (Get-Content package.json | ConvertFrom-Json).version
-          echo "version=v$version" >> $env:GITHUB_OUTPUT
-        shell: powershell
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.package-version.outputs.version }}
-          release_name: DevNullifier ${{ steps.package-version.outputs.version }}
-          draft: false
-          prerelease: false
-
-      - name: Find installer file
+      - name: Find installer files
         id: find-installer
         run: |
-          $installer = Get-ChildItem -Path "dist" -Filter "DevNullifier Setup*.exe" | Select-Object -First 1
-          echo "installer_path=dist/$($installer.Name)" >> $env:GITHUB_OUTPUT
-        shell: powershell
+          APPIMAGE=$(find dist -name "*.AppImage" | head -1)
+          DEB=$(find dist -name "*.deb" | head -1)
+          echo "appimage_path=$APPIMAGE" >> $GITHUB_OUTPUT
+          echo "deb_path=$DEB" >> $GITHUB_OUTPUT
 
-      - name: Upload Installer
+      - name: Upload Linux AppImage
+        if: steps.find-installer.outputs.appimage_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-installer.outputs.installer_path }}
-          asset_name: DevNullifier-Setup.exe
+          upload_url: ${{ needs.build-windows.outputs.upload_url }}
+          asset_path: ${{ steps.find-installer.outputs.appimage_path }}
+          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.AppImage' || 'DevNullifier-linux-x64.AppImage' }}
           asset_content_type: application/octet-stream
 
-      - name: Upload ZIP Archive
+      - name: Upload Linux DEB
+        if: steps.find-installer.outputs.deb_path != ''
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/DevNullifier-win-unpacked.zip
-          asset_name: DevNullifier-win-unpacked.zip
+          upload_url: ${{ needs.build-windows.outputs.upload_url }}
+          asset_path: ${{ steps.find-installer.outputs.deb_path }}
+          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.deb' || 'DevNullifier-linux-x64.deb' }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux ZIP Archive
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.build-windows.outputs.upload_url }}
+          asset_path: dist/DevNullifier-linux-unpacked.zip
+          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-unpacked-dev.zip' || 'DevNullifier-linux-unpacked.zip' }}
           asset_content_type: application/zip
