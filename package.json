@@ -9,7 +9,7 @@
     "dev:renderer": "vite",
     "build": "npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
-    "build:main": "electron-builder"
+    "build:main": "electron-builder --publish=never"
   },
   "keywords": [
     "electron",
