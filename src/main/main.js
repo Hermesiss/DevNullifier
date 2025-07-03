@@ -1,48 +1,29 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs").promises;
 const fsSync = require("fs");
 const os = require("os");
 const { Worker } = require("worker_threads");
+const appDataCleaner = require("./appDataCleaner");
 
 let mainWindow;
-let currentScanWorker = null;
+let currentAppDataScanWorker = null;
+let currentDeveloperScanWorker = null;
 
 const isDev =
   process.env.NODE_ENV === "development" || !!process.env.VITE_DEV_SERVER_URL;
-
-// Keywords to search for in folder names
-const KEYWORDS = [
-  "cache",
-  "temp",
-  "crash",
-  "report",
-  "dump",
-  "crashes",
-  "pending"
-];
-
-// Add scan cancellation flag
-let isScanCancelled = false;
-
+  
 function createWindow() {
-  console.log(
-    "isDev:",
-    isDev,
-    "NODE_ENV:",
-    process.env.NODE_ENV,
-    "VITE_DEV_SERVER_URL:",
-    process.env.VITE_DEV_SERVER_URL
-  );
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, "preload.js")
     },
-    icon: path.join(__dirname, "../renderer/assets/icon.png")
+    icon: path.join(__dirname, "../assets/icon-256.png")
   });
 
   if (isDev) {
@@ -67,243 +48,41 @@ app.on("activate", () => {
   }
 });
 
-// Get AppData paths
-function getAppDataPaths() {
-  const paths = [];
-
-  if (process.platform === "win32") {
-    const appData = process.env.APPDATA;
-    const localAppData = process.env.LOCALAPPDATA;
-    const localLowAppData = localAppData
-      ? localAppData.replace("Local", "LocalLow")
-      : null;
-
-    if (appData && fsSync.existsSync(appData)) paths.push(appData);
-    if (localAppData && fsSync.existsSync(localAppData))
-      paths.push(localAppData);
-    if (localLowAppData && fsSync.existsSync(localLowAppData))
-      paths.push(localLowAppData);
-  }
-
-  return paths;
-}
-
-// Calculate directory size
-async function getDirSize(dirPath) {
-  if (isScanCancelled) return 0;
-  let size = 0;
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      if (isScanCancelled) return size;
-      const fullPath = path.join(dirPath, entry.name);
-
-      if (entry.isDirectory()) {
-        size += await getDirSize(fullPath);
-      } else {
-        try {
-          const stats = await fs.stat(fullPath);
-          size += stats.size;
-        } catch (err) {
-          // Skip files that can't be accessed
-        }
-      }
-    }
-  } catch (err) {
-    // Skip directories that can't be accessed
-  }
-
-  return size;
-}
-
-// Scan directories for matching folders
-async function scanDirectory(dirPath, maxDepth, currentDepth = 0) {
-  // Reset cancellation flag at the start of a new scan
-  if (currentDepth === 0) {
-    isScanCancelled = false;
-  }
-
-  // Check for scan cancellation
-  if (isScanCancelled) {
-    return [];
-  }
-
-  const results = [];
-
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      if (isScanCancelled) return results;
-      if (!entry.isDirectory()) continue;
-
-      const fullPath = path.join(dirPath, entry.name);
-      const folderName = entry.name.toLowerCase();
-
-      // Check if folder name contains any keywords
-      if (KEYWORDS.some(keyword => folderName.includes(keyword))) {
-        if (isScanCancelled) return results;
-        try {
-          const size = await getDirSize(fullPath);
-          if (size > 0) {
-            results.push({
-              path: fullPath,
-              size: size,
-              name: entry.name
-            });
-
-            // Send progress update
-            if (!isScanCancelled) {
-              mainWindow.webContents.send("scan-progress", results.length);
-              // Send each found folder in real-time
-              mainWindow.webContents.send("scan-folder-found", {
-                path: fullPath,
-                size: size,
-                name: entry.name
-              });
-            }
-          }
-        } catch (err) {
-          // Skip folders that can't be accessed
-        }
-
-        // Don't recurse into matched folders
-        continue;
-      }
-
-      // Recurse into subdirectories
-      if (!isScanCancelled) {
-        try {
-          const subResults = await scanDirectory(
-            fullPath,
-            maxDepth,
-            currentDepth + 1
-          );
-          results.push(...subResults);
-        } catch (err) {
-          // Skip directories that can't be accessed
-        }
-      }
-    }
-  } catch (err) {
-    // Skip directories that can't be accessed
-  }
-
-  return results;
-}
-
-// Delete directory recursively with partial deletion detection
-async function deleteDirectory(dirPath) {
-  try {
-    // First, check if directory exists
-    const stats = await fs.stat(dirPath);
-    if (!stats.isDirectory()) {
-      return false;
-    }
-
-    let totalItems = 0;
-    let deletedItems = 0;
-    let hasErrors = false;
-
-    async function deleteRecursively(currentPath) {
-      try {
-        const entries = await fs.readdir(currentPath, { withFileTypes: true });
-
-        for (const entry of entries) {
-          const fullPath = path.join(currentPath, entry.name);
-          totalItems++;
-
-          try {
-            if (entry.isDirectory()) {
-              // Recursively delete subdirectory contents first
-              await deleteRecursively(fullPath);
-              // Then try to delete the empty directory
-              await fs.rmdir(fullPath);
-            } else {
-              // Delete file
-              await fs.unlink(fullPath);
-            }
-            deletedItems++;
-          } catch (err) {
-            console.error(`Failed to delete ${fullPath}:`, err);
-            hasErrors = true;
-          }
-        }
-      } catch (err) {
-        console.error(`Failed to read directory ${currentPath}:`, err);
-        hasErrors = true;
-      }
-    }
-
-    // Delete all contents
-    await deleteRecursively(dirPath);
-
-    // Try to delete the root directory itself
-    try {
-      await fs.rmdir(dirPath);
-      deletedItems++; // Count the root directory
-      totalItems++;
-    } catch (err) {
-      console.error(`Failed to delete root directory ${dirPath}:`, err);
-      hasErrors = true;
-    }
-
-    // Determine result based on what was deleted
-    if (totalItems === 0) {
-      // Empty directory - consider it successfully deleted
-      return true;
-    } else if (deletedItems === totalItems && !hasErrors) {
-      // Everything deleted successfully
-      return true;
-    } else if (deletedItems === 0) {
-      // Nothing was deleted
-      return false;
-    } else {
-      // Some items were deleted, some weren't
-      return "partial";
-    }
-  } catch (err) {
-    console.error(`Failed to delete ${dirPath}:`, err);
-    return false;
-  }
-}
-
 // IPC Handlers
-ipcMain.handle("stop-scan", () => {
-  if (currentScanWorker) {
-    currentScanWorker.terminate();
-    currentScanWorker = null;
+ipcMain.handle("stop-appdata-scan", () => {
+  if (currentAppDataScanWorker) {
+    currentAppDataScanWorker.terminate();
+    currentAppDataScanWorker = null;
   }
   return true;
 });
 
 ipcMain.handle("get-appdata-paths", () => {
-  return getAppDataPaths();
+  return appDataCleaner.getAppDataPaths();
 });
 
 ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
   // If there's an existing scan, terminate it
-  if (currentScanWorker) {
-    currentScanWorker.terminate();
+  if (currentAppDataScanWorker) {
+    currentAppDataScanWorker.terminate();
   }
 
   return new Promise((resolve, reject) => {
     const workerPath = isDev
-      ? path.join(__dirname, "scanWorker.js")
+      ? path.join(__dirname, "addDataScanWorker.js")
       : path.join(
           process.resourcesPath,
           "app.asar",
           "src",
           "main",
-          "scanWorker.js"
+          "addDataScanWorker.js"
         );
 
-    currentScanWorker = new Worker(workerPath);
+    currentAppDataScanWorker = new Worker(workerPath);
     const allResults = [];
     let wasTerminated = false;
 
-    currentScanWorker.on("message", message => {
+    currentAppDataScanWorker.on("message", message => {
       if (message.type === "progress") {
         mainWindow.webContents.send("scan-progress", message.count);
       } else if (message.type === "current-path") {
@@ -312,20 +91,20 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
         mainWindow.webContents.send("scan-folder-found", message.folder);
         allResults.push(message.folder);
       } else if (message.type === "done") {
-        currentScanWorker = null;
+        currentAppDataScanWorker = null;
         resolve(allResults);
       }
     });
 
-    currentScanWorker.on("error", error => {
-      currentScanWorker = null;
+    currentAppDataScanWorker.on("error", error => {
+      currentAppDataScanWorker = null;
       if (!wasTerminated) {
         reject(error);
       }
     });
 
-    currentScanWorker.on("exit", code => {
-      currentScanWorker = null;
+    currentAppDataScanWorker.on("exit", code => {
+      currentAppDataScanWorker = null;
       if (code !== 0 && !wasTerminated) {
         reject(new Error(`Worker stopped with exit code ${code}`));
       } else {
@@ -334,16 +113,16 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
     });
 
     // Store original terminate function
-    const originalTerminate = currentScanWorker.terminate.bind(
-      currentScanWorker
+    const originalTerminate = currentAppDataScanWorker.terminate.bind(
+      currentAppDataScanWorker
     );
     // Override terminate to set flag
-    currentScanWorker.terminate = () => {
+    currentAppDataScanWorker.terminate = () => {
       wasTerminated = true;
       return originalTerminate();
     };
 
-    currentScanWorker.postMessage({ paths, maxDepth, keywords: KEYWORDS });
+    currentAppDataScanWorker.postMessage({ paths, maxDepth, keywords: appDataCleaner.KEYWORDS });
   });
 });
 
@@ -351,7 +130,7 @@ ipcMain.handle("delete-folders", async (event, folderPaths) => {
   const results = [];
 
   for (let i = 0; i < folderPaths.length; i++) {
-    const success = await deleteDirectory(folderPaths[i]);
+    const success = await appDataCleaner.deleteDirectory(folderPaths[i]);
     results.push({ path: folderPaths[i], success });
 
     // Send progress update
@@ -372,4 +151,156 @@ ipcMain.handle("check-admin", () => {
     }
   }
   return true;
+});
+
+// Get user home directory
+ipcMain.handle("get-user-home", () => {
+  return os.homedir();
+});
+
+// Select directory
+ipcMain.handle("select-directory", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openDirectory"],
+    title: "Select Base Path for Scanning"
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0];
+  }
+
+  return null;
+});
+
+// Scan for developer caches
+ipcMain.handle(
+  "scan-developer-caches",
+  async (event, { basePaths, enabledCategories }) => {
+    // If there's an existing scan, terminate it
+    if (currentDeveloperScanWorker) {
+      currentDeveloperScanWorker.terminate();
+    }
+
+    return new Promise((resolve, reject) => {
+      const workerPath = isDev
+        ? path.join(__dirname, "developerScanWorker.js")
+        : path.join(
+            process.resourcesPath,
+            "app.asar",
+            "src",
+            "main",
+            "developerScanWorker.js"
+          );
+
+      currentDeveloperScanWorker = new Worker(workerPath);
+      let wasTerminated = false;
+
+      currentDeveloperScanWorker.on("message", message => {
+        if (message.type === "current-path") {
+          mainWindow.webContents.send("developer-scan-current-path", message.path);
+        } else if (message.type === "project-found") {
+          mainWindow.webContents.send("developer-project-found", message.project);
+        } else if (message.type === "done") {
+          currentDeveloperScanWorker = null;
+          resolve(message.projects);
+        } else if (message.type === "error") {
+          currentDeveloperScanWorker = null;
+          if (!wasTerminated) {
+            reject(new Error(message.error));
+          }
+        }
+      });
+
+      currentDeveloperScanWorker.on("error", error => {
+        currentDeveloperScanWorker = null;
+        if (!wasTerminated) {
+          reject(error);
+        }
+      });
+
+      currentDeveloperScanWorker.on("exit", code => {
+        currentDeveloperScanWorker = null;
+        if (code !== 0 && !wasTerminated) {
+          reject(new Error(`Developer scan worker stopped with exit code ${code}`));
+        }
+      });
+
+      // Store original terminate function
+      const originalTerminate = currentDeveloperScanWorker.terminate.bind(
+        currentDeveloperScanWorker
+      );
+      // Override terminate to set flag
+      currentDeveloperScanWorker.terminate = () => {
+        wasTerminated = true;
+        return originalTerminate();
+      };
+
+      currentDeveloperScanWorker.postMessage({ basePaths, enabledCategories });
+    });
+  }
+);
+
+// Stop developer scan
+ipcMain.handle("stop-developer-scan", () => {
+  if (currentDeveloperScanWorker) {
+    currentDeveloperScanWorker.terminate();
+    currentDeveloperScanWorker = null;
+  }
+  return true;
+});
+
+// Get folder contents
+ipcMain.handle("get-folder-contents", async (event, folderPath) => {
+  try {
+    const entries = await fs.readdir(folderPath, { withFileTypes: true });
+    const contents = [];
+
+    // Limit to first 1000 entries to prevent UI freezing
+    const limitedEntries = entries.slice(0, 1000);
+
+    for (const entry of limitedEntries) {
+      const fullPath = path.resolve(path.join(folderPath, entry.name));
+      let size = 0;
+      let itemCount = 0;
+
+      try {
+        if (entry.isDirectory()) {
+          // For directories, count immediate children (limited to prevent slowdown)
+          try {
+            const subEntries = await fs.readdir(fullPath);
+            itemCount = subEntries.length;
+          } catch {
+            console.warn(`Cannot access ${fullPath}:`, error.message);
+          }
+        } else {
+          // For files, get size
+          const stats = await fs.stat(fullPath);
+          size = stats.size;
+        }
+
+        contents.push({
+          name: entry.name,
+          path: fullPath,
+          isDirectory: entry.isDirectory(),
+          size: size,
+          itemCount: itemCount
+        });
+      } catch (error) {
+        // Skip files/folders that can't be accessed
+        console.warn(`Cannot access ${fullPath}:`, error.message);
+      }
+    }
+
+    // Sort: directories first, then by name
+    contents.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return contents;
+  } catch (error) {
+    throw new Error(`Cannot read folder ${folderPath}: ${error.message}`);
+  }
 });

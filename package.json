@@ -1,6 +1,6 @@
 {
   "name": "devnullifier",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "DevNullifier: Clean AppData, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
   "main": "src/main/main.js",
   "scripts": {
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "vue": "^3.4.0",
-    "vuetify": "^3.4.0",
+    "vuetify": "^3.5.9",
     "@mdi/font": "^7.4.0",
     "humanize-duration": "^3.29.0",
     "filesize": "^10.1.0"
@@ -56,8 +56,26 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis",
-      "requestedExecutionLevel": "requireAdministrator"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "requireAdministrator",
+      "icon": "src/assets/icon-256.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }

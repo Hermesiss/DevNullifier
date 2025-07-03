@@ -1,20 +1,54 @@
 # DevNullifier
 
-A modern cross-platform cleaner for AppData and developer caches (node_modules, .cache, Library, Binary, Intermediate, etc) built with Electron, Vue 3, and Vuetify 3.
+A Windows cleaner for AppData and developer caches (node_modules, .cache, Library, Binary, Intermediate, etc.) built with Electron, Vue 3, and Vuetify 3.
 
-## Features
+## Download
 
-- 🔍 **Smart Scanning**: Recursively scans AppData and dev folders for cache, temp, and junk files
-- 📊 **Size Visualization**: Shows folder sizes with human-readable formatting
-- 🎯 **Selective Deletion**: Choose exactly which folders to delete with checkboxes
-- ⚙️ **Configurable Depth**: Control how deep to scan with a depth slider
-- 🎨 **Modern UI**: Clean, responsive interface built with Vuetify 3
-- 🚀 **Fast Performance**: Asynchronous scanning and deletion operations
-- 🔒 **Safe Operations**: Confirmation dialogs before permanent deletion
+Download the latest release from the [Releases](https://github.com/Hermesiss/DevNullifier/releases) page.
+
+## AppData Cleaner
+
+![AppData Cleaning Interface](.docs/img-appdata.png)
+
+Cleans Windows AppData folders that accumulate temporary files, caches, and junk data.
+
+- **Smart Scanning**: Recursively scans for cache, temp, and junk files
+- **Size Visualization**: Shows folder sizes with human-readable formatting
+- **Selective Deletion**: Choose exactly which folders to delete
+- **Configurable Depth**: Control scanning depth with slider
+
+**Targets:** Temp folders, cache folders, crash dumps, pending files, log files in AppData (Local, Roaming, LocalLow).
+
+## Dev Cleaner
+
+![Developer Cache Cleaning](.docs/img-dev-filters.png)
+![Pattern-Based Filtering](.docs/img-dev-patterns.png)
+![Folder Explorer](.docs/img-folder-explorer.png)
+
+Cleans development-related temporary folders that consume significant disk space.
+
+- **Pattern-Based Filtering**: Filter folders by name patterns
+- **Category Filtering**: Filter folders by category
+- **Deep Scanning**: Scan through project directories
+
+**Targets:**
+
+- **node_modules**: Node.js dependencies (restorable with `npm install`)
+- **.cache**: Application caches (Babel, ESLint, etc.)
+- **Library/Binary/Intermediate**: Unity and build artifacts
+- **Build folders**: Target, dist, build directories
+- **Package manager caches**: npm, yarn, pip caches
+
+**Features:**
+
+- Pattern-based detection with configurable patterns
+- Category filtering (cache, modules, builds, etc.)
+- Deep scanning through project directories
+- Safe deletion of regenerable folders
 
 ## Technology Stack
 
-- **Electron**: Cross-platform desktop app framework
+- **Electron**: Cross-platform desktop framework
 - **Vue 3**: Progressive JavaScript framework with Composition API
 - **Vuetify 3**: Material Design component library
 - **Node.js**: File system operations and scanning logic
@@ -28,94 +62,43 @@ A modern cross-platform cleaner for AppData and developer caches (node_modules, 
 
 ### Installation
 
-#### Using npm commands:
+**Using npm:**
 
 ```bash
-# Install dependencies
-npm install
-
-# Run in development mode
-npm run dev
-
-# Build for production
-npm run build
+npm install    # Install dependencies
+npm run dev    # Run in development
+npm run build  # Build for production
 ```
 
-#### Using Windows batch files:
+**Using Windows batch files:**
 
 ```cmd
-# Setup dependencies
-setup.bat
-
-# Run in development mode
-dev.bat
-
-# Build for production
-build.bat
-
-# Run the built application
-run.bat
-```
-
-### Project Structure
-
-```
-src/
-├── main/           # Electron main process
-│   ├── main.js     # Main Electron process
-│   └── preload.js  # Preload script for IPC
-└── renderer/       # Vue app (renderer process)
-    ├── App.vue     # Main Vue component
-    ├── main.js     # Vue app entry point
-    └── index.html  # HTML template
+setup.bat  # Install dependencies
+dev.bat    # Run in development
+build.bat  # Build for production
+run.bat    # Run built application
 ```
 
 ## Usage
 
 1. Launch the application
-2. Click **Scan** to find junk/dev folders in AppData and project directories
-3. Review the results in the table (sorted by size by default)
-4. Select folders you want to delete using checkboxes
-5. Click **Delete Selected** to remove chosen folders
-6. Confirm the deletion in the dialog
+2. Click **Scan** to find junk/dev folders
+3. Review results in the table (sorted by size)
+4. Select folders to delete using checkboxes
+5. Click **Delete Selected** and confirm
 
 ⚠️ **Warning**: Deleted folders cannot be recovered. Use with caution.
 
 ## Keywords Detected
 
-The app searches for folders containing these keywords:
-
-- cache
-- temp
-- crash
-- report
-- dump
-- crashes
-- pending
-- node_modules
-- .cache
-- Library
-- Binary
-- Intermediate
-
-## Differences from Original Python Version
-
-- **Modern UI**: Material Design interface vs. traditional desktop UI
-- **Cross-platform**: Works on Windows, macOS, and Linux
-- **Better Performance**: Asynchronous operations with progress indicators
-- **Enhanced UX**: Tooltips, notifications, and responsive design
-- **Sortable Table**: Click column headers to sort results
-- **Search/Filter**: Built-in table filtering capabilities
-- **Dev Cache Support**: Cleans dev-related folders (node_modules, .cache, Library, Binary, Intermediate, etc)
+- cache, temp, crash, report, dump, crashes, pending
+- node_modules, .cache, Library, Binary, Intermediate
 
 ## Building
 
 ```bash
-# Build renderer (Vue app)
-npm run build:renderer
-
-# Build entire app with Electron Builder
-npm run build
+npm run build:renderer  # Build renderer (Vue app)
+npm run build          # Build entire app
 ```
 
 ## License
