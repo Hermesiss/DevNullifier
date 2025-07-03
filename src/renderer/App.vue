@@ -12,7 +12,7 @@
         <v-tabs v-model="activeTab" color="primary" class="mb-4">
           <v-tab value="appdata">
             <v-icon left>mdi-folder-remove</v-icon>
-            AppData Cleaner
+            Application Data
           </v-tab>
           <v-tab value="developer">
             <v-icon left>mdi-code-braces</v-icon>

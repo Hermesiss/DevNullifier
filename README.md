@@ -1,23 +1,31 @@
 # DevNullifier
 
-A Windows cleaner for AppData and developer caches (node_modules, .cache, Library, Binary, Intermediate, etc.) built with Electron, Vue 3, and Vuetify 3.
+A cross-platform cleaner for application data and developer caches (node_modules, .cache, Library, Binary, Intermediate, etc.) built with Electron, Vue 3, and Vuetify 3.
+
+**Supported Platforms:**
+
+- Windows (AppData: Local, Roaming, LocalLow)
+- Linux (User directories: ~/.config, ~/.cache, ~/.local/share, ~/.local/state, /tmp)
 
 ## Download
 
 Download the latest release from the [Releases](https://github.com/Hermesiss/DevNullifier/releases) page.
 
-## AppData Cleaner
+## Application Data Cleaner
 
-![AppData Cleaning Interface](.docs/img-appdata.png)
+![Application Data Cleaning Interface](.docs/img-appdata.png)
 
-Cleans Windows AppData folders that accumulate temporary files, caches, and junk data.
+Cleans application data folders that accumulate temporary files, caches, and junk data.
 
 - **Smart Scanning**: Recursively scans for cache, temp, and junk files
 - **Size Visualization**: Shows folder sizes with human-readable formatting
 - **Selective Deletion**: Choose exactly which folders to delete
 - **Configurable Depth**: Control scanning depth with slider
 
-**Targets:** Temp folders, cache folders, crash dumps, pending files, log files in AppData (Local, Roaming, LocalLow).
+**Targets:**
+
+- **Windows**: Temp folders, cache folders, crash dumps, pending files, log files in AppData (Local, Roaming, LocalLow)
+- **Linux**: Cache and temp folders in ~/.config, ~/.cache, ~/.local/share, ~/.local/state, /tmp
 
 ## Dev Cleaner
 
@@ -99,6 +107,8 @@ run.bat    # Run built application
 ```bash
 npm run build:renderer  # Build renderer (Vue app)
 npm run build          # Build entire app
+npm run build:win      # Build for Windows
+npm run build:linux    # Build for Linux
 ```
 
 ## License

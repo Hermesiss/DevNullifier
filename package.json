@@ -1,7 +1,7 @@
 {
   "name": "devnullifier",
-  "version": "1.1.0",
-  "description": "DevNullifier: Clean AppData, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
+  "version": "1.2.0",
+  "description": "DevNullifier: Clean application data, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
   "main": "src/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:3000 && npm run dev:main\"",
@@ -9,7 +9,9 @@
     "dev:renderer": "vite",
     "build": "npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
-    "build:main": "electron-builder --publish=never"
+    "build:main": "electron-builder --publish=never",
+    "build:linux": "npm run build:renderer && electron-builder --linux --publish=never",
+    "build:win": "npm run build:renderer && electron-builder --win --publish=never"
   },
   "keywords": [
     "electron",
@@ -24,9 +26,14 @@
     "Binary",
     "Intermediate",
     "gamedev",
-    "dev-caches"
+    "dev-caches",
+    "linux",
+    "cross-platform"
   ],
-  "author": "DevNullifier",
+  "author": {
+    "name": "Hermesiss",
+    "email": "hermesiss@gmail.com"
+  },
   "license": "MIT",
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
@@ -71,6 +78,24 @@
         }
       ],
       "requestedExecutionLevel": "requireAdministrator",
+      "icon": "src/assets/icon-256.png"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Utility",
       "icon": "src/assets/icon-256.png"
     },
     "nsis": {
