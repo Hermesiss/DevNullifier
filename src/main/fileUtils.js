@@ -17,12 +17,12 @@ async function getDirSize(dirPath) {
           const stats = await fs.stat(fullPath);
           size += stats.size;
         } catch (err) {
-          // Skip files that can't be accessed
+          console.warn("Error getting file size:", err);
         }
       }
     }
   } catch (err) {
-    // Skip directories that can't be accessed
+    console.warn("Error getting directory size:", err);
   }
 
   return size;

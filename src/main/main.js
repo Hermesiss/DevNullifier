@@ -270,7 +270,6 @@ ipcMain.handle("get-folder-contents", async (event, folderPath) => {
             const subEntries = await fs.readdir(fullPath);
             itemCount = subEntries.length;
           } catch {
-            // Skip directories that can't be accessed
             console.warn(`Cannot access ${fullPath}:`, error.message);
           }
         } else {

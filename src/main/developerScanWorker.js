@@ -35,7 +35,7 @@ async function checkProjectType(projectPath, categories) {
       }
     }
   } catch (error) {
-    // Skip directories that can't be accessed
+    console.warn("Error checking project type:", error);
   }
 
   return foundCategories;
@@ -164,7 +164,7 @@ async function handleLiteralPattern(
       await searchGlobPattern(nextPath, patternParts, partIndex + 1, results);
     }
   } catch (error) {
-    // Directory doesn't exist or can't be accessed, skip
+    console.warn("Error handling literal pattern:", error);
   }
 }
 
@@ -435,7 +435,7 @@ async function scanDeveloperProjectsRecursive(
       }
     }
   } catch (error) {
-    // Skip directories that can't be accessed
+    console.warn("Error scanning directory:", error);
   }
 }
 
