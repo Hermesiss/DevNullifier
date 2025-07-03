@@ -213,14 +213,11 @@ const getIconColor = (item) => {
 // Inline TreeItem component rendering
 const renderTreeItem = (item, depth = 0) => {
     const isExpanded = expandedItems.value.has(item.id)
-    const hasChildren = item.isDirectory && item.children && item.children.length > 0
 
     return {
         item,
         depth,
-        isExpanded,
-        hasChildren,
-        depthIndicator: depth
+        isExpanded
     }
 }
 

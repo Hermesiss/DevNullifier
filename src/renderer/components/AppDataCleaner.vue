@@ -192,6 +192,64 @@ const startScan = async () => {
     }
 }
 
+const rescanAffectedDirectories = async (deletedPaths) => {
+    try {
+        statusText.value = 'Updating affected directories...'
+
+        // Get unique parent directories of deleted folders
+        const parentDirs = new Set()
+        const allAppDataPaths = await window.electronAPI.getAppDataPaths()
+
+        deletedPaths.forEach(deletedPath => {
+            // Find which AppData path contains this deleted folder
+            const containingPath = allAppDataPaths.find(appDataPath =>
+                deletedPath.startsWith(appDataPath)
+            )
+            if (containingPath) {
+                parentDirs.add(containingPath)
+            }
+        })
+
+        if (parentDirs.size === 0) {
+            statusText.value = 'No directories to update'
+            return
+        }
+
+        // Remove folders from the affected directories
+        const affectedPaths = Array.from(parentDirs)
+        folders.value = folders.value.filter(folder => {
+            return !affectedPaths.some(parentDir => folder.path.startsWith(parentDir))
+        })
+
+        const seenPaths = new Set(folders.value.map(f => f.path))
+
+        // Listen for real-time folder updates
+        window.electronAPI.onScanFolderFound((folder) => {
+            if (!seenPaths.has(folder.path)) {
+                seenPaths.add(folder.path)
+                const existingIndex = folders.value.findIndex(f => f.path === folder.path)
+                if (existingIndex === -1) {
+                    folders.value.push(folder)
+                } else if (folders.value[existingIndex].size !== folder.size) {
+                    folders.value[existingIndex] = folder
+                }
+            }
+        })
+
+        // Rescan only the affected directories
+        await window.electronAPI.scanFolders(affectedPaths, maxDepth.value)
+
+        // Re-sort the entire list
+        folders.value.sort((a, b) => b.size - a.size)
+
+        statusText.value = `Updated ${affectedPaths.length} director${affectedPaths.length === 1 ? 'y' : 'ies'}`
+
+    } catch (error) {
+        console.error('Rescan error:', error)
+        emit('showNotification', 'Error updating directories: ' + error.message, 'error')
+    }
+}
+
 // Delete logic
 const confirmDelete = () => {
     if (selectedFolders.value.length > 0) {
@@ -234,10 +292,12 @@ const deleteFolders = async () => {
 
         emit('showNotification', message, color)
 
-        // Auto re-scan after deletion
-        setTimeout(() => {
-            startScan()
-        }, 1000)
+        // Auto re-scan only affected parent directories after deletion
+        if (successCount > 0 || partialCount > 0) {
+            setTimeout(() => {
+                rescanAffectedDirectories(selectedFolders.value)
+            }, 1000)
+        }
     } catch (error) {
         console.error('Delete error:', error)
         emit('showNotification', 'Error during deletion: ' + error.message, 'error')

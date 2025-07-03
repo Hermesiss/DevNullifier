@@ -12,21 +12,12 @@ let currentDeveloperScanWorker = null;
 
 const isDev =
   process.env.NODE_ENV === "development" || !!process.env.VITE_DEV_SERVER_URL;
-
-
-
+  
 function createWindow() {
-  console.log(
-    "isDev:",
-    isDev,
-    "NODE_ENV:",
-    process.env.NODE_ENV,
-    "VITE_DEV_SERVER_URL:",
-    process.env.VITE_DEV_SERVER_URL
-  );
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

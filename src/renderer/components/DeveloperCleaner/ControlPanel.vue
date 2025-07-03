@@ -1,0 +1,192 @@
+<template>
+    <v-row class="mb-4">
+        <v-col cols="12">
+            <v-card>
+                <v-card-text>
+                    <v-row align="center">
+                        <!-- Scan button -->
+                        <v-col cols="auto">
+                            <v-btn :color="isScanning ? 'error' : 'primary'"
+                                :disabled="isDeleting || !hasEnabledCategories"
+                                @click="isScanning ? stopScan() : startScan()">
+                                <v-icon left>{{ isScanning ? 'mdi-stop' : 'mdi-magnify' }}</v-icon>
+                                {{ isScanning ? 'Stop' : 'Scan Projects' }}
+                            </v-btn>
+                        </v-col>
+
+                        <!-- Base Path Selection -->
+                        <v-col cols="auto">
+                            <v-btn variant="outlined" :disabled="isScanning || isDeleting" @click="selectBasePath">
+                                <v-icon left>mdi-folder-open</v-icon>
+                                Add Base Path
+                            </v-btn>
+                        </v-col>
+
+                        <!-- Clear All Paths -->
+                        <v-col cols="auto" v-if="basePaths.length > 1">
+                            <v-btn variant="outlined" :disabled="isScanning || isDeleting" @click="clearAllPaths"
+                                color="warning" size="small">
+                                <v-icon left size="small">mdi-delete-sweep</v-icon>
+                                Clear All
+                            </v-btn>
+                        </v-col>
+
+                        <v-spacer />
+
+                        <!-- Current base paths -->
+                        <v-col cols="auto" v-if="basePaths.length > 0">
+                            <div class="d-flex flex-wrap ga-2">
+                                <v-tooltip v-for="path in basePaths" :key="path" :text="path" location="top">
+                                    <template v-slot:activator="{ props }">
+                                        <v-chip v-bind="props" color="info" size="small" closable
+                                            @click:close="removeBasePath(path)">
+                                            <v-icon start size="small">mdi-folder</v-icon>
+                                            {{ path.split('/').pop() || path.split('\\').pop() }}
+                                        </v-chip>
+                                    </template>
+                                </v-tooltip>
+                            </div>
+                        </v-col>
+
+                        <!-- Spinner when scanning -->
+                        <v-col cols="auto" v-if="isScanning">
+                            <v-progress-circular indeterminate color="primary" size="24" />
+                        </v-col>
+                    </v-row>
+                </v-card-text>
+            </v-card>
+        </v-col>
+    </v-row>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+
+// Props
+const props = defineProps({
+    isScanning: {
+        type: Boolean,
+        default: false
+    },
+    isDeleting: {
+        type: Boolean,
+        default: false
+    },
+    hasEnabledCategories: {
+        type: Boolean,
+        default: false
+    }
+})
+
+// Emits
+const emit = defineEmits(['start-scan', 'stop-scan', 'show-notification'])
+
+// Reactive state
+const basePaths = ref([])
+
+// localStorage key
+const STORAGE_KEYS = {
+    BASE_PATHS: 'developer-cleaner-base-paths'
+}
+
+// Methods
+const selectBasePath = async () => {
+    try {
+        if (!window.electronAPI.selectDirectory) {
+            emit('show-notification', 'Directory selection not yet implemented', 'warning')
+            return
+        }
+        const result = await window.electronAPI.selectDirectory()
+        if (result) {
+            // Check for duplicates
+            if (!basePaths.value.includes(result)) {
+                basePaths.value.push(result)
+                saveBasePaths()
+                emit('show-notification', 'Base path added successfully', 'success')
+            } else {
+                emit('show-notification', 'Path already exists', 'warning')
+            }
+        }
+    } catch (error) {
+        emit('show-notification', 'Error selecting directory: ' + error.message, 'error')
+    }
+}
+
+const startScan = () => {
+    if (basePaths.value.length === 0) {
+        emit('show-notification', 'Please select at least one base path first', 'warning')
+        return
+    }
+    emit('start-scan', basePaths.value)
+}
+
+const stopScan = () => {
+    emit('stop-scan')
+}
+
+const removeBasePath = (path) => {
+    basePaths.value = basePaths.value.filter(p => p !== path)
+    saveBasePaths()
+}
+
+const clearAllPaths = () => {
+    basePaths.value = []
+    saveBasePaths()
+    emit('show-notification', 'All base paths cleared', 'info')
+}
+
+const saveBasePaths = () => {
+    localStorage.setItem(STORAGE_KEYS.BASE_PATHS, JSON.stringify(basePaths.value))
+}
+
+const loadBasePaths = () => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEYS.BASE_PATHS)
+        if (stored) {
+            const paths = JSON.parse(stored)
+            if (Array.isArray(paths)) {
+                basePaths.value = paths
+            }
+        }
+    } catch (error) {
+        console.error('Error loading base paths:', error)
+    }
+}
+
+// Set default base paths on mount
+onMounted(async () => {
+    // Load saved base paths
+    loadBasePaths()
+
+    // If no saved paths, set default
+    if (basePaths.value.length === 0) {
+        try {
+            // Try to get user home if the API method exists
+            if (window.electronAPI.getUserHome) {
+                const userHome = await window.electronAPI.getUserHome()
+                basePaths.value = [userHome]
+            } else {
+                // Fallback to common paths
+                const isWindows = navigator.platform.indexOf('Win') > -1
+                basePaths.value = isWindows ? ['C:\\Users\\'] : ['/home/']
+            }
+            saveBasePaths()
+        } catch (error) {
+            console.error('Error getting user home:', error)
+            // Fallback to common paths
+            const isWindows = navigator.platform.indexOf('Win') > -1
+            basePaths.value = isWindows ? ['C:\\Users\\'] : ['/home/']
+            saveBasePaths()
+        }
+    }
+})
+
+// Expose basePaths for parent access
+defineExpose({
+    basePaths
+})
+</script>
+
+<style scoped>
+/* Add any specific styles for the control panel here */
+</style>
