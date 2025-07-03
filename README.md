@@ -2,6 +2,10 @@
 
 A Windows cleaner for AppData and developer caches (node_modules, .cache, Library, Binary, Intermediate, etc.) built with Electron, Vue 3, and Vuetify 3.
 
+## Download
+
+Download the latest release from the [Releases](https://github.com/Hermesiss/DevNullifier/releases) page.
+
 ## AppData Cleaner
 
 ![AppData Cleaning Interface](.docs/img-appdata.png)

@@ -1,0 +1,75 @@
+name: Build and Release
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+    types: [closed]
+
+jobs:
+  build-and-release:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Create ZIP archive from unpacked
+        run: |
+          Compress-Archive -Path "dist/win-unpacked/*" -DestinationPath "dist/DevNullifier-win-unpacked.zip"
+        shell: powershell
+
+      - name: Get version from package.json
+        id: package-version
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          echo "version=v$version" >> $env:GITHUB_OUTPUT
+        shell: powershell
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.package-version.outputs.version }}-${{ github.sha }}
+          release_name: DevNullifier ${{ steps.package-version.outputs.version }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/DevNullifier Setup*.exe
+          asset_name: DevNullifier-Setup.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload ZIP Archive
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/DevNullifier-win-unpacked.zip
+          asset_name: DevNullifier-win-unpacked.zip
+          asset_content_type: application/zip
