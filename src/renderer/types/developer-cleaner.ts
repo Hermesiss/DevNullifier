@@ -24,6 +24,25 @@ export interface ProjectCache {
   selectedSize: number;
 }
 
+export interface DeveloperCategory {
+  id: string;
+  name: string;
+  enabled: boolean;
+  detectionFiles: string[];
+  cachePatterns: string[];
+  warning?: boolean;
+  warningText?: string;
+}
+
+export interface ProjectInfo {
+  path: string;
+  type: string;
+  lastModified: string;
+  totalCacheSize: number;
+  selectedCacheSize: number;
+  caches: CacheGroup[];
+}
+
 // Category types for better type safety
 export type CacheCategory =
   | "Python"

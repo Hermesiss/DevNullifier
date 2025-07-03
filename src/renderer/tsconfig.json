@@ -17,6 +17,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["**/*.ts", "**/*.d.ts", "**/*.vue"],
+  "include": ["**/*.ts", "**/*.d.ts", "**/*.vue", "../types/**/*.d.ts"],
   "exclude": ["node_modules"]
 }

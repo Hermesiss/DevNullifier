@@ -51,30 +51,27 @@
     </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue'
+import type { DeveloperCategory } from '@/types'
 
 // Props
-const props = defineProps({
-    modelValue: {
-        type: Boolean,
-        default: false
-    },
-    category: {
-        type: Object,
-        default: null
-    }
-})
+const props = defineProps<{
+    modelValue?: boolean
+    category?: DeveloperCategory | null
+}>()
 
 // Emits
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+}>()
 
 // Reactive state
-const showDialog = ref(props.modelValue)
+const showDialog = ref(props.modelValue ?? false)
 
 // Watch for changes in modelValue prop
 watch(() => props.modelValue, (newValue) => {
-    showDialog.value = newValue
+    showDialog.value = newValue ?? false
 })
 
 // Watch for changes in showDialog and emit update
@@ -83,7 +80,7 @@ watch(showDialog, (newValue) => {
 })
 
 // Methods
-const closeDialog = () => {
+const closeDialog = (): void => {
     showDialog.value = false
 }
 </script>

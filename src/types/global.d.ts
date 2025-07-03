@@ -4,7 +4,9 @@
 declare global {
   interface Window {
     electronAPI: {
-      // Add your electron API types here
+      selectDirectory?: () => Promise<string | null>;
+      getUserHome?: () => Promise<string>;
+      // Add other electron API methods here as needed
       [key: string]: any;
     };
   }

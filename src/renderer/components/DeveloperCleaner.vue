@@ -31,7 +31,7 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
@@ -40,29 +40,32 @@ import CategoriesPanel from './DeveloperCleaner/CategoriesPanel.vue'
 import ControlPanel from './DeveloperCleaner/ControlPanel.vue'
 import ResultsTable from './DeveloperCleaner/ResultsTable.vue'
 import CategoryInfoDialog from './DeveloperCleaner/CategoryInfoDialog.vue'
+import type { DeveloperCategory, ProjectInfo, CacheGroup } from '@/types'
 
 // Reactive state
-const projects = ref([])
+const projects = ref<ProjectInfo[]>([])
 const isScanning = ref(false)
 const isDeleting = ref(false)
 const showInfoDialog = ref(false)
-const selectedCategory = ref(null)
+const selectedCategory = ref<DeveloperCategory | null>(null)
 const showDeleteDialog = ref(false)
 const showFolderTree = ref(false)
 const selectedFolderPath = ref('')
 const statusText = ref('Ready')
-const categories = ref([])
+const categories = ref<DeveloperCategory[]>([])
 const hasEnabledCategories = ref(false)
 
 // Component refs
-const categoriesPanel = ref(null)
-const controlPanel = ref(null)
+const categoriesPanel = ref<InstanceType<typeof CategoriesPanel> | null>(null)
+const controlPanel = ref<InstanceType<typeof ControlPanel> | null>(null)
 
 // Emit events to parent
-const emit = defineEmits(['showNotification'])
+const emit = defineEmits<{
+    showNotification: [message: string, type?: string]
+}>()
 
 // Developer categories configuration
-const initialCategories = [
+const initialCategories: DeveloperCategory[] = [
     {
         id: 'python',
         name: 'Python',
@@ -219,21 +222,21 @@ const selectedCacheSize = computed(() => {
 })
 
 // Methods
-const showNotification = (message, type = 'info') => {
+const showNotification = (message: string, type: string = 'info'): void => {
     emit('showNotification', message, type)
 }
 
-const showCategoryInfo = (category) => {
+const showCategoryInfo = (category: DeveloperCategory): void => {
     selectedCategory.value = category
     showInfoDialog.value = true
 }
 
-const onCategoriesChanged = (updatedCategories) => {
+const onCategoriesChanged = (updatedCategories: DeveloperCategory[]): void => {
     categories.value = updatedCategories
     hasEnabledCategories.value = updatedCategories.some(cat => cat.enabled)
 }
 
-const onCacheSelectionChanged = () => {
+const onCacheSelectionChanged = (): void => {
     // Update project cache sizes when selections change
     projects.value.forEach(project => {
         project.selectedCacheSize = project.caches
@@ -241,12 +244,12 @@ const onCacheSelectionChanged = () => {
     })
 }
 
-const openFolderTree = (folderPath) => {
+const openFolderTree = (folderPath: string): void => {
     selectedFolderPath.value = folderPath
     showFolderTree.value = true
 }
 
-const startScan = async (basePaths) => {
+const startScan = async (basePaths: string[]): Promise<void> => {
     if (!window.electronAPI.scanDeveloperCaches) {
         showNotification('Developer cache scanning not yet implemented', 'warning')
         return
@@ -279,7 +282,7 @@ const startScan = async (basePaths) => {
             }))
 
         // Listen for real-time project updates
-        const handleProjectFound = (project) => {
+        const handleProjectFound = (project: any): void => {
             const processedProject = processProject(project)
 
             // Check if project already exists (avoid duplicates)
@@ -299,7 +302,7 @@ const startScan = async (basePaths) => {
         const result = await window.electronAPI.scanDeveloperCaches(plainBasePaths, enabledCategories)
 
         // Process any remaining projects not caught by real-time updates
-        result.forEach(project => {
+        result.forEach((project: any) => {
             const existingIndex = projects.value.findIndex(p => p.path === project.path)
             if (existingIndex === -1) {
                 const processedProject = processProject(project)
@@ -319,13 +322,14 @@ const startScan = async (basePaths) => {
 
     } catch (error) {
         console.error('Scan error:', error)
-        showNotification('Error during scan: ' + error.message, 'error')
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        showNotification('Error during scan: ' + errorMessage, 'error')
     } finally {
         isScanning.value = false
     }
 }
 
-const rescanSpecificProjects = async (projectPaths) => {
+const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => {
     if (!window.electronAPI.scanDeveloperCaches) {
         showNotification('Developer cache scanning not yet implemented', 'warning')
         return
@@ -350,7 +354,7 @@ const rescanSpecificProjects = async (projectPaths) => {
         const result = await window.electronAPI.scanDeveloperCaches(projectPaths, enabledCategories)
 
         // Update only the scanned projects in the existing list
-        result.forEach(scannedProject => {
+        result.forEach((scannedProject: any) => {
             const existingIndex = projects.value.findIndex(p => p.path === scannedProject.path)
             if (existingIndex !== -1) {
                 // Update existing project
@@ -366,11 +370,12 @@ const rescanSpecificProjects = async (projectPaths) => {
 
     } catch (error) {
         console.error('Rescan error:', error)
-        showNotification('Error during project update: ' + error.message, 'error')
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        showNotification('Error during project update: ' + errorMessage, 'error')
     }
 }
 
-const stopScan = async () => {
+const stopScan = async (): Promise<void> => {
     statusText.value = 'Stopping scan...'
     try {
         if (window.electronAPI.stopDeveloperScan) {
@@ -380,44 +385,45 @@ const stopScan = async () => {
             showNotification('Scan stopped', 'info')
         }
     } catch (error) {
-        showNotification('Error stopping scan: ' + error.message, 'error')
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        showNotification('Error stopping scan: ' + errorMessage, 'error')
     } finally {
         isScanning.value = false
     }
 }
 
 // Helper function to process projects
-const processProject = (project) => {
+const processProject = (project: any): ProjectInfo => {
     const processedCaches = project.caches
-        .map(cacheGroup => ({
+        .map((cacheGroup: any) => ({
             ...cacheGroup,
             // Ensure all matches have selection state
-            matches: cacheGroup.matches.map(match => ({
+            matches: cacheGroup.matches.map((match: any) => ({
                 ...match,
                 selected: match.selected || false
             })),
             selectedSize: 0, // Will be calculated below
             expanded: false // Default to collapsed
         }))
-        .sort((a, b) => b.totalSize - a.totalSize) // Sort cache groups by total size
+        .sort((a: any, b: any) => b.totalSize - a.totalSize) // Sort cache groups by total size
 
     // Calculate selected sizes for each group
-    processedCaches.forEach(cacheGroup => {
+    processedCaches.forEach((cacheGroup: any) => {
         cacheGroup.selectedSize = cacheGroup.matches
-            .filter(match => match.selected)
-            .reduce((sum, match) => sum + match.size, 0)
+            .filter((match: any) => match.selected)
+            .reduce((sum: number, match: any) => sum + match.size, 0)
     })
 
     return {
         ...project,
         caches: processedCaches,
-        totalCacheSize: processedCaches.reduce((sum, cacheGroup) => sum + cacheGroup.totalSize, 0),
-        selectedCacheSize: processedCaches.reduce((sum, cacheGroup) => sum + cacheGroup.selectedSize, 0)
+        totalCacheSize: processedCaches.reduce((sum: number, cacheGroup: any) => sum + cacheGroup.totalSize, 0),
+        selectedCacheSize: processedCaches.reduce((sum: number, cacheGroup: any) => sum + cacheGroup.selectedSize, 0)
     }
 }
 
 // Delete functionality
-const confirmDelete = () => {
+const confirmDelete = (): void => {
     if (selectedCacheCount.value === 0) {
         showNotification('No caches selected for deletion', 'warning')
         return
@@ -425,14 +431,14 @@ const confirmDelete = () => {
     showDeleteDialog.value = true
 }
 
-const deleteCaches = async () => {
+const deleteCaches = async (): Promise<void> => {
     showDeleteDialog.value = false
     isDeleting.value = true
     statusText.value = 'Preparing to delete selected caches...'
 
     try {
         // Collect all selected cache paths from all projects
-        const selectedCachePaths = []
+        const selectedCachePaths: string[] = []
         projects.value.forEach(project => {
             project.caches.forEach(cacheGroup => {
                 cacheGroup.matches.forEach(match => {
@@ -452,7 +458,7 @@ const deleteCaches = async () => {
 
         const results = await window.electronAPI.deleteFolders([...selectedCachePaths])
 
-        const successCount = results.filter(r => r.success).length
+        const successCount = results.filter((r: any) => r.success).length
         const failCount = results.length - successCount
 
         let message = ''
@@ -464,7 +470,7 @@ const deleteCaches = async () => {
             message = `Deleted ${successCount} cache folders, ${failCount} failed`
         }
 
-        const parts = []
+        const parts: string[] = []
         if (successCount > 0) parts.push(`${successCount} deleted`)
         if (failCount > 0) parts.push(`${failCount} failed`)
 
@@ -474,7 +480,7 @@ const deleteCaches = async () => {
         // Refresh only the projects that had caches deleted
         if (successCount > 0) {
             // Get unique project paths that had caches deleted
-            const affectedProjectPaths = new Set()
+            const affectedProjectPaths = new Set<string>()
             projects.value.forEach(project => {
                 const hasDeletedCaches = project.caches.some(cacheGroup =>
                     cacheGroup.matches.some(match => match.selected)
@@ -492,7 +498,8 @@ const deleteCaches = async () => {
 
     } catch (error) {
         console.error('Delete error:', error)
-        showNotification('Error during deletion: ' + error.message, 'error')
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        showNotification('Error during deletion: ' + errorMessage, 'error')
         statusText.value = 'Deletion failed'
     } finally {
         isDeleting.value = false
