@@ -1,6 +1,6 @@
 {
   "name": "devnullifier",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "DevNullifier: Clean application data, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
   "main": "src/main/main.js",
   "scripts": {
@@ -11,7 +11,8 @@
     "build:renderer": "vite build",
     "build:main": "electron-builder --publish=never",
     "build:linux": "npm run build:renderer && electron-builder --linux --publish=never",
-    "build:win": "npm run build:renderer && electron-builder --win --publish=never"
+    "build:win": "npm run build:renderer && electron-builder --win --publish=never",
+    "build:mac": "npm run build:renderer && electron-builder --mac --publish=never"
   },
   "keywords": [
     "electron",
@@ -97,6 +98,26 @@
       ],
       "category": "Utility",
       "icon": "src/assets/icon-256.png"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "src/assets/icon-512.png"
     },
     "nsis": {
       "oneClick": false,

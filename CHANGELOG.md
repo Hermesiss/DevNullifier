@@ -2,6 +2,14 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.2.1] - macOS Support
+
+### Added
+
+- **macOS Support**: Add support for macOS operating systems
+- **DMG Support**: Add support for DMG packaging
+- **ZIP Support**: Add support for ZIP packaging
+
 ## [1.2.0] - Linux Support
 
 ### Added

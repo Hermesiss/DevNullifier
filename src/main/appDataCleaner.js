@@ -14,7 +14,7 @@ const KEYWORDS = [
   "pending"
 ];
 
-// Get AppData paths (Windows) or equivalent user directories (Linux)
+// Get AppData paths (Windows) or equivalent user directories (Linux/macOS)
 function getAppDataPaths() {
   const paths = [];
 
@@ -44,6 +44,24 @@ function getAppDataPaths() {
 
     // Add paths that exist
     linuxPaths.forEach(dirPath => {
+      if (fsSync.existsSync(dirPath)) {
+        paths.push(dirPath);
+      }
+    });
+  } else if (process.platform === "darwin") {
+    const homeDir = os.homedir();
+
+    // Common macOS user directories where apps store data
+    const macOSPaths = [
+      path.join(homeDir, "Library/Caches"), // Application caches
+      path.join(homeDir, "Library/Application Support"), // Application data
+      path.join(homeDir, "Library/Logs"), // Application logs
+      path.join(homeDir, "Library/Preferences"), // Application preferences
+      "/tmp" // System temporary files
+    ];
+
+    // Add paths that exist
+    macOSPaths.forEach(dirPath => {
       if (fsSync.existsSync(dirPath)) {
         paths.push(dirPath);
       }
