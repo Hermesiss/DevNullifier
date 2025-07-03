@@ -54,13 +54,20 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Find installer file
+        id: find-installer
+        run: |
+          $installer = Get-ChildItem -Path "dist" -Filter "DevNullifier Setup*.exe" | Select-Object -First 1
+          echo "installer_path=dist/$($installer.Name)" >> $env:GITHUB_OUTPUT
+        shell: powershell
+
       - name: Upload Installer
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/DevNullifier Setup*.exe
+          asset_path: ${{ steps.find-installer.outputs.installer_path }}
           asset_name: DevNullifier-Setup.exe
           asset_content_type: application/octet-stream
 
