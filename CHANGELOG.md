@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.2.2] - Dark Mode
+
+### Added
+
+- **Dark Mode**: Add dark mode to the application
+
 ## [1.2.1] - macOS Support
 
 ### Added

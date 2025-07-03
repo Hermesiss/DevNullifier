@@ -2,6 +2,8 @@
 
 A cross-platform cleaner for application data and developer caches (node_modules, .cache, Library, Binary, Intermediate, etc.) built with Electron, Vue 3, and Vuetify 3.
 
+Now with dark mode!
+
 **Supported Platforms:**
 
 - Windows (AppData: Local, Roaming, LocalLow)
