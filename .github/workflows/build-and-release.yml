@@ -143,13 +143,19 @@ jobs:
           draft: false
           prerelease: ${{ needs.build-windows.outputs.prerelease == 'true' }}
 
+      - name: Find Windows installer
+        id: find-windows-installer
+        run: |
+          installer=$(find artifacts/windows -name "DevNullifier Setup*.exe" | head -1)
+          echo "installer_path=$installer" >> $GITHUB_OUTPUT
+
       - name: Upload Windows Installer
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/windows/DevNullifier Setup*.exe
+          asset_path: ${{ steps.find-windows-installer.outputs.installer_path }}
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-Setup-dev.exe' || 'DevNullifier-Setup.exe' }}
           asset_content_type: application/octet-stream
 
@@ -163,13 +169,21 @@ jobs:
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-win-unpacked-dev.zip' || 'DevNullifier-win-unpacked.zip' }}
           asset_content_type: application/zip
 
+      - name: Find Linux files
+        id: find-linux-files
+        run: |
+          appimage=$(find artifacts/linux -name "*.AppImage" | head -1)
+          deb=$(find artifacts/linux -name "*.deb" | head -1)
+          echo "appimage_path=$appimage" >> $GITHUB_OUTPUT
+          echo "deb_path=$deb" >> $GITHUB_OUTPUT
+
       - name: Upload Linux AppImage
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/linux/*.AppImage
+          asset_path: ${{ steps.find-linux-files.outputs.appimage_path }}
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.AppImage' || 'DevNullifier-linux-x64.AppImage' }}
           asset_content_type: application/octet-stream
 
@@ -179,7 +193,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/linux/*.deb
+          asset_path: ${{ steps.find-linux-files.outputs.deb_path }}
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.deb' || 'DevNullifier-linux-x64.deb' }}
           asset_content_type: application/octet-stream
 
