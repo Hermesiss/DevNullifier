@@ -2,6 +2,15 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.2.0] - Linux Support
+
+### Added
+
+- **Linux Support**: Add support for Linux operating systems
+  - Application data - user's home directory
+- **AppImage Support**: Add support for AppImage packaging
+- **Deb Support**: Add support for Deb packaging
+
 ## [1.1.0] - Dev Cleaner
 
 ### Added
