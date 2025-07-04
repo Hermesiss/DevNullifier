@@ -1,4 +1,4 @@
-import { promises as fs } from "fs";
+import { promises as fs, existsSync } from "fs";
 import path from "path";
 import os from "os";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -10,6 +10,9 @@ describe("getDirectorySize", () => {
   beforeEach(async () => {
     // Create a temporary directory
     tempDir = path.join(os.tmpdir(), `test-${Date.now()}`);
+    if (existsSync(tempDir)) {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
     await fs.mkdir(tempDir);
   });
 
