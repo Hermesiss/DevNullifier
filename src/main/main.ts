@@ -70,15 +70,7 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
   }
 
   return new Promise((resolve, reject) => {
-    const workerPath = isDev
-      ? path.join(__dirname, "appDataScanWorker.js")
-      : path.join(
-          process.resourcesPath,
-          "app.asar",
-          "src",
-          "main",
-          "appDataScanWorker.js"
-        );
+    const workerPath = path.join(__dirname, "appDataScanWorker.js");
 
     currentAppDataScanWorker = new Worker(workerPath);
     const allResults: any[] = [];
@@ -260,15 +252,7 @@ ipcMain.handle(
     }
 
     return new Promise((resolve, reject) => {
-      const workerPath = isDev
-        ? path.join(__dirname, "developerScanWorker.js")
-        : path.join(
-            process.resourcesPath,
-            "app.asar",
-            "src",
-            "main",
-            "developerScanWorker.js"
-          );
+      const workerPath = path.join(__dirname, "developerScanWorker.js");
 
       currentDeveloperScanWorker = new Worker(workerPath);
       let wasTerminated = false;

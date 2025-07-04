@@ -163,6 +163,109 @@ describe("developerScanWorker", () => {
     });
   });
 
+  describe("handleDoubleAsteriskPattern", () => {
+    it("should handle zero-match case (direct next part match)", async () => {
+      const results: string[] = [];
+      const patternParts = ["**", "dist", "cache"];
+
+      // Mock readdir to simulate a directory containing "dist"
+      vi
+        .mocked(fs.readdir)
+        .mockResolvedValue([mockDirEntry("dist", true)] as any);
+      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
+
+      await worker.handleDoubleAsteriskPattern(
+        "/test/path",
+        patternParts,
+        0,
+        results
+      );
+
+      expect(results).toContain("/test/path/dist/cache");
+    });
+
+    it("should handle end of pattern case", async () => {
+      const results: string[] = [];
+      const patternParts = ["**"];
+
+      await worker.handleDoubleAsteriskPattern(
+        "/test/path",
+        patternParts,
+        0,
+        results
+      );
+
+      expect(results).toContain("/test/path");
+    });
+  });
+
+  describe("processDoubleAsteriskSubdirectories", () => {
+    it("should process direct matches with next part", async () => {
+      const results: string[] = [];
+      const patternParts = ["**", "dist", "cache"];
+
+      // Mock readdir to simulate a directory containing "dist"
+      vi
+        .mocked(fs.readdir)
+        .mockResolvedValue([mockDirEntry("dist", true)] as any);
+      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
+
+      await worker.processDoubleAsteriskSubdirectories(
+        "/test/path",
+        patternParts,
+        0, // partIndex
+        1, // nextPartIndex
+        "dist", // nextPart
+        results
+      );
+
+      expect(results).toContain("/test/path/dist/cache");
+    });
+
+    it("should process deep directory traversal", async () => {
+      const results: string[] = [];
+      const patternParts = ["**", "cache"];
+
+      // Mock readdir to simulate nested directories
+      vi
+        .mocked(fs.readdir)
+        .mockResolvedValueOnce([mockDirEntry("src", true)] as any) // First level
+        .mockResolvedValueOnce([mockDirEntry("cache", true)] as any); // Second level
+
+      vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
+
+      await worker.processDoubleAsteriskSubdirectories(
+        "/test/path",
+        patternParts,
+        0, // partIndex
+        1, // nextPartIndex
+        "cache", // nextPart
+        results
+      );
+
+      expect(results).toContain("/test/path/src/cache");
+    });
+
+    it("should handle empty directories", async () => {
+      const results: string[] = [];
+      const patternParts = ["**", "cache"];
+
+      // Mock readdir to return empty directory
+      vi.mocked(fs.readdir).mockResolvedValue([] as any);
+
+      await worker.processDoubleAsteriskSubdirectories(
+        "/test/path",
+        patternParts,
+        0, // partIndex
+        1, // nextPartIndex
+        "cache", // nextPart
+        results
+      );
+
+      expect(results).toHaveLength(0);
+    });
+  });
+
   describe("scanDeveloperProjects", () => {
     it("should scan projects and report results", async () => {
       // Mock fs functions

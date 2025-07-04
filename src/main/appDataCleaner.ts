@@ -150,6 +150,7 @@ export async function getDirectorySize(dirPath: string): Promise<number> {
     }
   } catch (err) {
     // Ignore errors (e.g., permission denied) and return size of what we can access.
+    console.log("Error getting directory size:", err);
   }
   return size;
 }
