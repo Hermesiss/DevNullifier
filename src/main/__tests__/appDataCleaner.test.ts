@@ -171,8 +171,9 @@ describe("deleteDirectory", () => {
 
     vi.mocked(fs.readdir).mockImplementation(
       (async (p: any) => {
-        if (p === "/root") return [createDirent("subdir", true)];
-        if (p === "/root/subdir") return [createDirent("file.txt", false)];
+        if (p === "/tmp/delete-me") return [createDirent("subdir", true)];
+        if (p === "/tmp/delete-me/subdir")
+          return [createDirent("file.txt", false)];
         return [];
       }) as any
     );
@@ -180,7 +181,7 @@ describe("deleteDirectory", () => {
     vi.mocked(fs.unlink).mockResolvedValue(undefined);
     vi.mocked(fs.rm).mockResolvedValue(undefined);
 
-    const result = await deleteDirectory("/root");
+    const result = await deleteDirectory("/tmp/delete-me");
     expect(result).toBe(true);
   });
 });
