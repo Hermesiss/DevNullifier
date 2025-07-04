@@ -29,7 +29,7 @@ declare global {
       onScanProgress: (callback: (count: number) => void) => void;
       onScanCurrentPath: (callback: (path: string) => void) => void;
       onDeleteProgress: (callback: (count: number) => void) => void;
-      onScanFolderFound: (callback: (folder: { path: string; size: number; name: string }) => void) => void;
+      onScanFolderFound: (callback: (folders: Array<{ path: string; size: number; name: string }>) => void) => void;
       onDeveloperProjectFound: (callback: (project: ProjectInfo) => void) => void;
       removeAllListeners: (channel: string) => void;
       

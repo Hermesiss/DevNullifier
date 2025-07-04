@@ -165,5 +165,17 @@ describe("FolderScanner", () => {
         ])
       );
     });
+
+    it("should return an empty array if the path is not a directory", async () => {
+      vi.mocked(mockFsOps.readdir).mockResolvedValue([
+        mockDirEntry("cache", false)
+      ] as any);
+
+      const results = await scanner.scanPaths(["/test"], 1, ["cache"]);
+      expect(results).toHaveLength(0);
+      expect(messages).toContainEqual({ type: "current-path", path: "/test" });
+      expect(messages).toContainEqual({ type: "progress", count: 0 });
+      expect(messages).toContainEqual({ type: "done", results: [] });
+    });
   });
 });
