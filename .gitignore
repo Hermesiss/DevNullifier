@@ -10,5 +10,6 @@ npm-debug.*.log
 
 dist
 dist-renderer
+dist-main
 /src/renderer/coverage/
 /coverage/

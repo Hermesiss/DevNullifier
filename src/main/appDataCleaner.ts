@@ -1,10 +1,10 @@
-const fs = require("fs").promises;
-const fsSync = require("fs");
-const path = require("path");
-const os = require("os");
+import fs from "fs/promises";
+import fsSync from "fs";
+import path from "path";
+import os from "os";
 
 // Keywords to search for in folder names
-const KEYWORDS = [
+export const KEYWORDS = [
   "cache",
   "temp",
   "crash",
@@ -15,7 +15,7 @@ const KEYWORDS = [
 ];
 
 // Get AppData paths (Windows) or equivalent user directories (Linux/macOS)
-function getAppDataPaths() {
+export function getAppDataPaths() {
   const paths = [];
 
   if (process.platform === "win32") {
@@ -72,7 +72,7 @@ function getAppDataPaths() {
 }
 
 // Delete directory recursively with partial deletion detection
-async function deleteDirectory(dirPath) {
+export async function deleteDirectory(dirPath: string) {
   try {
     // First, check if directory exists
     const stats = await fs.stat(dirPath);
@@ -84,27 +84,37 @@ async function deleteDirectory(dirPath) {
     let deletedItems = 0;
     let hasErrors = false;
 
-    async function deleteRecursively(currentPath) {
+    async function deleteRecursively(currentPath: string) {
       try {
-        const entries = await fs.readdir(currentPath, { withFileTypes: true });
+        const entries = await fs.readdir(currentPath);
+        const entriesWithTypes = await Promise.all(
+          entries.map(async entry => {
+            const fullPath = path.join(currentPath, entry);
+            const stat = await fs.stat(fullPath);
+            return {
+              name: entry,
+              isDirectory: () => stat.isDirectory(),
+              fullPath
+            };
+          })
+        );
 
-        for (const entry of entries) {
-          const fullPath = path.join(currentPath, entry.name);
+        for (const entry of entriesWithTypes) {
           totalItems++;
 
           try {
             if (entry.isDirectory()) {
               // Recursively delete subdirectory contents first
-              await deleteRecursively(fullPath);
+              await deleteRecursively(entry.fullPath);
               // Then try to delete the empty directory
-              await fs.rmdir(fullPath);
+              await fs.rm(entry.fullPath, { recursive: true, force: true });
             } else {
               // Delete file
-              await fs.unlink(fullPath);
+              await fs.unlink(entry.fullPath);
             }
             deletedItems++;
           } catch (err) {
-            console.error(`Failed to delete ${fullPath}:`, err);
+            console.error(`Failed to delete ${entry.fullPath}:`, err);
             hasErrors = true;
           }
         }
@@ -119,7 +129,7 @@ async function deleteDirectory(dirPath) {
 
     // Try to delete the root directory itself
     try {
-      await fs.rmdir(dirPath);
+      await fs.rm(dirPath, { recursive: true, force: true });
       deletedItems++; // Count the root directory
       totalItems++;
     } catch (err) {
@@ -146,9 +156,3 @@ async function deleteDirectory(dirPath) {
     return false;
   }
 }
-
-module.exports = {
-  getAppDataPaths,
-  deleteDirectory,
-  KEYWORDS
-};

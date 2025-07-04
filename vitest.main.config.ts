@@ -6,6 +6,11 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/main/**/*.{test,spec}.{js,ts}"],
+    reporters: [
+      "default",
+      ["junit", { outputFile: "./coverage/main/test-report.xml" }],
+      ["json", { outputFile: "./coverage/main/test.json" }]
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html", "lcov"],

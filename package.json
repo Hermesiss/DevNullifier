@@ -2,18 +2,18 @@
   "name": "devnullifier",
   "version": "1.2.2",
   "description": "DevNullifier: Clean application data, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
-  "main": "src/main/main.js",
+  "main": "dist-main/main/main.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:3000 && npm run dev:main\"",
-    "dev:main": "cross-env NODE_ENV=development electron .",
+    "dev:main": "tsc -p src/main/tsconfig.json && cross-env NODE_ENV=development electron .",
     "dev:renderer": "vite",
     "build": "npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
-    "build:main": "electron-builder --publish=never",
+    "build:main": "tsc -p src/main/tsconfig.json && electron-builder --publish=never",
     "build:linux": "npm run build:renderer && electron-builder --linux --publish=never",
     "build:win": "npm run build:renderer && electron-builder --win --publish=never",
     "build:mac": "npm run build:renderer && electron-builder --mac --publish=never",
-    "type-check": "vue-tsc --noEmit",
+    "type-check": "vue-tsc --noEmit && tsc -p src/main/tsconfig.json --noEmit",
     "type-check:watch": "vue-tsc --noEmit --watch",
     "test": "npm run test:renderer && npm run test:main",
     "test:renderer": "vitest run",
@@ -49,7 +49,6 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/vue": "^8.1.0",
-    "@types/electron": "^1.4.38",
     "@types/node": "^24.0.10",
     "@vitejs/plugin-vue": "^5.0.0",
     "@vitest/coverage-v8": "^3.2.4",
@@ -58,7 +57,7 @@
     "@vue/tsconfig": "^0.7.0",
     "concurrently": "^8.2.0",
     "cross-env": "^7.0.3",
-    "electron": "^32.0.0",
+    "electron": "^37.2.0",
     "electron-builder": "^24.0.0",
     "jsdom": "^26.1.0",
     "typescript": "^5.8.3",
@@ -83,7 +82,7 @@
     },
     "files": [
       "dist-renderer/**/*",
-      "src/main/**/*",
+      "dist-main/**/*",
       "package.json"
     ],
     "win": {

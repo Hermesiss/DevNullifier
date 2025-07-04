@@ -1,14 +1,16 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
-const path = require("path");
-const fs = require("fs").promises;
-const fsSync = require("fs");
-const os = require("os");
-const { Worker } = require("worker_threads");
-const appDataCleaner = require("./appDataCleaner");
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import type { OpenDialogOptions, OpenDialogReturnValue } from "electron";
+import path from "path";
+import { promises as fs } from "fs";
+import * as fsSync from "fs";
+import os from "os";
+import { Worker } from "worker_threads";
+import * as appDataCleaner from "./appDataCleaner";
+import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 
-let mainWindow;
-let currentAppDataScanWorker = null;
-let currentDeveloperScanWorker = null;
+let mainWindow: BrowserWindow | null = null;
+let currentAppDataScanWorker: Worker | null = null;
+let currentDeveloperScanWorker: Worker | null = null;
 
 const isDev =
   process.env.NODE_ENV === "development" || !!process.env.VITE_DEV_SERVER_URL;
@@ -69,20 +71,22 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
 
   return new Promise((resolve, reject) => {
     const workerPath = isDev
-      ? path.join(__dirname, "addDataScanWorker.js")
+      ? path.join(__dirname, "appDataScanWorker.js")
       : path.join(
           process.resourcesPath,
           "app.asar",
           "src",
           "main",
-          "addDataScanWorker.js"
+          "appDataScanWorker.js"
         );
 
     currentAppDataScanWorker = new Worker(workerPath);
-    const allResults = [];
+    const allResults: any[] = [];
     let wasTerminated = false;
 
     currentAppDataScanWorker.on("message", message => {
+      if (!mainWindow) return;
+
       if (message.type === "progress") {
         mainWindow.webContents.send("scan-progress", message.count);
       } else if (message.type === "current-path") {
@@ -126,7 +130,7 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
   });
 });
 
-ipcMain.handle("delete-folders", async (event, folderPaths) => {
+ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {
   const results = [];
 
   for (let i = 0; i < folderPaths.length; i++) {
@@ -134,7 +138,9 @@ ipcMain.handle("delete-folders", async (event, folderPaths) => {
     results.push({ path: folderPaths[i], success });
 
     // Send progress update
-    mainWindow.webContents.send("delete-progress", i + 1);
+    if (mainWindow) {
+      mainWindow.webContents.send("delete-progress", i + 1);
+    }
   }
 
   return results;
@@ -160,22 +166,93 @@ ipcMain.handle("get-user-home", () => {
 
 // Select directory
 ipcMain.handle("select-directory", async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  if (!mainWindow) return null;
+
+  const options: OpenDialogOptions = {
     properties: ["openDirectory"],
     title: "Select Base Path for Scanning"
-  });
+  };
 
-  if (!result.canceled && result.filePaths.length > 0) {
-    return result.filePaths[0];
+  try {
+    const result: OpenDialogReturnValue = await dialog.showOpenDialog(mainWindow, options);
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0];
+    }
+  } catch (error) {
+    console.error('Error selecting directory:', error);
   }
 
   return null;
 });
 
+interface FolderContents {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  itemCount: number;
+}
+
+// Get folder contents
+ipcMain.handle("get-folder-contents", async (event, folderPath: string): Promise<FolderContents[]> => {
+  try {
+    const entries = await fs.readdir(folderPath, { withFileTypes: true });
+    const contents: FolderContents[] = [];
+
+    // Limit to first 1000 entries to prevent UI freezing
+    const limitedEntries = entries.slice(0, 1000);
+
+    for (const entry of limitedEntries) {
+      const fullPath = path.resolve(path.join(folderPath, entry.name));
+      let size = 0;
+      let itemCount = 0;
+
+      try {
+        if (entry.isDirectory()) {
+          // For directories, count immediate children (limited to prevent slowdown)
+          try {
+            const subEntries = await fs.readdir(fullPath);
+            itemCount = subEntries.length;
+          } catch (error) {
+            console.warn(`Cannot access ${fullPath}:`, error instanceof Error ? error.message : String(error));
+          }
+        } else {
+          // For files, get size
+          const stats = await fs.stat(fullPath);
+          size = stats.size;
+        }
+
+        contents.push({
+          name: entry.name,
+          path: fullPath,
+          isDirectory: entry.isDirectory(),
+          size: size,
+          itemCount: itemCount
+        });
+      } catch (error) {
+        // Skip files/folders that can't be accessed
+        console.warn(`Cannot access ${fullPath}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    // Sort: directories first, then by name
+    contents.sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return contents;
+  } catch (error) {
+    throw new Error(`Cannot read folder ${folderPath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+});
+
 // Scan for developer caches
 ipcMain.handle(
   "scan-developer-caches",
-  async (event, { basePaths, enabledCategories }) => {
+  async (event, { basePaths, enabledCategories }: { basePaths: string[], enabledCategories: Category[] }): Promise<Project[]> => {
     // If there's an existing scan, terminate it
     if (currentDeveloperScanWorker) {
       currentDeveloperScanWorker.terminate();
@@ -195,7 +272,9 @@ ipcMain.handle(
       currentDeveloperScanWorker = new Worker(workerPath);
       let wasTerminated = false;
 
-      currentDeveloperScanWorker.on("message", message => {
+      currentDeveloperScanWorker.on("message", (message: WorkerResponse) => {
+        if (!mainWindow) return;
+
         if (message.type === "current-path") {
           mainWindow.webContents.send("developer-scan-current-path", message.path);
         } else if (message.type === "project-found") {
@@ -235,7 +314,7 @@ ipcMain.handle(
         return originalTerminate();
       };
 
-      currentDeveloperScanWorker.postMessage({ basePaths, enabledCategories });
+      currentDeveloperScanWorker.postMessage({ basePaths, enabledCategories } as WorkerMessage);
     });
   }
 );
@@ -247,60 +326,4 @@ ipcMain.handle("stop-developer-scan", () => {
     currentDeveloperScanWorker = null;
   }
   return true;
-});
-
-// Get folder contents
-ipcMain.handle("get-folder-contents", async (event, folderPath) => {
-  try {
-    const entries = await fs.readdir(folderPath, { withFileTypes: true });
-    const contents = [];
-
-    // Limit to first 1000 entries to prevent UI freezing
-    const limitedEntries = entries.slice(0, 1000);
-
-    for (const entry of limitedEntries) {
-      const fullPath = path.resolve(path.join(folderPath, entry.name));
-      let size = 0;
-      let itemCount = 0;
-
-      try {
-        if (entry.isDirectory()) {
-          // For directories, count immediate children (limited to prevent slowdown)
-          try {
-            const subEntries = await fs.readdir(fullPath);
-            itemCount = subEntries.length;
-          } catch {
-            console.warn(`Cannot access ${fullPath}:`, error.message);
-          }
-        } else {
-          // For files, get size
-          const stats = await fs.stat(fullPath);
-          size = stats.size;
-        }
-
-        contents.push({
-          name: entry.name,
-          path: fullPath,
-          isDirectory: entry.isDirectory(),
-          size: size,
-          itemCount: itemCount
-        });
-      } catch (error) {
-        // Skip files/folders that can't be accessed
-        console.warn(`Cannot access ${fullPath}:`, error.message);
-      }
-    }
-
-    // Sort: directories first, then by name
-    contents.sort((a, b) => {
-      if (a.isDirectory !== b.isDirectory) {
-        return a.isDirectory ? -1 : 1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-    return contents;
-  } catch (error) {
-    throw new Error(`Cannot read folder ${folderPath}: ${error.message}`);
-  }
-});
+}); 
