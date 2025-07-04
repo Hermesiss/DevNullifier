@@ -45,6 +45,7 @@ export default defineConfig({
         'renderer/types/**',
         '**/shims-vue.d.ts',
         '**/main.ts',
+        'coverage/**'
       ],
       reportsDirectory: '../../coverage'
     },
