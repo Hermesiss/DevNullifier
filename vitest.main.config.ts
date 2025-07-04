@@ -8,7 +8,10 @@ export default defineConfig({
     include: ["src/main/**/*.{test,spec}.{js,ts}"],
     reporters: [
       "default",
-      ["junit", { outputFile: "./coverage/main/test-report.xml" }],
+      [
+        "vitest-sonar-reporter",
+        { outputFile: "./coverage/main/test-report.xml" }
+      ],
       ["json", { outputFile: "./coverage/main/test.json" }]
     ],
     coverage: {
