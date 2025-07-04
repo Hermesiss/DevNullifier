@@ -34,14 +34,6 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          args: >
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-            -Dsonar.testExecutionReportPaths=coverage/test-report.xml,coverage/main/test-report.xml
-            -Dsonar.sources=src
-            -Dsonar.tests=src
-            -Dsonar.test.inclusions=src/**/*.spec.ts,src/**/*.test.ts,src/**/*.spec.js,src/**/*.test.js,src/**/__tests__/**
-            -Dsonar.coverage.exclusions=src/**/*.spec.ts,src/**/*.test.ts,src/**/*.spec.js,src/**/*.test.js,src/**/__tests__/**,node_modules/**,dist/**,dist-renderer/**,**/*.d.ts,**/*.config.ts,**/*.config.js,coverage/**,**/*.vue,**/types/**,types/**,**/shims-vue.d.ts,**/main.ts,src/renderer/**,test/setup.ts
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
