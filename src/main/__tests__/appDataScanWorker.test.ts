@@ -1,7 +1,8 @@
 import { promises as fs } from "fs";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { getDirSize } from "../fileUtils";
-import { FolderScanner, type IMessagePort, type WorkerResponse } from "../appDataScanWorker";
+import { FolderScanner, initializeWorker, type IMessagePort, type WorkerResponse } from "../appDataScanWorker";
+import path from "path";
 
 // Mock modules
 vi.mock("fs", () => ({
@@ -166,16 +167,35 @@ describe("FolderScanner", () => {
       );
     });
 
-    it("should return an empty array if the path is not a directory", async () => {
-      vi.mocked(mockFsOps.readdir).mockResolvedValue([
-        mockDirEntry("cache", false)
-      ] as any);
-
-      const results = await scanner.scanPaths(["/test"], 1, ["cache"]);
-      expect(results).toHaveLength(0);
-      expect(messages).toContainEqual({ type: "current-path", path: "/test" });
-      expect(messages).toContainEqual({ type: "progress", count: 0 });
-      expect(messages).toContainEqual({ type: "done", results: [] });
+    it("should handle error when path normalization fails", async () => {
+      // Mock path.normalize to throw
+      const originalNormalize = path.normalize;
+      path.normalize = vi.fn().mockImplementation(() => {
+        throw new Error("Invalid path");
+      });
+      
+      try {
+        const results = await scanner.scanPaths(["/test/path"], 1, ["cache"]);
+        scanner.stop();
+        
+        expect(messages).toEqual([
+          {
+            type: "error",
+            error: "Invalid path"
+          }
+        ]);
+        
+        expect(results).toEqual([]);
+      } finally {
+        // Restore original normalize function
+        path.normalize = originalNormalize;
+      }
     });
+
+    it("initialize worker without parentPort throws error", () => {
+    
+      expect(() => initializeWorker()).toThrowError("Worker thread parent port not available");
+    });
+
   });
 });

@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.2.3] - Quick scan
+
+### Added
+
+- **Quick Scan**: scan only folders found during full scan
+
 ## [1.2.2] - Dark Mode
 
 ### Added
