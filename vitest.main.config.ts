@@ -32,6 +32,7 @@ export default defineConfig({
         "types/**",
         "**/shims-vue.d.ts",
         "**/main.ts",
+        "src/main/preload.ts",
         "src/renderer"
       ]
     }
