@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { Category, Project } from "../types/developer-cleaner";
-import type { FolderItem } from "../renderer/types";
+import type { FolderItem, ProjectInfo } from "../renderer/types";
 
 interface Folder {
   path: string;
@@ -36,12 +36,12 @@ interface ElectronAPI {
   onScanFolderFound: (callback: (folder: Folder) => void) => void;
   onDeveloperProjectFound: (callback: (project: Project) => void) => void;
   removeAllListeners: (channel: string) => void;
-  saveFolders: (folders: any[]) => Promise<FolderItem[]>;
-  loadSavedFolders: () => Promise<void>;
+  saveFolders: (folders: FolderItem[]) => Promise<void>;
+  loadSavedFolders: () => Promise<FolderItem[]>;
   getSavedFoldersCount: () => Promise<number>;
   getDirectorySize: (path: string) => Promise<number>;
-  saveDeveloperProjects: (projects: any[]) => Promise<void>;
-  loadSavedDeveloperProjects: () => Promise<void>;
+  saveDeveloperProjects: (projects: ProjectInfo[]) => Promise<void>;
+  loadSavedDeveloperProjects: () => Promise<ProjectInfo>;
   getSavedDeveloperProjectsCount: () => Promise<number>;
 }
 
@@ -121,7 +121,7 @@ const api: ElectronAPI = {
   },
 
   // Add new handlers
-  saveFolders: (folders: any[]) => ipcRenderer.invoke("save-folders", folders),
+  saveFolders: (folders: FolderItem[]) => ipcRenderer.invoke("save-folders", folders),
   loadSavedFolders: () => ipcRenderer.invoke("load-saved-folders"),
   getSavedFoldersCount: () => ipcRenderer.invoke("get-saved-folders-count"),
   getDirectorySize: (path: string) => ipcRenderer.invoke("get-directory-size", path),
