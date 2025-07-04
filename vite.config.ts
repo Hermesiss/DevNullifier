@@ -27,12 +27,20 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['test/setup.ts'],
     include: ['**/*.{test,spec}.{js,ts,jsx,tsx}'],
+    reporters: [
+      'default',
+      ['vitest-sonar-reporter', {
+        outputFile: '../../coverage/test-report.xml',
+        outputName: 'test-report.xml'
+      }]
+    ],
     coverage: {
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
       exclude: [
         'node_modules/',
         'test/setup.ts',
       ],
+      reportsDirectory: '../../coverage'
     },
   }
 } as UserConfig);
