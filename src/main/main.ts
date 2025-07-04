@@ -134,6 +134,7 @@ ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {
   const results = [];
 
   for (let i = 0; i < folderPaths.length; i++) {
+    console.log("Deleting folder:", folderPaths[i]);
     const success = await appDataCleaner.deleteDirectory(folderPaths[i]);
     results.push({ path: folderPaths[i], success });
 

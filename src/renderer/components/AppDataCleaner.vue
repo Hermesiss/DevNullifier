@@ -169,6 +169,7 @@ const startScan = async (): Promise<void> => {
 
 const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> => {
     try {
+        selectedFolders.value = []
         statusText.value = 'Updating affected directories...'
 
         // Get unique parent directories of deleted folders
@@ -276,11 +277,9 @@ const deleteFolders = async (): Promise<void> => {
         emit('showNotification', message, color)
 
         // Auto re-scan only affected parent directories after deletion
-        if (successCount > 0 || partialCount > 0) {
-            setTimeout(() => {
-                rescanAffectedDirectories(selectedFolders.value)
-            }, 1000)
-        }
+        setTimeout(() => {
+            rescanAffectedDirectories(selectedFolders.value)
+        }, 1000)
     } catch (error) {
         console.error('Delete error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'

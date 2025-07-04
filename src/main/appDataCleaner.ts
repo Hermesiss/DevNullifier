@@ -86,7 +86,9 @@ export async function deleteDirectory(
     return true;
   }
 
+  console.log("Deleting directory:", dirPath);
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  console.log("Entries:", entries);
   const results = await Promise.all(
     entries.map(entry => {
       const fullPath = path.join(dirPath, entry.name);
@@ -101,9 +103,15 @@ export async function deleteDirectory(
     })
   );
 
+  console.log("Results:", results);
+
   let successCount = results.filter(res => res === true).length;
   let partialCount = results.filter(res => res === "partial").length;
   let failedCount = results.length - successCount - partialCount;
+
+  console.log("Success count:", successCount);
+  console.log("Partial count:", partialCount);
+  console.log("Failed count:", failedCount);
 
   // After attempting to delete contents, try to remove the directory itself.
   if (failedCount === 0 && partialCount === 0) {
@@ -111,12 +119,16 @@ export async function deleteDirectory(
       await fs.rm(dirPath);
       return true; // Everything deleted, including the root.
     } catch {
+      console.log("Failed to delete the root, but contents are gone.");
       // Failed to delete the root, but contents are gone.
       return "partial";
     }
   }
 
   if (partialCount > 0 || (successCount > 0 && failedCount > 0)) {
+    console.log("Partial count:", partialCount);
+    console.log("Success count:", successCount);
+    console.log("Failed count:", failedCount);
     return "partial";
   }
 

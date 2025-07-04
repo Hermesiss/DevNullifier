@@ -4,135 +4,186 @@ import { promises as fs } from "fs";
 import { Dirent } from "fs";
 import { getDirSize } from "./fileUtils";
 
-interface Folder {
+export interface Folder {
   path: string;
   size: number;
   name: string;
 }
 
-interface WorkerMessage {
+export interface WorkerMessage {
   paths: string[];
   maxDepth: number;
   keywords: string[];
 }
 
-type WorkerResponse =
+export type WorkerResponse =
   | { type: "folder-found"; folder: Folder }
   | { type: "current-path"; path: string }
   | { type: "progress"; count: number }
   | { type: "done"; results: Folder[] }
   | { type: "error"; error: string };
 
-// Process a single directory entry
-async function processDirectoryEntry(
-  entry: Dirent,
-  dirPath: string,
-  maxDepth: number,
-  keywords: string[],
-  currentDepth: number
-): Promise<Folder[]> {
-  const results: Folder[] = [];
-  const fullPath = path.join(dirPath, entry.name);
-  const folderName = entry.name.toLowerCase();
+export interface IMessagePort {
+  postMessage(message: WorkerResponse): void;
+}
 
-  // Check if folder name contains any keywords
-  if (keywords.some(keyword => folderName.includes(keyword))) {
+export class FolderScanner {
+  private foundCount = 0;
+
+  constructor(
+    private readonly messagePort: IMessagePort,
+    private readonly fsOps = {
+      readdir: fs.readdir,
+      getDirSize
+    }
+  ) {}
+
+  private normalizePath(p: string): string {
+    return path.normalize(p).replace(/\\/g, "/");
+  }
+
+  private async processDirectoryEntry(
+    entry: Dirent,
+    dirPath: string,
+    maxDepth: number,
+    keywords: string[],
+    currentDepth: number
+  ): Promise<Folder[]> {
+    const results: Folder[] = [];
+    const fullPath = this.normalizePath(path.join(dirPath, entry.name));
+    const folderName = entry.name.toLowerCase();
+
     try {
-      const size = await getDirSize(fullPath);
-      if (size > 0) {
-        const folder: Folder = {
-          path: fullPath,
-          size: size,
-          name: entry.name
-        };
-        results.push(folder);
-        port.postMessage({ type: "folder-found", folder } as WorkerResponse);
+      // Check if folder name contains any keywords
+      if (keywords.some(keyword => folderName.includes(keyword))) {
+        const size = await this.fsOps.getDirSize(fullPath);
+        if (size > 0) {
+          const folder: Folder = {
+            path: fullPath,
+            size,
+            name: entry.name
+          };
+          results.push(folder);
+          this.foundCount++;
+          this.messagePort.postMessage({ type: "folder-found", folder });
+          this.messagePort.postMessage({
+            type: "progress",
+            count: this.foundCount
+          });
+        }
+        return results;
+      }
+
+      // Only recurse if maxDepth is not reached
+      if (maxDepth === -1 || currentDepth < maxDepth) {
+        const subResults = await this.scanDirectory(
+          fullPath,
+          maxDepth,
+          keywords,
+          currentDepth + 1
+        );
+        results.push(...subResults);
       }
     } catch (err) {
       console.warn(`Cannot access ${fullPath}:`, (err as Error).message);
     }
+
     return results;
   }
 
-  // Recurse into subdirectories
-  try {
-    const subResults = await scanDirectory(
-      fullPath,
-      maxDepth,
-      keywords,
-      currentDepth + 1
-    );
-    results.push(...subResults);
-  } catch (err) {
-    console.warn(`Cannot access ${fullPath}:`, (err as Error).message);
-  }
+  private async scanDirectory(
+    dirPath: string,
+    maxDepth: number,
+    keywords: string[],
+    currentDepth = 0
+  ): Promise<Folder[]> {
+    const results: Folder[] = [];
+    const normalizedPath = this.normalizePath(dirPath);
 
-  return results;
-}
+    try {
+      const entries = await this.fsOps.readdir(normalizedPath, {
+        withFileTypes: true
+      });
 
-// Scan directories for matching folders
-async function scanDirectory(
-  dirPath: string,
-  maxDepth: number,
-  keywords: string[],
-  currentDepth = 0
-): Promise<Folder[]> {
-  const results: Folder[] = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
 
-  if (maxDepth > 0 && currentDepth > maxDepth) {
+        const entryResults = await this.processDirectoryEntry(
+          entry,
+          normalizedPath,
+          maxDepth,
+          keywords,
+          currentDepth
+        );
+        results.push(...entryResults);
+      }
+    } catch (err) {
+      console.warn(`Cannot access ${normalizedPath}:`, (err as Error).message);
+    }
+
     return results;
   }
 
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  async scanPaths(
+    paths: string[],
+    maxDepth: number,
+    keywords: string[]
+  ): Promise<Folder[]> {
+    const allResults: Folder[] = [];
+    this.foundCount = 0;
 
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+    try {
+      for (const basePath of paths) {
+        const normalizedPath = this.normalizePath(basePath);
+        this.messagePort.postMessage({
+          type: "current-path",
+          path: normalizedPath
+        });
+        const results = await this.scanDirectory(
+          normalizedPath,
+          maxDepth,
+          keywords
+        );
+        allResults.push(...results);
+        // Send progress update even if no new folders were found
+        this.messagePort.postMessage({
+          type: "progress",
+          count: this.foundCount
+        });
+      }
 
-      const entryResults = await processDirectoryEntry(
-        entry,
-        dirPath,
-        maxDepth,
-        keywords,
-        currentDepth
-      );
-      results.push(...entryResults);
+      this.messagePort.postMessage({ type: "done", results: allResults });
+      return allResults;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.messagePort.postMessage({ type: "error", error: errorMessage });
+      throw error;
     }
-  } catch (err) {
-    console.warn(`Cannot access ${dirPath}:`, (err as Error).message);
   }
-
-  return results;
 }
 
-// Listen for messages from the main thread
-if (!parentPort) {
-  throw new Error("Worker thread parent port not available");
+export function initializeWorker() {
+  if (!parentPort) {
+    throw new Error("Worker thread parent port not available");
+  }
+
+  const scanner = new FolderScanner(parentPort);
+
+  parentPort.on("message", async (message: WorkerMessage) => {
+    try {
+      await scanner.scanPaths(
+        message.paths,
+        message.maxDepth,
+        message.keywords
+      );
+    } catch (error) {
+      // Error already handled in scanPaths
+    }
+  });
 }
 
-const port = parentPort;
-port.on("message", async (message: WorkerMessage) => {
-  const { paths, maxDepth, keywords } = message;
-  const allResults: Folder[] = [];
-  let totalCount = 0;
-
-  try {
-    for (const basePath of paths) {
-      port.postMessage(
-        { type: "current-path", path: basePath } as WorkerResponse
-      );
-      const results = await scanDirectory(basePath, maxDepth, keywords);
-      allResults.push(...results);
-      totalCount += results.length;
-      port.postMessage(
-        { type: "progress", count: totalCount } as WorkerResponse
-      );
-    }
-
-    port.postMessage({ type: "done", results: allResults } as WorkerResponse);
-  } catch (error) {
-    port.postMessage(
-      { type: "error", error: (error as Error).message } as WorkerResponse
-    );
-  }
-});
+// Only run worker initialization when this file is being run as a worker thread
+if (require.main === module) {
+  initializeWorker();
+}
