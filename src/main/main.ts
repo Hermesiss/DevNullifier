@@ -6,6 +6,7 @@ import { promises as fsPromises } from "fs";
 import os from "os";
 import { Worker } from "worker_threads";
 import * as appDataCleaner from "./appDataCleaner";
+import * as fileUtils from "./fileUtils";
 import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 
 let mainWindow: BrowserWindow | null = null;
@@ -53,8 +54,7 @@ app.on("activate", () => {
 // IPC Handlers
 ipcMain.handle("stop-appdata-scan", () => {
   if (currentAppDataScanWorker) {
-    currentAppDataScanWorker.terminate();
-    currentAppDataScanWorker = null;
+    currentAppDataScanWorker.postMessage({ type: "stop" });
   }
   return true;
 });
@@ -67,6 +67,7 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
   // If there's an existing scan, terminate it
   if (currentAppDataScanWorker) {
     currentAppDataScanWorker.terminate();
+    currentAppDataScanWorker = null;
   }
 
   return new Promise((resolve, reject) => {
@@ -78,14 +79,13 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
 
     currentAppDataScanWorker.on("message", message => {
       if (!mainWindow) return;
-
       if (message.type === "progress") {
         mainWindow.webContents.send("scan-progress", message.count);
       } else if (message.type === "current-path") {
         mainWindow.webContents.send("scan-current-path", message.path);
       } else if (message.type === "folder-found") {
-        mainWindow.webContents.send("scan-folder-found", message.folder);
-        allResults.push(message.folder);
+        mainWindow.webContents.send("scan-folder-found", message.folders);
+        allResults.push(...message.folders);
       } else if (message.type === "done") {
         currentAppDataScanWorker = null;
         resolve(allResults);
@@ -305,8 +305,38 @@ ipcMain.handle(
 // Stop developer scan
 ipcMain.handle("stop-developer-scan", () => {
   if (currentDeveloperScanWorker) {
-    currentDeveloperScanWorker.terminate();
-    currentDeveloperScanWorker = null;
+    currentDeveloperScanWorker.postMessage({ type: "stop" });
   }
   return true;
+});
+
+// Add new IPC handlers after other handlers
+ipcMain.handle("save-folders", async (event, folders) => {
+  await fileUtils.saveFolders(folders);
+  return true;
+});
+
+ipcMain.handle("load-saved-folders", async () => {
+  return fileUtils.loadSavedFolders();
+});
+
+ipcMain.handle("get-saved-folders-count", async () => {
+  return fileUtils.getSavedFoldersCount();
+});
+
+ipcMain.handle("get-directory-size", async (event, path) => {
+  return appDataCleaner.getDirectorySize(path);
+});
+
+ipcMain.handle("save-developer-projects", async (event, projects) => {
+  await fileUtils.saveDeveloperProjects(projects);
+  return true;
+});
+
+ipcMain.handle("load-saved-developer-projects", async () => {
+  return fileUtils.loadSavedDeveloperProjects();
+});
+
+ipcMain.handle("get-saved-developer-projects-count", async () => {
+  return fileUtils.getSavedDeveloperProjectsCount();
 }); 

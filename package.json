@@ -1,6 +1,6 @@
 {
   "name": "devnullifier",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "DevNullifier: Clean application data, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
   "main": "dist-main/main/main.js",
   "scripts": {

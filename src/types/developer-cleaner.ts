@@ -31,6 +31,7 @@ export interface Project {
 }
 
 export interface WorkerMessage {
+  type: "scan" | "stop";
   basePaths: string[];
   enabledCategories: Category[];
 }

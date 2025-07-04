@@ -6,12 +6,20 @@
                     <v-row align="center">
                         <!-- Scan button -->
                         <v-col cols="auto">
-                            <v-btn :color="isScanning ? 'error' : 'primary'" :loading="false" :disabled="isDeleting"
-                                @click="handleScanClick">
+                            <v-btn :color="isScanning ? 'error' : 'primary'" :disabled="isDeleting"
+                                @click="isScanning ? $emit('stop-scan') : $emit('scan')">
                                 <v-icon left>{{ isScanning ? 'mdi-stop' : 'mdi-magnify' }}</v-icon>
                                 {{ isScanning ? 'Stop' : 'Scan' }}
+
                             </v-btn>
                         </v-col>
+                        <v-col cols="auto">
+                            <v-btn color="info" :loading="isScanning" :disabled="isDeleting || savedFoldersCount === 0"
+                                @click="$emit('quick-scan')" prepend-icon="mdi-flash">
+                                Quick Scan ({{ savedFoldersCount }})
+                            </v-btn>
+                        </v-col>
+
 
                         <!-- Select / deselect -->
                         <v-col cols="auto">
@@ -36,43 +44,50 @@
                         </v-col>
 
                         <v-spacer></v-spacer>
-
-                        <!-- Spinner when scanning -->
-                        <v-col cols="auto" v-if="isScanning">
-                            <v-progress-circular indeterminate color="primary" size="24" />
-                        </v-col>
                     </v-row>
                 </v-card-text>
+                <v-progress-linear :indeterminate="isScanning && scanProgress < 0" :height="4"
+                    :model-value="isScanning ? scanProgress : 100" color="primary" />
             </v-card>
         </v-col>
     </v-row>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 
 const props = defineProps<{
     isScanning: boolean
     isDeleting: boolean
     foldersLength: number
-    maxDepth?: number
+    maxDepth: number
+    scanProgress: number
 }>()
 
 const emit = defineEmits<{
-    'stop-scan': []
     scan: []
+    'quick-scan': []
+    'stop-scan': []
     'select-all': []
     'deselect-all': []
     'update:maxDepth': [value: number]
 }>()
 
-const handleScanClick = (): void => {
-    if (props.isScanning) {
-        emit('stop-scan')
-    } else {
-        emit('scan')
-    }
-}
+const savedFoldersCount = ref(0)
 
-const depthLabel = computed(() => (props.maxDepth === 0 ? '∞' : String(props.maxDepth)))
+const depthLabel = computed(() => {
+    return props.maxDepth === 0 ? 'All' : props.maxDepth
+})
+
+
+onMounted(async () => {
+    savedFoldersCount.value = await window.electronAPI.getSavedFoldersCount()
+})
+
+watch(() => props.isScanning, async (newVal, oldVal) => {
+    if (!newVal && oldVal) {
+        // When scanning stops, update the saved folders count
+        savedFoldersCount.value = await window.electronAPI.getSavedFoldersCount()
+    }
+})
 </script>

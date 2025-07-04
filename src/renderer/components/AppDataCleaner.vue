@@ -1,8 +1,9 @@
 <template>
     <div>
         <ControlPanel :is-scanning="isScanning" :is-deleting="isDeleting" :folders-length="folders.length"
-            :max-depth="maxDepth" @scan="startScan" @stop-scan="stopScan" @select-all="selectAll"
-            @deselect-all="deselectAll" @update:maxDepth="(val: number) => maxDepth = val" />
+            :max-depth="maxDepth" @scan="startScan" @quick-scan="startQuickScan" @stop-scan="stopScan"
+            @select-all="selectAll" @deselect-all="deselectAll" @update:maxDepth="(val: number) => maxDepth = val"
+            :scan-progress="scanProgress" />
 
         <!-- Results Table -->
         <ResultsTable v-model="selectedFolders" :folders="folders" :is-scanning="isScanning"
@@ -43,6 +44,7 @@ const showFolderTree = ref(false)
 const selectedFolderPath = ref('')
 const statusText = ref('Ready')
 const deleteProgress = ref(0)
+const scanProgress = ref(0)
 
 // Emit events to parent
 const emit = defineEmits<{
@@ -56,30 +58,6 @@ const selectedSize = computed(() => {
         return sum + (folder ? folder.size : 0)
     }, 0)
 })
-
-// Create unique items with IDs for the table
-const uniqueItems = computed(() => {
-    const seen = new Map();
-    return folders.value.map(folder => {
-        const existingFolder = seen.get(folder.path);
-        if (existingFolder) {
-            return existingFolder;
-        }
-        const uniqueFolder = {
-            ...folder,
-            id: `${folder.path}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        };
-        seen.set(folder.path, uniqueFolder);
-        return uniqueFolder;
-    });
-})
-
-const totalSize = computed(() => uniqueItems.value.reduce((sum, f) => sum + f.size, 0))
-
-const headers = [
-    { title: 'Path', key: 'path', sortable: true },
-    { title: 'Size', key: 'size', sortable: true, width: '150px' },
-]
 
 // Selection helpers
 const selectAll = () => {
@@ -116,6 +94,7 @@ const stopScan = async (): Promise<void> => {
 const startScan = async (): Promise<void> => {
     try {
         isScanning.value = true
+        scanProgress.value = -1
         statusText.value = 'Getting application data paths...'
         folders.value = []
         selectedFolders.value = []
@@ -130,14 +109,16 @@ const startScan = async (): Promise<void> => {
 
         statusText.value = 'Scanning folders...'
         // Listen for real-time folder updates
-        window.electronAPI.onScanFolderFound((folder: FolderItem) => {
-            if (!seenPaths.has(folder.path)) {
-                seenPaths.add(folder.path)
-                const existingIndex = folders.value.findIndex(f => f.path === folder.path)
-                if (existingIndex === -1) {
-                    folders.value.push(folder)
-                } else if (folders.value[existingIndex].size !== folder.size) {
-                    folders.value[existingIndex] = folder
+        window.electronAPI.onScanFolderFound((folderss: FolderItem[]) => {
+            for (const folder of folderss) {
+                if (!seenPaths.has(folder.path)) {
+                    seenPaths.add(folder.path)
+                    const existingIndex = folders.value.findIndex(f => f.path === folder.path)
+                    if (existingIndex === -1) {
+                        folders.value.push(folder)
+                    } else if (folders.value[existingIndex].size !== folder.size) {
+                        folders.value[existingIndex] = folder
+                    }
                 }
             }
         })
@@ -146,6 +127,11 @@ const startScan = async (): Promise<void> => {
         if (isScanning.value) {
             // Sort at the end for display
             folders.value.sort((a, b) => b.size - a.size)
+            // Save folders after successful scan
+            await window.electronAPI.saveFolders(folders.value.map(f => ({
+                path: f.path,
+                size: f.size
+            })))
             statusText.value = `Found ${folders.value.length} folders`
             if (folders.value.length === 0) {
                 emit('showNotification', 'No matching folders found', 'info')
@@ -162,6 +148,56 @@ const startScan = async (): Promise<void> => {
         }
     } finally {
         // Only update scanning state here if we haven't started stopping
+        isScanning.value = false
+    }
+}
+
+const startQuickScan = async (): Promise<void> => {
+    try {
+        isScanning.value = true
+        statusText.value = 'Loading saved folders...'
+        folders.value = []
+        selectedFolders.value = []
+
+        const savedFolders = await window.electronAPI.loadSavedFolders()
+        if (savedFolders.length === 0) {
+            emit('showNotification', 'No saved folders found!', 'warning')
+            isScanning.value = false
+            return
+        }
+
+        statusText.value = 'Checking saved folders...'
+        const validFolders: FolderItem[] = []
+
+        for (let index = 0; index < savedFolders.length; index++) {
+            const folder = savedFolders[index]
+            scanProgress.value = (index + 1) / savedFolders.length * 100
+            try {
+                const size = await window.electronAPI.getDirectorySize(folder.path)
+                if (size !== undefined) {
+                    validFolders.push({
+                        ...folder,
+                        size
+                    })
+                }
+            } catch {
+                console.warn(`Folder no longer accessible: ${folder.path}`)
+            }
+        }
+
+        folders.value = validFolders.sort((a, b) => b.size - a.size)
+        statusText.value = `Found ${folders.value.length} folders`
+
+        if (folders.value.length === 0) {
+            emit('showNotification', 'No accessible folders found', 'warning')
+        } else {
+            emit('showNotification', `Found ${folders.value.length} folders`, 'success')
+        }
+    } catch (error) {
+        console.error('Quick scan error:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        emit('showNotification', 'Error during quick scan: ' + errorMessage, 'error')
+    } finally {
         isScanning.value = false
     }
 }
@@ -196,12 +232,9 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
             return !affectedPaths.some(parentDir => folder.path.startsWith(parentDir))
         })
 
-        const seenPaths = new Set(folders.value.map(f => f.path))
-
         // Listen for real-time folder updates
-        window.electronAPI.onScanFolderFound((folder: FolderItem) => {
-            if (!seenPaths.has(folder.path)) {
-                seenPaths.add(folder.path)
+        window.electronAPI.onScanFolderFound((folderss: FolderItem[]) => {
+            for (const folder of folderss) {
                 const existingIndex = folders.value.findIndex(f => f.path === folder.path)
                 if (existingIndex === -1) {
                     folders.value.push(folder)

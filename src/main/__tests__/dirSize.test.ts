@@ -1,4 +1,4 @@
-import { promises as fs } from "fs";
+import { promises as fs, existsSync } from "fs";
 import path from "path";
 import os from "os";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -10,6 +10,9 @@ describe("getDirectorySize", () => {
   beforeEach(async () => {
     // Create a temporary directory
     tempDir = path.join(os.tmpdir(), `test-${Date.now()}`);
+    if (existsSync(tempDir)) {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
     await fs.mkdir(tempDir);
   });
 
@@ -36,7 +39,7 @@ describe("getDirectorySize", () => {
   it("should calculate size of directory with nested directories", async () => {
     // Create nested directory structure
     const subDir = path.join(tempDir, "subdir");
-    await fs.mkdir(subDir);
+    await fs.mkdir(subDir, { recursive: true }); // Ensure subdirectory exists
 
     // Create files in both root and nested directory
     const rootContent = "a".repeat(100);

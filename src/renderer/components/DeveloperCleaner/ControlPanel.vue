@@ -14,6 +14,13 @@
                             </v-btn>
                         </v-col>
 
+                        <v-col cols="auto">
+                            <v-btn color="info" :loading="isScanning" :disabled="isDeleting || savedProjectsCount === 0"
+                                @click="$emit('quick-scan')" prepend-icon="mdi-flash">
+                                Quick Scan ({{ savedProjectsCount }})
+                            </v-btn>
+                        </v-col>
+
                         <!-- Base Path Selection -->
                         <v-col cols="auto">
                             <v-btn variant="outlined" :disabled="isScanning || isDeleting" @click="selectBasePath">
@@ -47,26 +54,24 @@
                                 </v-tooltip>
                             </div>
                         </v-col>
-
-                        <!-- Spinner when scanning -->
-                        <v-col cols="auto" v-if="isScanning">
-                            <v-progress-circular indeterminate color="primary" size="24" />
-                        </v-col>
                     </v-row>
                 </v-card-text>
+                <v-progress-linear :indeterminate="isScanning && scanProgress < 0" :height="4"
+                    :model-value="isScanning ? scanProgress : 100" color="primary" />
             </v-card>
         </v-col>
     </v-row>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 
 // Props
 const props = defineProps<{
     isScanning?: boolean
     isDeleting?: boolean
     hasEnabledCategories?: boolean
+    scanProgress: number
 }>()
 
 // Emits
@@ -74,10 +79,12 @@ const emit = defineEmits<{
     'start-scan': [basePaths: string[]]
     'stop-scan': []
     'show-notification': [message: string, type?: string]
+    'quick-scan': []
 }>()
 
 // Reactive state
 const basePaths = ref<string[]>([])
+const savedProjectsCount = ref(0)
 
 // localStorage key
 const STORAGE_KEYS = {
@@ -174,6 +181,14 @@ onMounted(async () => {
             basePaths.value = isWindows ? ['C:\\Users\\'] : ['/home/']
             saveBasePaths()
         }
+    }
+
+    savedProjectsCount.value = await window.electronAPI.getSavedDeveloperProjectsCount()
+})
+
+watch(() => props.isScanning, async (newVal) => {
+    if (!newVal) {
+        savedProjectsCount.value = await window.electronAPI.getSavedDeveloperProjectsCount()
     }
 })
 

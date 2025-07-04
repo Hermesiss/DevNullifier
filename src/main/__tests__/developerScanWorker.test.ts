@@ -293,6 +293,56 @@ describe("developerScanWorker", () => {
       expect(Array.isArray(result)).toBe(true);
     });
 
+    it("should continue scanning subdirectories when project has no caches", async () => {
+      // Mock initial directory read
+      vi
+        .mocked(fs.readdir)
+        .mockResolvedValueOnce(
+          [
+            mockDirEntry("package.json", false),
+            mockDirEntry("subproject", true)
+          ] as any
+        ) // Root dir
+        .mockResolvedValueOnce([mockDirEntry("package.json", false)] as any); // Subproject dir
+
+      // Mock calculateCacheSizes to return no caches for root project but some for subproject
+      const mockCalculateCacheSizes = vi.spyOn(worker, "calculateCacheSizes");
+      mockCalculateCacheSizes
+        .mockResolvedValueOnce({ caches: [], totalSize: 0 }) // Root project
+        .mockResolvedValueOnce({
+          caches: [
+            {
+              pattern: "node_modules",
+              category: "TestProject",
+              matches: [],
+              totalSize: 1000,
+              selectedSize: 0,
+              expanded: false
+            }
+          ],
+          totalSize: 1000
+        }); // Subproject
+
+      // Mock fs.stat
+      vi.mocked(fs.stat).mockResolvedValue(
+        {
+          isDirectory: () => true,
+          mtime: new Date(),
+          size: 1000
+        } as any
+      );
+
+      const result = await worker.scanDeveloperProjects(
+        ["/test/path"],
+        [mockCategory]
+      );
+
+      // Should find one project (the subproject)
+      expect(result).toHaveLength(1);
+      expect(result[0].path).toContain("/test/path");
+      expect(result[0].totalCacheSize).toBe(2000);
+    });
+
     it("should handle scan errors gracefully", async () => {
       // Mock fs.readdir to throw error
       vi.mocked(fs.readdir).mockRejectedValue(new Error("Test error"));
