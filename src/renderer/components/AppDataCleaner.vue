@@ -5,36 +5,8 @@
             @deselect-all="deselectAll" @update:maxDepth="(val: number) => maxDepth = val" />
 
         <!-- Results Table -->
-        <v-card>
-            <v-card-title>
-                <span>Found Folders</span>
-                <v-spacer />
-                <v-chip v-if="totalSize > 0" color="info" variant="outlined">
-                    {{ formatSize(selectedSize) }} / {{ formatSize(totalSize) }}
-                </v-chip>
-            </v-card-title>
-
-            <v-data-table v-model="selectedFolders" :headers="headers" :items="uniqueItems" :items-per-page="50"
-                item-value="path" show-select :loading="isScanning" loading-text="Scanning for folders..."
-                :sort-by="[{ key: 'size', order: 'desc' }]" class="elevation-1">
-                <template #item.size="{ item }">
-                    {{ formatSize(item.size) }}
-                </template>
-
-                <template #item.path="{ item }">
-                    <div class="d-flex align-center">
-                        <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)"
-                            :disabled="isScanning || isDeleting" class="ml-2">
-                            <v-icon size="small" color="primary">mdi-folder-open</v-icon>
-                        </v-btn>
-                        <span class="flex-grow-1">
-                            {{ item.path }}
-                        </span>
-
-                    </div>
-                </template>
-            </v-data-table>
-        </v-card>
+        <ResultsTable v-model="selectedFolders" :folders="folders" :is-scanning="isScanning"
+            @open-folder-tree="openFolderTree" />
 
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedFolders.length" :selected-size="selectedSize"
             @confirm="deleteFolders" />
@@ -53,7 +25,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import ControlPanel from './ControlPanel.vue'
+import ControlPanel from './AppDataCleaner/ControlPanel.vue'
+import ResultsTable from './AppDataCleaner/ResultsTable.vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'

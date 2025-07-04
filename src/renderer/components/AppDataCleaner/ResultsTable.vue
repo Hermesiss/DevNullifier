@@ -16,13 +16,15 @@
             </template>
 
             <template #item.path="{ item }">
-                <v-tooltip :text="item.path">
-                    <template #activator="{ props }">
-                        <span v-bind="props" class="text-truncate" style="max-width: 400px; display: inline-block;">
-                            {{ item.path }}
-                        </span>
-                    </template>
-                </v-tooltip>
+                <div class="d-flex align-center">
+                    <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)" :disabled="isScanning"
+                        class="ml-2">
+                        <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                    </v-btn>
+                    <span class="flex-grow-1">
+                        {{ item.path }}
+                    </span>
+                </div>
             </template>
         </v-data-table>
     </v-card>
@@ -41,6 +43,7 @@ const props = defineProps<{
 
 const emits = defineEmits<{
     'update:modelValue': [value: string[]]
+    'open-folder-tree': [folderPath: string]
 }>()
 
 // Create unique items with IDs
@@ -77,6 +80,10 @@ const selectedSize = computed(() =>
         return sum + (folder ? folder.size : 0)
     }, 0),
 )
+
+const openFolderTree = (folderPath: string): void => {
+    emits('open-folder-tree', folderPath)
+}
 </script>
 
 <style scoped>

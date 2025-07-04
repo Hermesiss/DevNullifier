@@ -39,6 +39,12 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         'test/setup.ts',
+        '**/*.vue',
+        '**/types/**',
+        'types/**',
+        'renderer/types/**',
+        '**/shims-vue.d.ts',
+        '**/main.ts',
       ],
       reportsDirectory: '../../coverage'
     },
