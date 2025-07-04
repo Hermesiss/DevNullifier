@@ -4,10 +4,10 @@
             <!-- Cache Group Header -->
             <div class="d-flex align-center pa-2 rounded" :class="headerBackgroundClass">
                 <!-- Master checkbox for the group -->
-                <v-checkbox :model-value="getCacheGroupCheckboxState(cacheGroup)"
+                <v-checkbox :model-value="getCacheGroupCheckboxState(cacheGroup) ?? false"
                     :indeterminate="getCacheGroupCheckboxState(cacheGroup) === null" color="primary" hide-details
                     density="compact" class="mr-2"
-                    @update:model-value="onCacheGroupCheckboxChange(cacheGroup, $event)" />
+                    @update:model-value="(value) => onCacheGroupCheckboxChange(cacheGroup, !!value)" />
 
                 <!-- Expand/collapse button (only if multiple matches) -->
                 <v-btn v-if="cacheGroup.matches.length > 1" icon variant="text" size="x-small"
@@ -102,32 +102,28 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useTheme } from 'vuetify'
-import { filesize } from 'filesize'
+import type { CacheGroup } from '@/types'
+import { getTypeColor } from '@/utils/categoryColors'
+import { formatSize } from '@/utils/formatters'
 
 // Theme
 const theme = useTheme()
 
 // Props
-const props = defineProps({
-    cacheGroups: {
-        type: Array,
-        required: true
-    },
-    isScanning: {
-        type: Boolean,
-        default: false
-    },
-    isDeleting: {
-        type: Boolean,
-        default: false
-    }
-})
+const props = defineProps<{
+    cacheGroups: CacheGroup[]
+    isScanning?: boolean
+    isDeleting?: boolean
+}>()
 
 // Emits
-const emit = defineEmits(['cache-selection-changed', 'open-folder-tree'])
+const emit = defineEmits<{
+    'cache-selection-changed': []
+    'open-folder-tree': [folderPath: string]
+}>()
 
 // Theme-aware computed properties
 const headerBackgroundClass = computed(() => {
@@ -160,35 +156,11 @@ const totalCacheCount = computed(() => {
 })
 
 // Methods
-const formatSize = (bytes) => filesize(bytes, { binary: true })
-
-const getTypeColor = (type) => {
-    const colors = {
-        'Python': 'green',
-        'Node.js / JS / TS': 'orange',
-        'Rust': 'orange',
-        'Java / Kotlin / Android': 'red',
-        '.NET / C#': 'purple',
-        'C/C++': 'blue',
-        'Xcode / iOS / macOS': 'cyan',
-        'Unity': 'indigo',
-        'Unreal Engine': 'pink',
-        'PHP / Laravel': 'purple',
-        'Symfony': 'deep-purple',
-        'ML / Data Science': 'teal',
-        'Docker / DevOps': 'blue-grey',
-        'Static Site Generators': 'light-green',
-        'Testing Tools': 'amber',
-        'IDEs / Editors': 'brown'
-    }
-    return colors[type] || 'grey'
-}
-
-const openFolderTree = (folderPath) => {
+const openFolderTree = (folderPath: string): void => {
     emit('open-folder-tree', folderPath)
 }
 
-const selectAllCaches = () => {
+const selectAllCaches = (): void => {
     props.cacheGroups.forEach(group => {
         group.matches.forEach(match => match.selected = true)
         updateCacheGroupSelection(group)
@@ -196,7 +168,7 @@ const selectAllCaches = () => {
     emit('cache-selection-changed')
 }
 
-const deselectAllCaches = () => {
+const deselectAllCaches = (): void => {
     props.cacheGroups.forEach(group => {
         group.matches.forEach(match => match.selected = false)
         updateCacheGroupSelection(group)
@@ -204,27 +176,27 @@ const deselectAllCaches = () => {
     emit('cache-selection-changed')
 }
 
-const selectAllCachesInGroup = (cacheGroup) => {
+const selectAllCachesInGroup = (cacheGroup: CacheGroup): void => {
     cacheGroup.matches.forEach(match => match.selected = true)
     updateCacheGroupSelection(cacheGroup)
     emit('cache-selection-changed')
 }
 
-const deselectAllCachesInGroup = (cacheGroup) => {
+const deselectAllCachesInGroup = (cacheGroup: CacheGroup): void => {
     cacheGroup.matches.forEach(match => match.selected = false)
     updateCacheGroupSelection(cacheGroup)
     emit('cache-selection-changed')
 }
 
-const allGroupCachesSelected = (cacheGroup) => {
+const allGroupCachesSelected = (cacheGroup: CacheGroup): boolean => {
     return cacheGroup.matches.length > 0 && cacheGroup.matches.every(match => match.selected)
 }
 
-const noGroupCachesSelected = (cacheGroup) => {
+const noGroupCachesSelected = (cacheGroup: CacheGroup): boolean => {
     return !cacheGroup.matches.some(match => match.selected)
 }
 
-const updateCacheGroupSelection = (cacheGroup) => {
+const updateCacheGroupSelection = (cacheGroup: CacheGroup): void => {
     // Recalculate selected cache size for the group
     cacheGroup.selectedSize = cacheGroup.matches
         .filter(match => match.selected)
@@ -232,7 +204,7 @@ const updateCacheGroupSelection = (cacheGroup) => {
 }
 
 // Get checkbox state for a cache group
-const getCacheGroupCheckboxState = (cacheGroup) => {
+const getCacheGroupCheckboxState = (cacheGroup: CacheGroup): boolean | null => {
     const selectedCount = cacheGroup.matches.filter(match => match.selected).length
     const totalCount = cacheGroup.matches.length
 
@@ -242,7 +214,7 @@ const getCacheGroupCheckboxState = (cacheGroup) => {
 }
 
 // Handle cache group checkbox click
-const onCacheGroupCheckboxChange = (cacheGroup, newValue) => {
+const onCacheGroupCheckboxChange = (cacheGroup: CacheGroup, newValue: boolean): void => {
     if (newValue) {
         selectAllCachesInGroup(cacheGroup)
     } else {

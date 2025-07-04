@@ -25,12 +25,16 @@
     </v-card>
 </template>
 
-<script setup>
-const props = defineProps({
-    statusText: String,
-    deleteProgress: Number,
-    selectedCount: Number,
-    isScanning: Boolean,
-    isDeleting: Boolean,
-})
+<script setup lang="ts">
+const props = defineProps<{
+    statusText: string
+    deleteProgress: number
+    selectedCount: number
+    isScanning: boolean
+    isDeleting: boolean
+}>()
+
+const emit = defineEmits<{
+    delete: []
+}>()
 </script>

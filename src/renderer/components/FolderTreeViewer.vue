@@ -76,27 +76,29 @@
     </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue'
-import { filesize } from 'filesize'
-
+import { formatSize } from '@/utils/formatters'
+import { TreeItem, FlatTreeItem } from '@/types/common'
 
 // Props
-const props = defineProps({
-    modelValue: Boolean,
-    folderPath: String
-})
+const props = defineProps<{
+    modelValue: boolean
+    folderPath: string
+}>()
 
 // Emits
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+}>()
 
 // Reactive state
 const isOpen = ref(false)
 const loading = ref(false)
-const error = ref(null)
-const treeData = ref([])
-const expandedItems = ref(new Set())
-const loadedItems = ref(new Set())
+const error = ref<string | null>(null)
+const treeData = ref<TreeItem[]>([])
+const expandedItems = ref(new Set<string>())
+const loadedItems = ref(new Set<string>())
 
 // Watch for prop changes
 watch(() => props.modelValue, (newVal) => {
@@ -111,7 +113,7 @@ watch(isOpen, (newVal) => {
 })
 
 // Methods
-const close = () => {
+const close = (): void => {
     isOpen.value = false
     treeData.value = []
     error.value = null
@@ -119,12 +121,7 @@ const close = () => {
     loadedItems.value.clear()
 }
 
-const formatSize = (bytes) => {
-    if (!bytes) return '0 B'
-    return filesize(bytes, { binary: true })
-}
-
-const getFileIcon = (filename) => {
+const getFileIcon = (filename: string): string => {
     if (!filename) return 'mdi-file'
 
     // Special case for "more items" indicator
@@ -133,7 +130,7 @@ const getFileIcon = (filename) => {
     }
 
     const ext = filename.split('.').pop()?.toLowerCase()
-    const iconMap = {
+    const iconMap: Record<string, string> = {
         // Code files
         'js': 'mdi-language-javascript',
         'ts': 'mdi-language-typescript',
@@ -195,23 +192,23 @@ const getFileIcon = (filename) => {
         'rar': 'mdi-folder-zip',
     }
 
-    return iconMap[ext] || 'mdi-file'
+    return iconMap[ext || ''] || 'mdi-file'
 }
 
 // Helper functions for the tree view
-const getItemIcon = (item) => {
+const getItemIcon = (item: TreeItem): string => {
     if (item.isDirectory) {
         return 'mdi-folder'
     }
     return getFileIcon(item.name)
 }
 
-const getIconColor = (item) => {
+const getIconColor = (item: TreeItem): string => {
     return item.isDirectory ? 'amber' : 'blue-grey'
 }
 
 // Inline TreeItem component rendering
-const renderTreeItem = (item, depth = 0) => {
+const renderTreeItem = (item: TreeItem, depth = 0): FlatTreeItem => {
     const isExpanded = expandedItems.value.has(item.id)
 
     return {
@@ -221,8 +218,8 @@ const renderTreeItem = (item, depth = 0) => {
     }
 }
 
-const flattenTreeData = (items, depth = 0) => {
-    const result = []
+const flattenTreeData = (items: TreeItem[], depth = 0): FlatTreeItem[] => {
+    const result: FlatTreeItem[] = []
 
     for (const item of items) {
         result.push(renderTreeItem(item, depth))
@@ -235,7 +232,7 @@ const flattenTreeData = (items, depth = 0) => {
     return result
 }
 
-const loadFolderContents = async () => {
+const loadFolderContents = async (): Promise<void> => {
     if (!props.folderPath) return
 
     loading.value = true
@@ -243,14 +240,15 @@ const loadFolderContents = async () => {
 
     try {
         const contents = await window.electronAPI.getFolderContents(props.folderPath)
-        treeData.value = contents.map(item => ({
+        treeData.value = contents.map((item: any) => ({
             ...item,
             id: item.path,
             name: item.name,
             children: []
         }))
     } catch (err) {
-        error.value = `Failed to load folder contents: ${err.message}`
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        error.value = `Failed to load folder contents: ${errorMessage}`
         console.error('Error loading folder contents:', err)
     } finally {
         loading.value = false
@@ -258,7 +256,7 @@ const loadFolderContents = async () => {
 }
 
 // Toggle item expansion
-const toggleItem = (item) => {
+const toggleItem = (item: TreeItem): void => {
     if (!item.isDirectory) return
 
     if (expandedItems.value.has(item.id)) {
@@ -273,13 +271,13 @@ const toggleItem = (item) => {
 }
 
 // Load children for an item
-const loadItemChildren = async (item) => {
+const loadItemChildren = async (item: TreeItem): Promise<void> => {
     if (!item.isDirectory || loadedItems.value.has(item.id)) return
 
     try {
         const contents = await window.electronAPI.getFolderContents(item.path)
 
-        item.children = contents.map(childItem => ({
+        item.children = contents.map((childItem: any) => ({
             ...childItem,
             id: childItem.path,
             name: childItem.name,
@@ -289,7 +287,8 @@ const loadItemChildren = async (item) => {
         loadedItems.value.add(item.id)
 
     } catch (error) {
-        console.error(`Failed to load children for ${item.name}:`, error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        console.error(`Failed to load children for ${item.name}:`, errorMessage)
         item.children = []
     }
 }

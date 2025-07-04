@@ -58,19 +58,20 @@
     </v-row>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import type { DeveloperCategory } from '@/types'
 
 // Props
-const props = defineProps({
-    initialCategories: {
-        type: Array,
-        required: true
-    }
-})
+const props = defineProps<{
+    initialCategories: DeveloperCategory[]
+}>()
 
 // Emits
-const emit = defineEmits(['category-info', 'categories-changed'])
+const emit = defineEmits<{
+    'category-info': [category: DeveloperCategory]
+    'categories-changed': [categories: DeveloperCategory[]]
+}>()
 
 // Reactive state
 const categories = ref([...props.initialCategories])
@@ -92,8 +93,8 @@ const enabledCount = computed(() =>
 )
 
 // Methods
-const saveCategoryStates = () => {
-    const states = {}
+const saveCategoryStates = (): void => {
+    const states: Record<string, boolean> = {}
     categories.value.forEach(cat => {
         states[cat.id] = cat.enabled
     })
@@ -101,11 +102,11 @@ const saveCategoryStates = () => {
     emit('categories-changed', categories.value)
 }
 
-const loadCategoryStates = () => {
+const loadCategoryStates = (): void => {
     try {
         const stored = localStorage.getItem(STORAGE_KEYS.CATEGORIES)
         if (stored) {
-            const states = JSON.parse(stored)
+            const states: Record<string, boolean> = JSON.parse(stored)
             categories.value.forEach(cat => {
                 if (states.hasOwnProperty(cat.id)) {
                     cat.enabled = states[cat.id]
@@ -117,17 +118,17 @@ const loadCategoryStates = () => {
     }
 }
 
-const enableAll = () => {
+const enableAll = (): void => {
     categories.value.forEach(cat => cat.enabled = true)
     saveCategoryStates()
 }
 
-const disableAll = () => {
+const disableAll = (): void => {
     categories.value.forEach(cat => cat.enabled = false)
     saveCategoryStates()
 }
 
-const showCategoryInfo = (category) => {
+const showCategoryInfo = (category: DeveloperCategory): void => {
     emit('category-info', category)
 }
 

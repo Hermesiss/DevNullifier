@@ -1,13 +1,14 @@
-const { parentPort } = require("worker_threads");
-const fs = require("fs").promises;
-const path = require("path");
-const { getDirSize } = require("./fileUtils");
+import { parentPort } from "worker_threads";
+import { promises as fs, Dirent } from "fs";
+import path from "path";
+import { getDirSize } from "./fileUtils";
+import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 
-// Categories will be passed from the frontend - no hardcoded categories needed
+let isScanning = true;
 
 // Helper function to check if directory contains detection files
-async function checkProjectType(projectPath, categories) {
-  const foundCategories = [];
+export async function checkProjectType(projectPath: string, categories: Category[]): Promise<Category[]> {
+  const foundCategories: Category[] = [];
 
   try {
     const entries = await fs.readdir(projectPath, { withFileTypes: true });
@@ -42,7 +43,7 @@ async function checkProjectType(projectPath, categories) {
 }
 
 // Helper function to expand glob patterns like "Plugins/**/Binaries/"
-async function expandGlobPattern(projectPath, pattern) {
+export async function expandGlobPattern(projectPath: string, pattern: string): Promise<string[]> {
   // Check if pattern contains glob wildcards
   if (!pattern.includes("*")) {
     // Simple pattern, return single path
@@ -50,7 +51,7 @@ async function expandGlobPattern(projectPath, pattern) {
     return [fullPath];
   }
 
-  const results = [];
+  const results: string[] = [];
   const parts = pattern.split("/").filter(part => part !== "");
 
   // Start searching from project root
@@ -63,21 +64,21 @@ async function expandGlobPattern(projectPath, pattern) {
 }
 
 // Helper function to safely read directory entries
-async function readDirectoryEntries(dirPath) {
+export async function readDirectoryEntries(dirPath: string): Promise<Dirent[]> {
   try {
     return await fs.readdir(dirPath, { withFileTypes: true });
-  } catch (error) {
+  } catch {
     return [];
   }
 }
 
 // Helper function to handle double asterisk (**) pattern
-async function handleDoubleAsteriskPattern(
-  currentPath,
-  patternParts,
-  partIndex,
-  results
-) {
+export async function handleDoubleAsteriskPattern(
+  currentPath: string,
+  patternParts: string[],
+  partIndex: number,
+  results: string[]
+): Promise<void> {
   const nextPartIndex = partIndex + 1;
 
   if (nextPartIndex >= patternParts.length) {
@@ -102,17 +103,18 @@ async function handleDoubleAsteriskPattern(
 }
 
 // Helper function to process subdirectories for double asterisk pattern
-async function processDoubleAsteriskSubdirectories(
-  currentPath,
-  patternParts,
-  partIndex,
-  nextPartIndex,
-  nextPart,
-  results
-) {
+export async function processDoubleAsteriskSubdirectories(
+  currentPath: string,
+  patternParts: string[],
+  partIndex: number,
+  nextPartIndex: number,
+  nextPart: string,
+  results: string[]
+): Promise<void> {
   const entries = await readDirectoryEntries(currentPath);
 
   for (const entry of entries) {
+    if (!isScanning) return;
     if (entry.isDirectory()) {
       const subPath = path.join(currentPath, entry.name);
 
@@ -133,15 +135,16 @@ async function processDoubleAsteriskSubdirectories(
 }
 
 // Helper function to handle single asterisk (*) pattern
-async function handleSingleAsteriskPattern(
-  currentPath,
-  patternParts,
-  partIndex,
-  results
-) {
+export async function handleSingleAsteriskPattern(
+  currentPath: string,
+  patternParts: string[],
+  partIndex: number,
+  results: string[]
+): Promise<void> {
   const entries = await readDirectoryEntries(currentPath);
 
   for (const entry of entries) {
+    if (!isScanning) return;
     if (entry.isDirectory()) {
       const subPath = path.join(currentPath, entry.name);
       await searchGlobPattern(subPath, patternParts, partIndex + 1, results);
@@ -150,13 +153,13 @@ async function handleSingleAsteriskPattern(
 }
 
 // Helper function to handle literal directory pattern
-async function handleLiteralPattern(
-  currentPath,
-  currentPart,
-  patternParts,
-  partIndex,
-  results
-) {
+export async function handleLiteralPattern(
+  currentPath: string,
+  currentPart: string,
+  patternParts: string[],
+  partIndex: number,
+  results: string[]
+): Promise<void> {
   const nextPath = path.join(currentPath, currentPart);
   try {
     const stats = await fs.stat(nextPath);
@@ -169,12 +172,12 @@ async function handleLiteralPattern(
 }
 
 // Recursive function to search for glob pattern matches
-async function searchGlobPattern(
-  currentPath,
-  patternParts,
-  partIndex,
-  results
-) {
+export async function searchGlobPattern(
+  currentPath: string,
+  patternParts: string[],
+  partIndex: number,
+  results: string[]
+): Promise<void> {
   if (partIndex >= patternParts.length) {
     results.push(currentPath);
     return;
@@ -208,13 +211,13 @@ async function searchGlobPattern(
 }
 
 // Helper function to process a single matching path
-async function processMatchingPath(
-  cachePath,
-  projectPath,
-  category,
-  pattern,
-  allMatches
-) {
+export async function processMatchingPath(
+  cachePath: string,
+  projectPath: string,
+  category: Category,
+  pattern: string,
+  allMatches: Map<string, CacheMatch>
+): Promise<number> {
   let exists = false;
   let isDirectory = false;
 
@@ -222,7 +225,7 @@ async function processMatchingPath(
     const stats = await fs.stat(cachePath);
     exists = true;
     isDirectory = stats.isDirectory();
-  } catch (error) {
+  } catch {
     return 0; // Path doesn't exist, return 0 size
   }
 
@@ -251,20 +254,20 @@ async function processMatchingPath(
 }
 
 // Helper function to add a match to the collection
-function addMatchToCollection(
-  cachePath,
-  projectPath,
-  size,
-  category,
-  pattern,
-  allMatches
-) {
+export function addMatchToCollection(
+  cachePath: string,
+  projectPath: string,
+  size: number,
+  category: Category,
+  pattern: string,
+  allMatches: Map<string, CacheMatch>
+): void {
   const normalizedPath = cachePath.toLowerCase();
   const relativePath = path.relative(projectPath, cachePath);
 
   if (allMatches.has(normalizedPath)) {
     // Path already found by another pattern, combine the pattern info
-    const existing = allMatches.get(normalizedPath);
+    const existing = allMatches.get(normalizedPath)!;
 
     if (!existing.categories.includes(category.name)) {
       existing.categories.push(category.name);
@@ -286,7 +289,12 @@ function addMatchToCollection(
 }
 
 // Helper function to process a single cache pattern
-async function processCachePattern(projectPath, category, pattern, allMatches) {
+export async function processCachePattern(
+  projectPath: string,
+  category: Category,
+  pattern: string,
+  allMatches: Map<string, CacheMatch>
+): Promise<number> {
   let patternSize = 0;
 
   try {
@@ -302,19 +310,14 @@ async function processCachePattern(projectPath, category, pattern, allMatches) {
       );
       patternSize += size;
     }
-  } catch (error) {
-    console.error(
-      `Error processing cache pattern '${pattern}' in ${projectPath}:`,
-      error
-    );
-  }
+  } catch {  }
 
   return patternSize;
 }
 
 // Helper function to create pattern groups from matches
-function createPatternGroups(allMatches) {
-  const patternGroups = new Map();
+export function createPatternGroups(allMatches: Map<string, CacheMatch>): PatternGroup[] {
+  const patternGroups = new Map<string, PatternGroup>();
 
   for (const match of allMatches.values()) {
     const primaryPattern = match.patterns[0];
@@ -322,7 +325,7 @@ function createPatternGroups(allMatches) {
     const patternKey = `${primaryCategory}:${primaryPattern}`;
 
     if (patternGroups.has(patternKey)) {
-      const existing = patternGroups.get(patternKey);
+      const existing = patternGroups.get(patternKey)!;
       existing.matches.push(match);
       existing.totalSize += match.size;
     } else {
@@ -341,8 +344,8 @@ function createPatternGroups(allMatches) {
 }
 
 // Helper function to calculate cache sizes for a project
-async function calculateCacheSizes(projectPath, categories) {
-  const allMatches = new Map();
+export async function calculateCacheSizes(projectPath: string, categories: Category[]): Promise<{ caches: PatternGroup[]; totalSize: number }> {
+  const allMatches = new Map<string, CacheMatch>();
   let totalSize = 0;
 
   // First pass: collect all matches grouped by actual path
@@ -365,17 +368,18 @@ async function calculateCacheSizes(projectPath, categories) {
 }
 
 // Recursive function to scan for developer projects
-async function scanDeveloperProjectsRecursive(
-  dirPath,
-  enabledCategories,
-  projects,
-  currentDepth,
-  maxDepth
-) {
+export async function scanDeveloperProjectsRecursive(
+  dirPath: string,
+  enabledCategories: Category[],
+  projects: Project[],
+  currentDepth: number,
+  maxDepth: number
+): Promise<void> {
   if (currentDepth > maxDepth) return;
 
   try {
-    parentPort.postMessage({ type: "current-path", path: dirPath });
+    if (!parentPort) throw new Error("Worker thread parent port not available");
+    parentPort.postMessage({ type: "current-path", path: dirPath } as WorkerResponse);
 
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
@@ -391,15 +395,15 @@ async function scanDeveloperProjectsRecursive(
 
       if (totalSize > 0) {
         // Get directory's last modified time
-        let lastModified;
+        let lastModified: string | null;
         try {
           const stats = await fs.stat(dirPath);
           lastModified = stats.mtime.toISOString();
-        } catch (error) {
+        } catch {
           lastModified = null;
         }
 
-        const project = {
+        const project: Project = {
           path: dirPath,
           type: foundCategories.map(cat => cat.name).join(", "),
           caches: caches,
@@ -410,7 +414,7 @@ async function scanDeveloperProjectsRecursive(
         projects.push(project);
 
         // Send real-time update
-        parentPort.postMessage({ type: "project-found", project });
+        parentPort.postMessage({ type: "project-found", project } as WorkerResponse);
 
         // Only stop recursing if we found a project WITH caches to avoid nested scans
         // If no caches found, continue scanning subdirectories
@@ -423,6 +427,7 @@ async function scanDeveloperProjectsRecursive(
 
     // Recurse into subdirectories
     for (const entry of entries) {
+      if (!isScanning) return;
       if (entry.isDirectory()) {
         const fullPath = path.join(dirPath, entry.name);
         await scanDeveloperProjectsRecursive(
@@ -440,11 +445,13 @@ async function scanDeveloperProjectsRecursive(
 }
 
 // Main scan function
-async function scanDeveloperProjects(basePaths, enabledCategories) {
-  const projects = [];
+export async function scanDeveloperProjects(basePaths: string[], enabledCategories: Category[]): Promise<Project[]> {
+  const projects: Project[] = [];
 
+  isScanning = true;
   for (const basePath of basePaths) {
     try {
+      if (!isScanning) return projects;
       await scanDeveloperProjectsRecursive(
         basePath,
         enabledCategories,
@@ -457,25 +464,26 @@ async function scanDeveloperProjects(basePaths, enabledCategories) {
     }
   }
 
+  isScanning = false;
   return projects;
 }
 
 // Listen for messages from the main thread
-parentPort.on("message", async ({ basePaths, enabledCategories }) => {
-  try {
-    console.log("Developer scan worker started with:", {
-      basePaths: basePaths,
-      categoryCount: enabledCategories.length,
-      categoryNames: enabledCategories.map(cat => cat.name)
-    });
+if (parentPort) {
+  parentPort.on("message", async (message: WorkerMessage) => {
+    try {
+      if (message.type === "stop") {
+        isScanning = false;
+        return;
+      }
+      // enabledCategories already contains the full category objects from the frontend
+      const projects = await scanDeveloperProjects(message.basePaths, message.enabledCategories);
 
-    // enabledCategories already contains the full category objects from the frontend
-    const projects = await scanDeveloperProjects(basePaths, enabledCategories);
-
-    console.log(`Developer scan completed. Found ${projects.length} projects`);
-    parentPort.postMessage({ type: "done", projects });
-  } catch (error) {
-    console.error("Developer scan worker error:", error);
-    parentPort.postMessage({ type: "error", error: error.message });
-  }
-});
+      console.log(`Developer scan completed. Found ${projects.length} projects`);
+      parentPort?.postMessage({ type: "done", projects } as WorkerResponse);
+    } catch (error) {
+      console.error("Developer scan worker error:", error);
+      parentPort?.postMessage({ type: "error", error: (error as Error).message } as WorkerResponse);
+    }
+  });
+} 
