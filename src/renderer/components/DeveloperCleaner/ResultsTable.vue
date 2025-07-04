@@ -111,6 +111,7 @@ const headers = [
 const getRelativeTime = (dateString: string): string => {
     if (!dateString) return ''
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return ''
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
