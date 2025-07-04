@@ -40,7 +40,7 @@ import CategoriesPanel from './DeveloperCleaner/CategoriesPanel.vue'
 import ControlPanel from './DeveloperCleaner/ControlPanel.vue'
 import ResultsTable from './DeveloperCleaner/ResultsTable.vue'
 import CategoryInfoDialog from './DeveloperCleaner/CategoryInfoDialog.vue'
-import type { DeveloperCategory, ProjectInfo, CacheGroup } from '@/types'
+import type { DeveloperCategory, ProjectInfo } from '@/types'
 
 // Reactive state
 const projects = ref<ProjectInfo[]>([])

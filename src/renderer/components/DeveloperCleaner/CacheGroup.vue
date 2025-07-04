@@ -155,7 +155,7 @@ const totalCacheCount = computed(() => {
 })
 
 // Methods
-const formatSize = (bytes: number): string => String(filesize(bytes, { base: 2, standard: 'jedec' }))
+const formatSize = (bytes: number): string => filesize(bytes, { base: 2, standard: 'jedec' })
 
 const getTypeColor = (type: CacheCategory): string => {
     const colors: Record<CacheCategory, string> = {

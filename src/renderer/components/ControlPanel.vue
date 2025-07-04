@@ -7,7 +7,7 @@
                         <!-- Scan button -->
                         <v-col cols="auto">
                             <v-btn :color="isScanning ? 'error' : 'primary'" :loading="false" :disabled="isDeleting"
-                                @click="$emit(isScanning ? 'stop-scan' : 'scan')">
+                                @click="handleScanClick">
                                 <v-icon left>{{ isScanning ? 'mdi-stop' : 'mdi-magnify' }}</v-icon>
                                 {{ isScanning ? 'Stop' : 'Scan' }}
                             </v-btn>
@@ -48,18 +48,31 @@
     </v-row>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps({
-    isScanning: Boolean,
-    isDeleting: Boolean,
-    foldersLength: Number,
-    maxDepth: {
-        type: Number,
-        default: 0,
-    },
-})
+const props = defineProps<{
+    isScanning: boolean
+    isDeleting: boolean
+    foldersLength: number
+    maxDepth?: number
+}>()
+
+const emit = defineEmits<{
+    'stop-scan': []
+    scan: []
+    'select-all': []
+    'deselect-all': []
+    'update:maxDepth': [value: number]
+}>()
+
+const handleScanClick = (): void => {
+    if (props.isScanning) {
+        emit('stop-scan')
+    } else {
+        emit('scan')
+    }
+}
 
 const depthLabel = computed(() => (props.maxDepth === 0 ? '∞' : String(props.maxDepth)))
 </script>

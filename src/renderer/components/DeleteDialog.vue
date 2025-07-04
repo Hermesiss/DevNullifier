@@ -21,26 +21,29 @@
     </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { filesize } from 'filesize'
 
-const props = defineProps({
-    modelValue: Boolean,
-    selectedCount: Number,
-    selectedSize: Number,
-})
+const props = defineProps<{
+    modelValue: boolean
+    selectedCount: number
+    selectedSize: number
+}>()
 
-const emits = defineEmits(['update:modelValue', 'confirm'])
+const emits = defineEmits<{
+    'update:modelValue': [value: boolean]
+    confirm: []
+}>()
 
 const show = computed({
     get: () => props.modelValue,
-    set: (val) => emits('update:modelValue', val),
+    set: (val: boolean) => emits('update:modelValue', val),
 })
 
-const confirmDelete = () => {
+const confirmDelete = (): void => {
     emits('confirm')
 }
 
-const formatSize = (bytes) => filesize(bytes, { binary: true })
+const formatSize = (bytes: number): string => filesize(bytes, { base: 2, standard: 'jedec' })
 </script>

@@ -42,7 +42,7 @@
                         <template v-slot:item.type="{ item }">
                             <div class="d-flex flex-wrap ga-1">
                                 <v-chip v-for="type in item.type.split(', ')" :key="type" size="small"
-                                    :color="getTypeColor(type.trim())">
+                                    :color="getTypeColor(type.trim() as CacheCategory)">
                                     {{ type.trim() }}
                                 </v-chip>
                             </div>
@@ -108,9 +108,9 @@ const headers = [
 ]
 
 // Methods
-const formatSize = (bytes: number): string => String(filesize(bytes, { base: 2, standard: 'jedec' }))
+const formatSize = (bytes: number): string => filesize(bytes, { base: 2, standard: 'jedec' })
 
-const getTypeColor = (type: string): string => {
+const getTypeColor = (type: CacheCategory): string => {
     const colors: Record<CacheCategory, string> = {
         'Python': 'green',
         'Node.js / JS / TS': 'orange',
@@ -129,7 +129,7 @@ const getTypeColor = (type: string): string => {
         'Testing Tools': 'amber',
         'IDEs / Editors': 'brown'
     }
-    return colors[type as CacheCategory] || 'grey'
+    return colors[type] || 'grey'
 }
 
 const formatDate = (dateString: string): string => {
