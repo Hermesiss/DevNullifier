@@ -7,22 +7,21 @@
     </v-snackbar>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps({
-    modelValue: Boolean,
-    text: String,
-    color: {
-        type: String,
-        default: 'info',
-    },
-})
+const props = defineProps<{
+    modelValue: boolean
+    text: string
+    color?: string
+}>()
 
-const emits = defineEmits(['update:modelValue'])
+const emits = defineEmits<{
+    'update:modelValue': [value: boolean]
+}>()
 
 const show = computed({
     get: () => props.modelValue,
-    set: (val) => emits('update:modelValue', val),
+    set: (val: boolean) => emits('update:modelValue', val),
 })
 </script>

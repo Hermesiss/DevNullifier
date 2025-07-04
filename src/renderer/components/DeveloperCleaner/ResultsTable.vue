@@ -42,7 +42,7 @@
                         <template v-slot:item.type="{ item }">
                             <div class="d-flex flex-wrap ga-1">
                                 <v-chip v-for="type in item.type.split(', ')" :key="type" size="small"
-                                    :color="getTypeColor(type.trim())">
+                                    :color="getTypeColor(type.trim() as CacheCategory)">
                                     {{ type.trim() }}
                                 </v-chip>
                             </div>
@@ -74,29 +74,25 @@
     </v-row>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
-import { filesize } from 'filesize'
 import CacheGroup from './CacheGroup.vue'
+import type { ProjectInfo, CacheGroup as CacheGroupType, CacheCategory } from '@/types'
+import { getTypeColor } from '@/utils/categoryColors'
+import { formatSize, formatDate } from '@/utils/formatters'
 
 // Props
-const props = defineProps({
-    projects: {
-        type: Array,
-        required: true
-    },
-    isScanning: {
-        type: Boolean,
-        default: false
-    },
-    isDeleting: {
-        type: Boolean,
-        default: false
-    }
-})
+const props = defineProps<{
+    projects: ProjectInfo[]
+    isScanning?: boolean
+    isDeleting?: boolean
+}>()
 
 // Emits
-const emit = defineEmits(['open-folder-tree', 'cache-selection-changed'])
+const emit = defineEmits<{
+    'open-folder-tree': [folderPath: string]
+    'cache-selection-changed': []
+}>()
 
 // Computed properties
 const totalSelectedCacheSize = computed(() => {
@@ -112,42 +108,12 @@ const headers = [
     { title: 'Cache Details', key: 'cacheInfo', sortable: false },
 ]
 
-// Methods
-const formatSize = (bytes) => filesize(bytes, { binary: true })
-
-const getTypeColor = (type) => {
-    const colors = {
-        'Python': 'green',
-        'Node.js / JS / TS': 'orange',
-        'Rust': 'orange',
-        'Java / Kotlin / Android': 'red',
-        '.NET / C#': 'purple',
-        'C/C++': 'blue',
-        'Xcode / iOS / macOS': 'cyan',
-        'Unity': 'indigo',
-        'Unreal Engine': 'pink',
-        'PHP / Laravel': 'purple',
-        'Symfony': 'deep-purple',
-        'ML / Data Science': 'teal',
-        'Docker / DevOps': 'blue-grey',
-        'Static Site Generators': 'light-green',
-        'Testing Tools': 'amber',
-        'IDEs / Editors': 'brown'
-    }
-    return colors[type] || 'grey'
-}
-
-const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown'
-    const date = new Date(dateString)
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-const getRelativeTime = (dateString) => {
+const getRelativeTime = (dateString: string): string => {
     if (!dateString) return ''
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return ''
     const now = new Date()
-    const diffMs = now - date
+    const diffMs = now.getTime() - date.getTime()
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
     if (diffDays === 0) return 'Today'
@@ -158,11 +124,11 @@ const getRelativeTime = (dateString) => {
     return `${Math.floor(diffDays / 365)} years ago`
 }
 
-const openFolderTree = (folderPath) => {
+const openFolderTree = (folderPath: string): void => {
     emit('open-folder-tree', folderPath)
 }
 
-const selectAllCaches = () => {
+const selectAllCaches = (): void => {
     props.projects.forEach(project => {
         project.caches.forEach(group => {
             group.matches.forEach(match => match.selected = true)
@@ -173,7 +139,7 @@ const selectAllCaches = () => {
     emit('cache-selection-changed')
 }
 
-const deselectAllCaches = () => {
+const deselectAllCaches = (): void => {
     props.projects.forEach(project => {
         project.caches.forEach(group => {
             group.matches.forEach(match => match.selected = false)
@@ -184,14 +150,14 @@ const deselectAllCaches = () => {
     emit('cache-selection-changed')
 }
 
-const updateCacheGroupSelection = (cacheGroup) => {
+const updateCacheGroupSelection = (cacheGroup: CacheGroupType): void => {
     // Recalculate selected cache size for the group
     cacheGroup.selectedSize = cacheGroup.matches
         .filter(match => match.selected)
         .reduce((sum, match) => sum + match.size, 0)
 }
 
-const updateCacheSelection = (project) => {
+const updateCacheSelection = (project: ProjectInfo): void => {
     // Recalculate selected cache size for the entire project
     project.selectedCacheSize = project.caches
         .reduce((sum, group) => sum + group.selectedSize, 0)

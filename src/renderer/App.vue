@@ -55,32 +55,40 @@
   </v-app>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useTheme } from 'vuetify'
 import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 
+type ThemeMode = 'light' | 'dark' | 'system'
+
+interface ThemeModeOption {
+  value: ThemeMode
+  title: string
+  icon: string
+}
+
 // Theme functionality
 const theme = useTheme()
-const themeMode = ref('system') // 'light', 'dark', 'system'
-let mediaQuery = null
+const themeMode = ref<ThemeMode>('system')
+let mediaQuery: MediaQueryList | null = null
 
 // Theme mode options
-const themeModes = [
+const themeModes: ThemeModeOption[] = [
   { value: 'light', title: 'Light', icon: 'mdi-brightness-7' },
   { value: 'dark', title: 'Dark', icon: 'mdi-brightness-4' },
   { value: 'system', title: 'System', icon: 'mdi-brightness-auto' }
 ]
 
 // Get system theme preference
-const getSystemTheme = () => {
+const getSystemTheme = (): ThemeMode => {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 // Apply theme based on mode
-const applyTheme = () => {
+const applyTheme = (): void => {
   if (themeMode.value === 'system') {
     theme.global.name.value = getSystemTheme()
   } else {
@@ -89,7 +97,7 @@ const applyTheme = () => {
 }
 
 // Get appropriate icon for current theme
-const getThemeIcon = () => {
+const getThemeIcon = (): string => {
   if (themeMode.value === 'system') {
     return 'mdi-brightness-auto'
   }
@@ -97,13 +105,13 @@ const getThemeIcon = () => {
 }
 
 // Set theme mode
-const setThemeMode = (mode) => {
+const setThemeMode = (mode: ThemeMode): void => {
   themeMode.value = mode
   applyTheme()
 }
 
 // Handle system theme changes
-const handleSystemThemeChange = (e) => {
+const handleSystemThemeChange = (e: MediaQueryListEvent): void => {
   if (themeMode.value === 'system') {
     theme.global.name.value = e.matches ? 'dark' : 'light'
   }
@@ -113,7 +121,7 @@ const handleSystemThemeChange = (e) => {
 onMounted(() => {
   const savedThemeMode = localStorage.getItem('devnullifier-theme-mode')
   if (savedThemeMode && ['light', 'dark', 'system'].includes(savedThemeMode)) {
-    themeMode.value = savedThemeMode
+    themeMode.value = savedThemeMode as ThemeMode
   }
 
   // Apply initial theme
@@ -137,13 +145,13 @@ watch(themeMode, (newMode) => {
 })
 
 // Reactive state
-const activeTab = ref('appdata')
+const activeTab = ref<'appdata' | 'developer'>('appdata')
 const showSnackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('info')
 
 // Notifications
-const showNotification = (text, color = 'info') => {
+const showNotification = (text: string, color: string = 'info'): void => {
   snackbarText.value = text
   snackbarColor.value = color
   showSnackbar.value = true

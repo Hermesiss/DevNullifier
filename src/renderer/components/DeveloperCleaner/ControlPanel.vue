@@ -59,30 +59,25 @@
     </v-row>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
 // Props
-const props = defineProps({
-    isScanning: {
-        type: Boolean,
-        default: false
-    },
-    isDeleting: {
-        type: Boolean,
-        default: false
-    },
-    hasEnabledCategories: {
-        type: Boolean,
-        default: false
-    }
-})
+const props = defineProps<{
+    isScanning?: boolean
+    isDeleting?: boolean
+    hasEnabledCategories?: boolean
+}>()
 
 // Emits
-const emit = defineEmits(['start-scan', 'stop-scan', 'show-notification'])
+const emit = defineEmits<{
+    'start-scan': [basePaths: string[]]
+    'stop-scan': []
+    'show-notification': [message: string, type?: string]
+}>()
 
 // Reactive state
-const basePaths = ref([])
+const basePaths = ref<string[]>([])
 
 // localStorage key
 const STORAGE_KEYS = {
@@ -90,7 +85,7 @@ const STORAGE_KEYS = {
 }
 
 // Methods
-const selectBasePath = async () => {
+const selectBasePath = async (): Promise<void> => {
     try {
         if (!window.electronAPI.selectDirectory) {
             emit('show-notification', 'Directory selection not yet implemented', 'warning')
@@ -108,11 +103,12 @@ const selectBasePath = async () => {
             }
         }
     } catch (error) {
-        emit('show-notification', 'Error selecting directory: ' + error.message, 'error')
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        emit('show-notification', 'Error selecting directory: ' + errorMessage, 'error')
     }
 }
 
-const startScan = () => {
+const startScan = (): void => {
     if (basePaths.value.length === 0) {
         emit('show-notification', 'Please select at least one base path first', 'warning')
         return
@@ -120,30 +116,30 @@ const startScan = () => {
     emit('start-scan', basePaths.value)
 }
 
-const stopScan = () => {
+const stopScan = (): void => {
     emit('stop-scan')
 }
 
-const removeBasePath = (path) => {
+const removeBasePath = (path: string): void => {
     basePaths.value = basePaths.value.filter(p => p !== path)
     saveBasePaths()
 }
 
-const clearAllPaths = () => {
+const clearAllPaths = (): void => {
     basePaths.value = []
     saveBasePaths()
     emit('show-notification', 'All base paths cleared', 'info')
 }
 
-const saveBasePaths = () => {
+const saveBasePaths = (): void => {
     localStorage.setItem(STORAGE_KEYS.BASE_PATHS, JSON.stringify(basePaths.value))
 }
 
-const loadBasePaths = () => {
+const loadBasePaths = (): void => {
     try {
         const stored = localStorage.getItem(STORAGE_KEYS.BASE_PATHS)
         if (stored) {
-            const paths = JSON.parse(stored)
+            const paths: string[] = JSON.parse(stored)
             if (Array.isArray(paths)) {
                 basePaths.value = paths
             }

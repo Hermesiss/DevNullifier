@@ -16,40 +16,40 @@
             </template>
 
             <template #item.path="{ item }">
-                <v-tooltip :text="item.path">
-                    <template #activator="{ props }">
-                        <span v-bind="props" class="text-truncate" style="max-width: 400px; display: inline-block;">
-                            {{ item.path }}
-                        </span>
-                    </template>
-                </v-tooltip>
+                <div class="d-flex align-center">
+                    <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)" :disabled="isScanning"
+                        class="ml-2">
+                        <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                    </v-btn>
+                    <span class="flex-grow-1">
+                        {{ item.path }}
+                    </span>
+                </div>
             </template>
         </v-data-table>
     </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
-import { filesize } from 'filesize'
+import { formatSize } from '@/utils/formatters'
+import { FolderItem } from '@/types/common'
 
-const props = defineProps({
-    folders: {
-        type: Array,
-        default: () => [],
-    },
-    modelValue: {
-        type: Array,
-        default: () => [],
-    },
-    isScanning: Boolean,
-})
+const props = defineProps<{
+    folders?: FolderItem[]
+    modelValue?: string[]
+    isScanning?: boolean
+}>()
 
-const emits = defineEmits(['update:modelValue'])
+const emits = defineEmits<{
+    'update:modelValue': [value: string[]]
+    'open-folder-tree': [folderPath: string]
+}>()
 
 // Create unique items with IDs
 const uniqueItems = computed(() => {
-    const seen = new Map();
-    return props.folders.map(folder => {
+    const seen = new Map<string, FolderItem & { id: string }>();
+    return (props.folders || []).map(folder => {
         const existingFolder = seen.get(folder.path);
         if (existingFolder) {
             return existingFolder;
@@ -64,8 +64,8 @@ const uniqueItems = computed(() => {
 });
 
 const selected = computed({
-    get: () => props.modelValue,
-    set: (val) => emits('update:modelValue', val),
+    get: () => props.modelValue || [],
+    set: (val: string[]) => emits('update:modelValue', val),
 })
 
 const headers = [
@@ -75,13 +75,15 @@ const headers = [
 
 const totalSize = computed(() => uniqueItems.value.reduce((sum, f) => sum + f.size, 0))
 const selectedSize = computed(() =>
-    selected.value.reduce((sum, path) => {
+    (selected.value || []).reduce((sum, path) => {
         const folder = uniqueItems.value.find((f) => f.path === path)
         return sum + (folder ? folder.size : 0)
     }, 0),
 )
 
-const formatSize = (bytes) => filesize(bytes, { binary: true })
+const openFolderTree = (folderPath: string): void => {
+    emits('open-folder-tree', folderPath)
+}
 </script>
 
 <style scoped>

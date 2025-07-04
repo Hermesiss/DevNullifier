@@ -1,8 +1,8 @@
-const fs = require("fs").promises;
-const path = require("path");
+import { promises as fs } from "fs";
+import path from "path";
 
 // Calculate directory size recursively
-async function getDirSize(dirPath) {
+export async function getDirSize(dirPath: string): Promise<number> {
   let size = 0;
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -27,7 +27,3 @@ async function getDirSize(dirPath) {
 
   return size;
 }
-
-module.exports = {
-  getDirSize
-};
