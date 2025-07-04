@@ -30,7 +30,6 @@ import ResultsTable from './AppDataCleaner/ResultsTable.vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
-import { formatSize } from '@/utils/formatters'
 import type { DeleteResult, FolderItem } from '@/types'
 
 // Reactive state

@@ -1,9 +1,8 @@
 import { parentPort } from "worker_threads";
-import { promises as fs } from "fs";
+import { promises as fs, Dirent } from "fs";
 import path from "path";
 import { getDirSize } from "./fileUtils";
 import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
-import { Dirent } from "fs";
 
 // Helper function to check if directory contains detection files
 export async function checkProjectType(projectPath: string, categories: Category[]): Promise<Category[]> {
@@ -66,7 +65,7 @@ export async function expandGlobPattern(projectPath: string, pattern: string): P
 export async function readDirectoryEntries(dirPath: string): Promise<Dirent[]> {
   try {
     return await fs.readdir(dirPath, { withFileTypes: true });
-  } catch (error) {
+  } catch {
     return [];
   }
 }
@@ -222,7 +221,7 @@ export async function processMatchingPath(
     const stats = await fs.stat(cachePath);
     exists = true;
     isDirectory = stats.isDirectory();
-  } catch (error) {
+  } catch {
     return 0; // Path doesn't exist, return 0 size
   }
 
@@ -307,12 +306,7 @@ export async function processCachePattern(
       );
       patternSize += size;
     }
-  } catch (error) {
-    console.error(
-      `Error processing cache pattern '${pattern}' in ${projectPath}:`,
-      error
-    );
-  }
+  } catch {  }
 
   return patternSize;
 }
@@ -401,7 +395,7 @@ export async function scanDeveloperProjectsRecursive(
         try {
           const stats = await fs.stat(dirPath);
           lastModified = stats.mtime.toISOString();
-        } catch (error) {
+        } catch {
           lastModified = null;
         }
 

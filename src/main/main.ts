@@ -1,8 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import type { OpenDialogOptions, OpenDialogReturnValue } from "electron";
 import path from "path";
-import { promises as fs } from "fs";
-import * as fsSync from "fs";
+import type { Dirent } from "fs";
+import { promises as fsPromises } from "fs";
 import os from "os";
 import { Worker } from "worker_threads";
 import * as appDataCleaner from "./appDataCleaner";
@@ -145,7 +145,7 @@ ipcMain.handle("check-admin", () => {
     try {
       // This is a simple check - in production you might want more robust checking
       return process.getuid && process.getuid() === 0;
-    } catch (err) {
+    } catch {
       return false;
     }
   }
@@ -186,57 +186,55 @@ interface FolderContents {
   itemCount: number;
 }
 
+async function processDirectoryEntry(entry: Dirent, parentPath: string): Promise<FolderContents | null> {
+  const fullPath = path.resolve(path.join(parentPath, entry.name));
+  let size = 0;
+  let itemCount = 0;
+
+  try {
+    if (entry.isDirectory()) {
+      const subEntries = await fsPromises.readdir(fullPath);
+      itemCount = subEntries.length;
+    } else {
+      const stats = await fsPromises.stat(fullPath);
+      size = stats.size;
+    }
+
+    return {
+      name: entry.name,
+      path: fullPath,
+      isDirectory: entry.isDirectory(),
+      size,
+      itemCount
+    };
+  } catch (error) {
+    console.warn(`Cannot access ${fullPath}:`, error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+function sortFolderContents(contents: FolderContents[]): FolderContents[] {
+  return contents.sort((a, b) => {
+    if (a.isDirectory !== b.isDirectory) {
+      return a.isDirectory ? -1 : 1;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
 // Get folder contents
 ipcMain.handle("get-folder-contents", async (event, folderPath: string): Promise<FolderContents[]> => {
   try {
-    const entries = await fs.readdir(folderPath, { withFileTypes: true });
+    const entries = await fsPromises.readdir(folderPath, { withFileTypes: true });
+    const limitedEntries = entries.slice(0, 1000); // Limit to first 1000 entries to prevent UI freezing
+    
     const contents: FolderContents[] = [];
-
-    // Limit to first 1000 entries to prevent UI freezing
-    const limitedEntries = entries.slice(0, 1000);
-
-    for (const entry of limitedEntries) {
-      const fullPath = path.resolve(path.join(folderPath, entry.name));
-      let size = 0;
-      let itemCount = 0;
-
-      try {
-        if (entry.isDirectory()) {
-          // For directories, count immediate children (limited to prevent slowdown)
-          try {
-            const subEntries = await fs.readdir(fullPath);
-            itemCount = subEntries.length;
-          } catch (error) {
-            console.warn(`Cannot access ${fullPath}:`, error instanceof Error ? error.message : String(error));
-          }
-        } else {
-          // For files, get size
-          const stats = await fs.stat(fullPath);
-          size = stats.size;
-        }
-
-        contents.push({
-          name: entry.name,
-          path: fullPath,
-          isDirectory: entry.isDirectory(),
-          size: size,
-          itemCount: itemCount
-        });
-      } catch (error) {
-        // Skip files/folders that can't be accessed
-        console.warn(`Cannot access ${fullPath}:`, error instanceof Error ? error.message : String(error));
-      }
-    }
-
-    // Sort: directories first, then by name
-    contents.sort((a, b) => {
-      if (a.isDirectory !== b.isDirectory) {
-        return a.isDirectory ? -1 : 1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-    return contents;
+    const processedEntries = await Promise.all(
+      limitedEntries.map(entry => processDirectoryEntry(entry, folderPath))
+    );
+    
+    contents.push(...processedEntries.filter((entry): entry is FolderContents => entry !== null));
+    return sortFolderContents(contents);
   } catch (error) {
     throw new Error(`Cannot read folder ${folderPath}: ${error instanceof Error ? error.message : String(error)}`);
   }

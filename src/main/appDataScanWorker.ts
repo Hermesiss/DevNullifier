@@ -1,7 +1,6 @@
 import { parentPort } from "worker_threads";
 import path from "path";
-import { promises as fs } from "fs";
-import { Dirent } from "fs";
+import { promises as fs, Dirent } from "fs";
 import { getDirSize } from "./fileUtils";
 
 export interface Folder {
@@ -158,7 +157,7 @@ export class FolderScanner {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.messagePort.postMessage({ type: "error", error: errorMessage });
-      throw error;
+      return [];
     }
   }
 }
@@ -171,15 +170,7 @@ export function initializeWorker() {
   const scanner = new FolderScanner(parentPort);
 
   parentPort.on("message", async (message: WorkerMessage) => {
-    try {
-      await scanner.scanPaths(
-        message.paths,
-        message.maxDepth,
-        message.keywords
-      );
-    } catch (error) {
-      // Error already handled in scanPaths
-    }
+    await scanner.scanPaths(message.paths, message.maxDepth, message.keywords);
   });
 }
 

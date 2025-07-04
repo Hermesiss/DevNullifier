@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { Project } from "../types/developer-cleaner";
+import { Category, Project } from "../types/developer-cleaner";
 
 interface Folder {
   path: string;
@@ -14,14 +14,14 @@ interface ScanFoldersOptions {
 
 interface ScanDeveloperOptions {
   basePaths: string[];
-  enabledCategories: any[]; // TODO: Import proper type from developer-cleaner.ts
+  enabledCategories: Category[];
 }
 
 // Define the shape of our API
 interface ElectronAPI {
   getAppDataPaths: () => Promise<string[]>;
   scanFolders: (paths: string[], maxDepth: number) => Promise<void>;
-  scanDeveloperCaches: (basePaths: string[], enabledCategories: any[]) => Promise<void>;
+  scanDeveloperCaches: (basePaths: string[], enabledCategories: Category[]) => Promise<void>;
   stopAppDataScan: () => Promise<void>;
   stopDeveloperScan: () => Promise<void>;
   deleteFolders: (folderPaths: string[]) => Promise<void>;
@@ -51,7 +51,7 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("scan-folders", { paths, maxDepth } as ScanFoldersOptions),
 
   // Scan for developer caches
-  scanDeveloperCaches: (basePaths: string[], enabledCategories: any[]) =>
+  scanDeveloperCaches: (basePaths: string[], enabledCategories: Category[]) =>
     ipcRenderer.invoke("scan-developer-caches", {
       basePaths,
       enabledCategories
