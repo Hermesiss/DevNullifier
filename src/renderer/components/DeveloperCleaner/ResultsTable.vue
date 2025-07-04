@@ -76,9 +76,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { filesize } from 'filesize'
 import CacheGroup from './CacheGroup.vue'
 import type { ProjectInfo, CacheGroup as CacheGroupType, CacheCategory } from '@/types'
+import { getTypeColor } from '@/utils/categoryColors'
+import { formatSize, formatDate } from '@/utils/formatters'
 
 // Props
 const props = defineProps<{
@@ -106,37 +107,6 @@ const headers = [
     { title: 'Selected Size', key: 'totalCacheSize', sortable: true },
     { title: 'Cache Details', key: 'cacheInfo', sortable: false },
 ]
-
-// Methods
-const formatSize = (bytes: number): string => filesize(bytes, { base: 2, standard: 'jedec' })
-
-const getTypeColor = (type: CacheCategory): string => {
-    const colors: Record<CacheCategory, string> = {
-        'Python': 'green',
-        'Node.js / JS / TS': 'orange',
-        'Rust': 'orange',
-        'Java / Kotlin / Android': 'red',
-        '.NET / C#': 'purple',
-        'C/C++': 'blue',
-        'Xcode / iOS / macOS': 'cyan',
-        'Unity': 'indigo',
-        'Unreal Engine': 'pink',
-        'PHP / Laravel': 'purple',
-        'Symfony': 'deep-purple',
-        'ML / Data Science': 'teal',
-        'Docker / DevOps': 'blue-grey',
-        'Static Site Generators': 'light-green',
-        'Testing Tools': 'amber',
-        'IDEs / Editors': 'brown'
-    }
-    return colors[type] || 'grey'
-}
-
-const formatDate = (dateString: string): string => {
-    if (!dateString) return 'Unknown'
-    const date = new Date(dateString)
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
 
 const getRelativeTime = (dateString: string): string => {
     if (!dateString) return ''

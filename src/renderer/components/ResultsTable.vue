@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { filesize } from 'filesize'
+import { formatSize } from '@/utils/formatters'
 
 interface FolderItem {
     path: string
@@ -82,8 +82,6 @@ const selectedSize = computed(() =>
         return sum + (folder ? folder.size : 0)
     }, 0),
 )
-
-const formatSize = (bytes: number): string => filesize(bytes, { base: 2, standard: 'jedec' })
 </script>
 
 <style scoped>

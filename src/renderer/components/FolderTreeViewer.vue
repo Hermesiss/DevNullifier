@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { filesize } from 'filesize'
+import { formatSize } from '@/utils/formatters'
 
 interface TreeItem {
     id: string
@@ -134,11 +134,6 @@ const close = (): void => {
     error.value = null
     expandedItems.value.clear()
     loadedItems.value.clear()
-}
-
-const formatSize = (bytes: number): string => {
-    if (!bytes) return '0 B'
-    return filesize(bytes, { base: 2, standard: 'jedec' })
 }
 
 const getFileIcon = (filename: string): string => {

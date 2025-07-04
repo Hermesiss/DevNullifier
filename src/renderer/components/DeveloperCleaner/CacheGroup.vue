@@ -105,8 +105,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTheme } from 'vuetify'
-import { filesize } from 'filesize'
 import type { CacheGroup, CacheCategory } from '@/types'
+import { getTypeColor } from '@/utils/categoryColors'
+import { formatSize } from '@/utils/formatters'
 
 // Theme
 const theme = useTheme()
@@ -155,30 +156,6 @@ const totalCacheCount = computed(() => {
 })
 
 // Methods
-const formatSize = (bytes: number): string => filesize(bytes, { base: 2, standard: 'jedec' })
-
-const getTypeColor = (type: CacheCategory): string => {
-    const colors: Record<CacheCategory, string> = {
-        'Python': 'green',
-        'Node.js / JS / TS': 'orange',
-        'Rust': 'orange',
-        'Java / Kotlin / Android': 'red',
-        '.NET / C#': 'purple',
-        'C/C++': 'blue',
-        'Xcode / iOS / macOS': 'cyan',
-        'Unity': 'indigo',
-        'Unreal Engine': 'pink',
-        'PHP / Laravel': 'purple',
-        'Symfony': 'deep-purple',
-        'ML / Data Science': 'teal',
-        'Docker / DevOps': 'blue-grey',
-        'Static Site Generators': 'light-green',
-        'Testing Tools': 'amber',
-        'IDEs / Editors': 'brown'
-    }
-    return colors[type] || 'grey'
-}
-
 const openFolderTree = (folderPath: string): void => {
     emit('open-folder-tree', folderPath)
 }

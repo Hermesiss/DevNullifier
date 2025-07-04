@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { filesize } from 'filesize'
+import { formatSize } from '@/utils/formatters'
 
 const props = defineProps<{
     modelValue: boolean
@@ -32,8 +32,8 @@ const props = defineProps<{
 }>()
 
 const emits = defineEmits<{
-    'update:modelValue': [value: boolean]
-    confirm: []
+    (e: 'update:modelValue', value: boolean): void
+    (e: 'confirm'): void
 }>()
 
 const show = computed({
@@ -41,9 +41,8 @@ const show = computed({
     set: (val: boolean) => emits('update:modelValue', val),
 })
 
-const confirmDelete = (): void => {
+const confirmDelete = () => {
+    show.value = false
     emits('confirm')
 }
-
-const formatSize = (bytes: number): string => filesize(bytes, { base: 2, standard: 'jedec' })
 </script>
