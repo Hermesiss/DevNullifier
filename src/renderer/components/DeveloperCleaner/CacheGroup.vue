@@ -105,7 +105,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTheme } from 'vuetify'
-import type { CacheGroup, CacheCategory } from '@/types'
+import type { CacheGroup } from '@/types'
 import { getTypeColor } from '@/utils/categoryColors'
 import { formatSize } from '@/utils/formatters'
 

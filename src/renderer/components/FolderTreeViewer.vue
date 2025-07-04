@@ -79,7 +79,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { formatSize } from '@/utils/formatters'
-import { computed } from 'vue'
 import { TreeItem, FlatTreeItem } from '@/types/common'
 
 // Props

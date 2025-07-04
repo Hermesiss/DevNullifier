@@ -146,15 +146,18 @@
       "provider": "v8",
       "reporter": [
         "text",
-        "lcov",
-        "html"
+        "json",
+        "html",
+        "lcov"
       ],
+      "reportsDirectory": "./coverage",
       "exclude": [
         "node_modules/",
         "dist/",
         "**/*.d.ts",
         "**/*.config.ts",
-        "**/*.config.js"
+        "**/*.config.js",
+        "**/__tests__/**"
       ]
     }
   }

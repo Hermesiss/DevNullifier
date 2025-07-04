@@ -81,6 +81,11 @@ describe('ResultsTable', () => {
       }
     });
 
+    const dataTable = wrapper.findComponent({ name: 'v-data-table' });
+    const items = dataTable.vm.items;
+    const totalSize = items.reduce((acc: number, item: FolderItem) => acc + item.size, 0);
+
+    expect(totalSize).toBe(3072);
     // Check if selected size is computed correctly
     expect(formatSize).toHaveBeenCalledWith(1024); // Selected size (path1)
     expect(formatSize).toHaveBeenCalledWith(3072); // Total size

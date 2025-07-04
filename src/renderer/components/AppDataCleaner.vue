@@ -260,6 +260,32 @@ const confirmDelete = (): void => {
     }
 }
 
+const buildDeleteResultMessage = (successCount: number, partialCount: number, failCount: number): { message: string; color: string } => {
+    if (failCount === 0 && partialCount === 0) {
+        return {
+            message: `Successfully deleted ${successCount} folders`,
+            color: 'success'
+        }
+    }
+
+    if (successCount === 0 && partialCount === 0) {
+        return {
+            message: `Failed to delete ${failCount} folders`,
+            color: 'error'
+        }
+    }
+
+    const parts = []
+    if (successCount > 0) parts.push(`${successCount} deleted`)
+    if (partialCount > 0) parts.push(`${partialCount} partial`)
+    if (failCount > 0) parts.push(`${failCount} failed`)
+
+    return {
+        message: parts.join(', '),
+        color: partialCount > 0 || failCount > 0 ? 'warning' : 'success'
+    }
+}
+
 const deleteFolders = async (): Promise<void> => {
     try {
         showDeleteDialog.value = false
@@ -273,26 +299,7 @@ const deleteFolders = async (): Promise<void> => {
         const partialCount = results.filter((r: DeleteResult) => r.success === 'partial').length
         const failCount = results.filter((r: DeleteResult) => r.success === false).length
 
-        // Build notification message based on results
-        let message = ''
-        let color = 'success'
-
-        if (failCount === 0 && partialCount === 0) {
-            message = `Successfully deleted ${successCount} folders`
-        } else if (successCount === 0 && partialCount === 0) {
-            message = `Failed to delete ${failCount} folders`
-            color = 'error'
-        } else {
-            // Mixed results
-            const parts = []
-            if (successCount > 0) parts.push(`${successCount} deleted`)
-            if (partialCount > 0) parts.push(`${partialCount} partial`)
-            if (failCount > 0) parts.push(`${failCount} failed`)
-
-            message = parts.join(', ')
-            color = partialCount > 0 || failCount > 0 ? 'warning' : 'success'
-        }
-
+        const { message, color } = buildDeleteResultMessage(successCount, partialCount, failCount)
         emit('showNotification', message, color)
 
         // Auto re-scan only affected parent directories after deletion
