@@ -46,7 +46,7 @@ export async function loadSavedFolders(): Promise<FolderItem[]> {
         const filePath = await getSavedFoldersPath();
         const data = await fs.readFile(filePath, 'utf-8');
         return JSON.parse(data);
-    } catch (error) {
+    } catch {
         return [];
     }
 }
@@ -55,7 +55,7 @@ export async function getSavedFoldersCount(): Promise<number> {
     try {
         const folders = await loadSavedFolders();
         return folders.length;
-    } catch (error) {
+    } catch {
         return 0;
     }
 }
@@ -75,7 +75,7 @@ export async function loadSavedDeveloperProjects(): Promise<ProjectInfo[]> {
         const filePath = await getSavedDeveloperProjectsPath();
         const data = await fs.readFile(filePath, 'utf-8');
         return JSON.parse(data);
-    } catch (error) {
+    } catch {
         return [];
     }
 }
@@ -84,7 +84,7 @@ export async function getSavedDeveloperProjectsCount(): Promise<number> {
     try {
         const projects = await loadSavedDeveloperProjects();
         return projects.length;
-    } catch (error) {
+    } catch {
         return 0;
     }
 }

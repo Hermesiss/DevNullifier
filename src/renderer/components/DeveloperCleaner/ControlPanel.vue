@@ -84,7 +84,6 @@ const emit = defineEmits<{
 
 // Reactive state
 const basePaths = ref<string[]>([])
-const selectedPaths = ref<string[]>([])
 const savedProjectsCount = ref(0)
 
 // localStorage key
@@ -184,11 +183,6 @@ onMounted(async () => {
         }
     }
 
-    // Get user home directory as default path
-    const homePath = await window.electronAPI.getUserHome()
-    if (homePath) {
-        selectedPaths.value = [homePath]
-    }
     savedProjectsCount.value = await window.electronAPI.getSavedDeveloperProjectsCount()
 })
 

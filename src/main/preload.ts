@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { Category, Project } from "../types/developer-cleaner";
+import type { FolderItem } from "../renderer/types";
 
 interface Folder {
   path: string;
@@ -35,7 +36,7 @@ interface ElectronAPI {
   onScanFolderFound: (callback: (folder: Folder) => void) => void;
   onDeveloperProjectFound: (callback: (project: Project) => void) => void;
   removeAllListeners: (channel: string) => void;
-  saveFolders: (folders: any[]) => Promise<void>;
+  saveFolders: (folders: any[]) => Promise<FolderItem[]>;
   loadSavedFolders: () => Promise<void>;
   getSavedFoldersCount: () => Promise<number>;
   getDirectorySize: (path: string) => Promise<number>;

@@ -46,7 +46,7 @@
                         <v-spacer></v-spacer>
                     </v-row>
                 </v-card-text>
-                <v-progress-linear :indeterminate="scanProgress < 0" :height="4"
+                <v-progress-linear :indeterminate="isScanning && scanProgress < 0" :height="4"
                     :model-value="isScanning ? scanProgress : 100" color="primary" />
             </v-card>
         </v-col>

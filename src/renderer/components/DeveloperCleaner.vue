@@ -381,7 +381,7 @@ const startQuickScan = async (): Promise<void> => {
                 if (rescannedProject) {
                     validProjects.push(processProject(rescannedProject))
                 }
-            } catch (error) {
+            } catch {
                 console.warn(`Project no longer accessible: ${project.path}`)
             }
         }

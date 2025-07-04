@@ -178,7 +178,7 @@ const startQuickScan = async (): Promise<void> => {
                         size
                     })
                 }
-            } catch (error) {
+            } catch {
                 console.warn(`Folder no longer accessible: ${folder.path}`)
             }
         }
