@@ -2,7 +2,7 @@
     <div class="text-caption">
         <div v-for="cacheGroup in cacheGroups" :key="cacheGroup.pattern" class="mb-2">
             <!-- Cache Group Header -->
-            <div class="d-flex align-center pa-2 bg-grey-lighten-4 rounded">
+            <div class="d-flex align-center pa-2 rounded" :class="headerBackgroundClass">
                 <!-- Master checkbox for the group -->
                 <v-checkbox :model-value="getCacheGroupCheckboxState(cacheGroup)"
                     :indeterminate="getCacheGroupCheckboxState(cacheGroup) === null" color="primary" hide-details
@@ -34,7 +34,7 @@
                         <!-- For multiple matches, show pattern -->
                         <span v-else>{{ cacheGroup.pattern }}</span>
                     </div>
-                    <div class="text-grey">
+                    <div :class="secondaryTextClass">
                         {{ cacheGroup.matches.length }}
                         {{ cacheGroup.matches.length === 1 ? 'match' : 'matches' }} •
                         {{ formatSize(cacheGroup.selectedSize) }} of {{
@@ -78,7 +78,7 @@
                         </v-btn>
                         <div class="flex-grow-1">
                             <div class="font-weight-medium">{{ match.relativePath }}</div>
-                            <div class="text-grey">{{ formatSize(match.size) }}</div>
+                            <div :class="secondaryTextClass">{{ formatSize(match.size) }}</div>
                         </div>
                     </div>
                 </div>
@@ -104,7 +104,11 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useTheme } from 'vuetify'
 import { filesize } from 'filesize'
+
+// Theme
+const theme = useTheme()
 
 // Props
 const props = defineProps({
@@ -124,6 +128,15 @@ const props = defineProps({
 
 // Emits
 const emit = defineEmits(['cache-selection-changed', 'open-folder-tree'])
+
+// Theme-aware computed properties
+const headerBackgroundClass = computed(() => {
+    return theme.global.name.value === 'dark' ? 'bg-grey-darken-3' : 'bg-grey-lighten-4'
+})
+
+const secondaryTextClass = computed(() => {
+    return theme.global.name.value === 'dark' ? 'text-grey-lighten-1' : 'text-grey'
+})
 
 // Computed properties
 const allCachesSelected = computed(() => {

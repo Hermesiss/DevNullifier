@@ -2,10 +2,13 @@
 
 A cross-platform cleaner for application data and developer caches (node_modules, .cache, Library, Binary, Intermediate, etc.) built with Electron, Vue 3, and Vuetify 3.
 
+Now with dark mode!
+
 **Supported Platforms:**
 
 - Windows (AppData: Local, Roaming, LocalLow)
 - Linux (User directories: ~/.config, ~/.cache, ~/.local/share, ~/.local/state, /tmp)
+- macOS (User directories: ~/Library/Caches, ~/Library/Application Support, ~/Library/Logs)
 
 ## Download
 
@@ -26,6 +29,7 @@ Cleans application data folders that accumulate temporary files, caches, and jun
 
 - **Windows**: Temp folders, cache folders, crash dumps, pending files, log files in AppData (Local, Roaming, LocalLow)
 - **Linux**: Cache and temp folders in ~/.config, ~/.cache, ~/.local/share, ~/.local/state, /tmp
+- **macOS**: Cache and temp folders in ~/Library/Caches, ~/Library/Application Support, ~/Library/Logs
 
 ## Dev Cleaner
 
@@ -87,6 +91,16 @@ build.bat  # Build for production
 run.bat    # Run built application
 ```
 
+**Using macOS:**
+
+```bash
+npm install    # Install dependencies
+npm run dev    # Run in development
+npm run build  # Build for production
+```
+
+**Note for macOS users:** The app is unsigned, so you'll need to right-click → "Open" → "Open" the first time to bypass Gatekeeper.
+
 ## Usage
 
 1. Launch the application
@@ -109,6 +123,7 @@ npm run build:renderer  # Build renderer (Vue app)
 npm run build          # Build entire app
 npm run build:win      # Build for Windows
 npm run build:linux    # Build for Linux
+npm run build:mac      # Build for macOS
 ```
 
 ## License
