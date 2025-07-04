@@ -6,7 +6,7 @@
                     <v-row align="center">
                         <!-- Scan button -->
                         <v-col cols="auto">
-                            <v-btn :color="isScanning ? 'error' : 'primary'" :loading="false" :disabled="isDeleting"
+                            <v-btn :color="isScanning ? 'error' : 'primary'" :disabled="isDeleting"
                                 @click="isScanning ? $emit('stop-scan') : $emit('scan')">
                                 <v-icon left>{{ isScanning ? 'mdi-stop' : 'mdi-magnify' }}</v-icon>
                                 {{ isScanning ? 'Stop' : 'Scan' }}

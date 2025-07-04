@@ -67,6 +67,7 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
   // If there's an existing scan, terminate it
   if (currentAppDataScanWorker) {
     currentAppDataScanWorker.terminate();
+    currentAppDataScanWorker = null;
   }
 
   return new Promise((resolve, reject) => {

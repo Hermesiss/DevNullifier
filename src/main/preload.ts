@@ -41,7 +41,7 @@ interface ElectronAPI {
   getSavedFoldersCount: () => Promise<number>;
   getDirectorySize: (path: string) => Promise<number>;
   saveDeveloperProjects: (projects: ProjectInfo[]) => Promise<void>;
-  loadSavedDeveloperProjects: () => Promise<ProjectInfo>;
+  loadSavedDeveloperProjects: () => Promise<ProjectInfo[]>;
   getSavedDeveloperProjectsCount: () => Promise<number>;
 }
 
