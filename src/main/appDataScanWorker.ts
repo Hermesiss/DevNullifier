@@ -21,17 +21,19 @@ export type WorkerResponse =
   | { type: "current-path"; path: string }
   | { type: "progress"; count: number }
   | { type: "done"; results: Folder[] }
-  | { type: "error"; error: string };
+  | { type: "error"; error: string }
+  | { type: "stop" };
 
 export interface IMessagePort {
   postMessage(message: WorkerResponse): void;
+  on(event: "message", listener: (message: WorkerResponse) => void): void;
 }
 
 export class FolderScanner {
   private foundCount = 0;
   private isScanning = true;
   private foldersToSend: Folder[] = [];
-  private maxFoldersPerMessage = 20;
+  private readonly maxFoldersPerMessage = 20;
 
   constructor(
     private readonly messagePort: IMessagePort,
@@ -42,6 +44,7 @@ export class FolderScanner {
   ) {}
 
   stop() {
+    this.messagePort.postMessage({ type: "stop" });
     this.isScanning = false;
   }
 
@@ -189,14 +192,13 @@ export class FolderScanner {
   }
 }
 
-export function initializeWorker() {
-  if (!parentPort) {
-    throw new Error("Worker thread parent port not available");
-  }
+export function initializeWorker(injectedPort: IMessagePort | null = null) {
+  const port = injectedPort || parentPort;
+  if (!port) throw new Error("Worker thread parent port not available");
 
-  const scanner = new FolderScanner(parentPort);
+  const scanner = new FolderScanner(port);
 
-  parentPort.on("message", async (message: WorkerMessage) => {
+  port.on("message", async (message: WorkerMessage) => {
     if (message.type === "stop") {
       scanner.stop();
       return;

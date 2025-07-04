@@ -52,12 +52,8 @@ export async function loadSavedFolders(): Promise<FolderItem[]> {
 }
 
 export async function getSavedFoldersCount(): Promise<number> {
-    try {
-        const folders = await loadSavedFolders();
-        return folders.length;
-    } catch {
-        return 0;
-    }
+    const folders = await loadSavedFolders();
+    return folders.length;
 }
 
 export async function getSavedDeveloperProjectsPath(): Promise<string> {
@@ -81,10 +77,6 @@ export async function loadSavedDeveloperProjects(): Promise<ProjectInfo[]> {
 }
 
 export async function getSavedDeveloperProjectsCount(): Promise<number> {
-    try {
-        const projects = await loadSavedDeveloperProjects();
-        return projects.length;
-    } catch {
-        return 0;
-    }
+    const projects = await loadSavedDeveloperProjects();
+    return projects.length;
 }

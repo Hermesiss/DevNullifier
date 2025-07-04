@@ -33,6 +33,11 @@ describe("FolderScanner", () => {
     mockMessagePort = {
       postMessage: (msg: WorkerResponse) => {
         messages.push(msg);
+      },
+      on: (event: "message", listener: (message: WorkerResponse) => void) => {
+        if (event === "message") {
+          listener(messages[messages.length - 1]);
+        }
       }
     };
 
@@ -176,7 +181,6 @@ describe("FolderScanner", () => {
       
       try {
         const results = await scanner.scanPaths(["/test/path"], 1, ["cache"]);
-        scanner.stop();
         
         expect(messages).toEqual([
           {
@@ -193,9 +197,45 @@ describe("FolderScanner", () => {
     });
 
     it("initialize worker without parentPort throws error", () => {
-    
       expect(() => initializeWorker()).toThrowError("Worker thread parent port not available");
     });
 
+    it("initialize worker with injected port", () => {
+      let functions: any[] = [];
+      const port = {
+        postMessage: (message: WorkerResponse) => {
+          messages.push(message);
+        },
+        on: (event: string, listener: (message: WorkerResponse) => void) => {
+          functions.push(listener);
+        }
+      } as unknown as IMessagePort;
+      initializeWorker(port);
+      expect(functions).toHaveLength(1);
+      expect(functions[0]).toBeDefined();
+
+      // call function message.paths, message.maxDepth, message.keywords
+      functions[0]({
+        type: "message",
+        data: {
+          paths: ["/test"],
+          maxDepth: 1,
+          keywords: ["cache"]
+        }
+      });
+
+      expect(messages).toContainEqual({
+        "error": "paths is not iterable",
+        "type": "error"
+      });
+
+      functions[0]({
+        type: "stop",
+      });
+
+      expect(messages).toContainEqual({
+        "type": "stop"
+      });
+    });
   });
 });

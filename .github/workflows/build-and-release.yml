@@ -148,7 +148,7 @@ jobs:
             dist/DevNullifier-mac-unpacked.zip
 
   create-release:
-    if: github.event_name == 'push' || (github.ref_name == 'develop' || github.ref_name == 'main')
+    if: github.event_name == 'push' && (github.ref_name == 'develop' || github.ref_name == 'main')
     runs-on: ubuntu-latest
     needs: [build-windows, build-linux, build-macos]
 
