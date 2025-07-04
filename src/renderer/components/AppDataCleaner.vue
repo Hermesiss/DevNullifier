@@ -109,14 +109,16 @@ const startScan = async (): Promise<void> => {
 
         statusText.value = 'Scanning folders...'
         // Listen for real-time folder updates
-        window.electronAPI.onScanFolderFound((folder: FolderItem) => {
-            if (!seenPaths.has(folder.path)) {
-                seenPaths.add(folder.path)
-                const existingIndex = folders.value.findIndex(f => f.path === folder.path)
-                if (existingIndex === -1) {
-                    folders.value.push(folder)
-                } else if (folders.value[existingIndex].size !== folder.size) {
-                    folders.value[existingIndex] = folder
+        window.electronAPI.onScanFolderFound((folderss: FolderItem[]) => {
+            for (const folder of folderss) {
+                if (!seenPaths.has(folder.path)) {
+                    seenPaths.add(folder.path)
+                    const existingIndex = folders.value.findIndex(f => f.path === folder.path)
+                    if (existingIndex === -1) {
+                        folders.value.push(folder)
+                    } else if (folders.value[existingIndex].size !== folder.size) {
+                        folders.value[existingIndex] = folder
+                    }
                 }
             }
         })
@@ -230,12 +232,9 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
             return !affectedPaths.some(parentDir => folder.path.startsWith(parentDir))
         })
 
-        const seenPaths = new Set(folders.value.map(f => f.path))
-
         // Listen for real-time folder updates
-        window.electronAPI.onScanFolderFound((folder: FolderItem) => {
-            if (!seenPaths.has(folder.path)) {
-                seenPaths.add(folder.path)
+        window.electronAPI.onScanFolderFound((folderss: FolderItem[]) => {
+            for (const folder of folderss) {
                 const existingIndex = folders.value.findIndex(f => f.path === folder.path)
                 if (existingIndex === -1) {
                     folders.value.push(folder)

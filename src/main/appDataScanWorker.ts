@@ -10,13 +10,14 @@ export interface Folder {
 }
 
 export interface WorkerMessage {
+  type: "scan" | "stop";
   paths: string[];
   maxDepth: number;
   keywords: string[];
 }
 
 export type WorkerResponse =
-  | { type: "folder-found"; folder: Folder }
+  | { type: "folder-found"; folders: Folder[] }
   | { type: "current-path"; path: string }
   | { type: "progress"; count: number }
   | { type: "done"; results: Folder[] }
@@ -28,6 +29,9 @@ export interface IMessagePort {
 
 export class FolderScanner {
   private foundCount = 0;
+  private isScanning = true;
+  private foldersToSend: Folder[] = [];
+  private maxFoldersPerMessage = 20;
 
   constructor(
     private readonly messagePort: IMessagePort,
@@ -36,6 +40,10 @@ export class FolderScanner {
       getDirSize
     }
   ) {}
+
+  stop() {
+    this.isScanning = false;
+  }
 
   private normalizePath(p: string): string {
     return path.normalize(p).replace(/\\/g, "/");
@@ -64,11 +72,8 @@ export class FolderScanner {
           };
           results.push(folder);
           this.foundCount++;
-          this.messagePort.postMessage({ type: "folder-found", folder });
-          this.messagePort.postMessage({
-            type: "progress",
-            count: this.foundCount
-          });
+          this.foldersToSend.push(folder);
+          this.sendFolders();
         }
         return results;
       }
@@ -89,6 +94,15 @@ export class FolderScanner {
 
     return results;
   }
+  public sendFolders(force = false) {
+    if (this.foldersToSend.length >= this.maxFoldersPerMessage || force) {
+      this.messagePort.postMessage({
+        type: "folder-found",
+        folders: this.foldersToSend
+      });
+      this.foldersToSend = [];
+    }
+  }
 
   private async scanDirectory(
     dirPath: string,
@@ -98,6 +112,9 @@ export class FolderScanner {
   ): Promise<Folder[]> {
     const results: Folder[] = [];
     const normalizedPath = this.normalizePath(dirPath);
+    if (!this.isScanning) {
+      return results;
+    }
 
     try {
       const entries = await this.fsOps.readdir(normalizedPath, {
@@ -105,6 +122,9 @@ export class FolderScanner {
       });
 
       for (const entry of entries) {
+        if (!this.isScanning) {
+          return results;
+        }
         if (!entry.isDirectory()) continue;
 
         const entryResults = await this.processDirectoryEntry(
@@ -114,6 +134,7 @@ export class FolderScanner {
           keywords,
           currentDepth
         );
+
         results.push(...entryResults);
       }
     } catch (err) {
@@ -130,9 +151,13 @@ export class FolderScanner {
   ): Promise<Folder[]> {
     const allResults: Folder[] = [];
     this.foundCount = 0;
+    this.isScanning = true;
 
     try {
       for (const basePath of paths) {
+        if (!this.isScanning) {
+          break;
+        }
         const normalizedPath = this.normalizePath(basePath);
         this.messagePort.postMessage({
           type: "current-path",
@@ -151,12 +176,14 @@ export class FolderScanner {
         });
       }
 
+      this.isScanning = false;
       this.messagePort.postMessage({ type: "done", results: allResults });
       return allResults;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.messagePort.postMessage({ type: "error", error: errorMessage });
+      this.isScanning = false;
       return [];
     }
   }
@@ -170,7 +197,12 @@ export function initializeWorker() {
   const scanner = new FolderScanner(parentPort);
 
   parentPort.on("message", async (message: WorkerMessage) => {
+    if (message.type === "stop") {
+      scanner.stop();
+      return;
+    }
     await scanner.scanPaths(message.paths, message.maxDepth, message.keywords);
+    scanner.sendFolders(true);
   });
 }
 

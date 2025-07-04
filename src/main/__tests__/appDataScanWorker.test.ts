@@ -58,19 +58,26 @@ describe("FolderScanner", () => {
         ] as any);
 
       const results = await scanner.scanPaths(paths, 2, keywords);
+      scanner.sendFolders(true); // Force send any remaining folders
 
       expect(results).toHaveLength(2);
       expect(messages).toContainEqual({ type: "current-path", path: paths[0] });
       expect(messages).toContainEqual({ type: "current-path", path: paths[1] });
-      expect(messages).toContainEqual({ 
-        type: "folder-found", 
-        folder: expect.objectContaining({ name: "cache-dir" })
-      });
-      expect(messages).toContainEqual({ 
-        type: "folder-found", 
-        folder: expect.objectContaining({ name: "temp-dir" })
-      });
-      expect(messages).toContainEqual({ type: "progress", count: 1 });
+      
+      // Find all folder-found messages
+      const folderFoundMessages = messages.filter(m => m.type === "folder-found");
+      expect(folderFoundMessages).toHaveLength(1); // We expect one final batched message
+      
+      // Verify the folders in the message - order doesn't matter since they're batched
+      const foundFolders = folderFoundMessages[0].folders;
+      expect(foundFolders).toHaveLength(2);
+      expect(foundFolders).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: "cache-dir", size: 1234 }),
+          expect.objectContaining({ name: "temp-dir", size: 1234 })
+        ])
+      );
+
       expect(messages).toContainEqual({ type: "progress", count: 2 });
       expect(messages).toContainEqual({ type: "done", results });
     });
@@ -140,9 +147,23 @@ describe("FolderScanner", () => {
       ] as any);
 
       const results = await scanner.scanPaths(["/test"], 1, ["cache"]);
+      scanner.sendFolders(true); // Force send any remaining folders
       
       expect(results).toHaveLength(3);
-      expect(messages.filter(m => m.type === "folder-found")).toHaveLength(3);
+      // Since folders are now batched, we expect one message with all 3 folders
+      const folderFoundMessages = messages.filter(m => m.type === "folder-found");
+      expect(folderFoundMessages).toHaveLength(1);
+      
+      // Verify all folders are in the final batched message
+      const foundFolders = folderFoundMessages[0].folders;
+      expect(foundFolders).toHaveLength(3);
+      expect(foundFolders).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: "CACHE", size: 1234 }),
+          expect.objectContaining({ name: "Cache", size: 1234 }),
+          expect.objectContaining({ name: "cache", size: 1234 })
+        ])
+      );
     });
   });
 });

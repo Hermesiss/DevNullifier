@@ -39,7 +39,7 @@ describe("getDirectorySize", () => {
   it("should calculate size of directory with nested directories", async () => {
     // Create nested directory structure
     const subDir = path.join(tempDir, "subdir");
-    await fs.mkdir(subDir);
+    await fs.mkdir(subDir, { recursive: true }); // Ensure subdirectory exists
 
     // Create files in both root and nested directory
     const rootContent = "a".repeat(100);

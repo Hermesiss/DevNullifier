@@ -33,7 +33,7 @@ interface ElectronAPI {
   onScanProgress: (callback: (count: number) => void) => void;
   onScanCurrentPath: (callback: (path: string) => void) => void;
   onDeleteProgress: (callback: (count: number) => void) => void;
-  onScanFolderFound: (callback: (folder: Folder) => void) => void;
+  onScanFolderFound: (callback: (folders: Folder[]) => void) => void;
   onDeveloperProjectFound: (callback: (project: Project) => void) => void;
   removeAllListeners: (channel: string) => void;
   saveFolders: (folders: FolderItem[]) => Promise<void>;
@@ -104,8 +104,8 @@ const api: ElectronAPI = {
   },
 
   // Listen for scan-folder-found (real-time folder updates)
-  onScanFolderFound: (callback: (folder: Folder) => void) => {
-    ipcRenderer.on("scan-folder-found", (_event, folder) => callback(folder));
+  onScanFolderFound: (callback: (folders: Folder[]) => void) => {
+    ipcRenderer.on("scan-folder-found", (_event, folders) => callback(folders));
   },
 
   // Listen for developer-project-found (real-time project updates)

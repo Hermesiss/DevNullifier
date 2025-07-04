@@ -4,6 +4,8 @@ import path from "path";
 import { getDirSize } from "./fileUtils";
 import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 
+let isScanning = true;
+
 // Helper function to check if directory contains detection files
 export async function checkProjectType(projectPath: string, categories: Category[]): Promise<Category[]> {
   const foundCategories: Category[] = [];
@@ -112,6 +114,7 @@ export async function processDoubleAsteriskSubdirectories(
   const entries = await readDirectoryEntries(currentPath);
 
   for (const entry of entries) {
+    if (!isScanning) return;
     if (entry.isDirectory()) {
       const subPath = path.join(currentPath, entry.name);
 
@@ -141,6 +144,7 @@ export async function handleSingleAsteriskPattern(
   const entries = await readDirectoryEntries(currentPath);
 
   for (const entry of entries) {
+    if (!isScanning) return;
     if (entry.isDirectory()) {
       const subPath = path.join(currentPath, entry.name);
       await searchGlobPattern(subPath, patternParts, partIndex + 1, results);
@@ -423,6 +427,7 @@ export async function scanDeveloperProjectsRecursive(
 
     // Recurse into subdirectories
     for (const entry of entries) {
+      if (!isScanning) return;
       if (entry.isDirectory()) {
         const fullPath = path.join(dirPath, entry.name);
         await scanDeveloperProjectsRecursive(
@@ -443,8 +448,10 @@ export async function scanDeveloperProjectsRecursive(
 export async function scanDeveloperProjects(basePaths: string[], enabledCategories: Category[]): Promise<Project[]> {
   const projects: Project[] = [];
 
+  isScanning = true;
   for (const basePath of basePaths) {
     try {
+      if (!isScanning) return projects;
       await scanDeveloperProjectsRecursive(
         basePath,
         enabledCategories,
@@ -457,6 +464,7 @@ export async function scanDeveloperProjects(basePaths: string[], enabledCategori
     }
   }
 
+  isScanning = false;
   return projects;
 }
 
@@ -464,6 +472,10 @@ export async function scanDeveloperProjects(basePaths: string[], enabledCategori
 if (parentPort) {
   parentPort.on("message", async (message: WorkerMessage) => {
     try {
+      if (message.type === "stop") {
+        isScanning = false;
+        return;
+      }
       // enabledCategories already contains the full category objects from the frontend
       const projects = await scanDeveloperProjects(message.basePaths, message.enabledCategories);
 

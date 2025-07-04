@@ -54,8 +54,7 @@ app.on("activate", () => {
 // IPC Handlers
 ipcMain.handle("stop-appdata-scan", () => {
   if (currentAppDataScanWorker) {
-    currentAppDataScanWorker.terminate();
-    currentAppDataScanWorker = null;
+    currentAppDataScanWorker.postMessage({ type: "stop" });
   }
   return true;
 });
@@ -79,14 +78,13 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
 
     currentAppDataScanWorker.on("message", message => {
       if (!mainWindow) return;
-
       if (message.type === "progress") {
         mainWindow.webContents.send("scan-progress", message.count);
       } else if (message.type === "current-path") {
         mainWindow.webContents.send("scan-current-path", message.path);
       } else if (message.type === "folder-found") {
-        mainWindow.webContents.send("scan-folder-found", message.folder);
-        allResults.push(message.folder);
+        mainWindow.webContents.send("scan-folder-found", message.folders);
+        allResults.push(...message.folders);
       } else if (message.type === "done") {
         currentAppDataScanWorker = null;
         resolve(allResults);
@@ -306,8 +304,7 @@ ipcMain.handle(
 // Stop developer scan
 ipcMain.handle("stop-developer-scan", () => {
   if (currentDeveloperScanWorker) {
-    currentDeveloperScanWorker.terminate();
-    currentDeveloperScanWorker = null;
+    currentDeveloperScanWorker.postMessage({ type: "stop" });
   }
   return true;
 });
