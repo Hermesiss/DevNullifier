@@ -8,12 +8,14 @@ on:
 
 jobs:
   test:
-    name: Run Tests
+    name: Test and Coverage
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones should be disabled for better relevancy of analysis
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,11 +26,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
-
       - name: Run tests with coverage
-        run: npm run test:coverage
+        run: npm run test:coverage -- --coverage.provider=v8 --coverage.reporter=lcov,text-summary
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.testExecutionReportPaths=coverage/test-report.xml
+            -Dsonar.sources=src
+            -Dsonar.tests=src
+            -Dsonar.test.inclusions=src/**/*.spec.ts,src/**/*.test.ts,src/**/*.spec.js,src/**/*.test.js,src/**/__tests__/**
+            -Dsonar.coverage.exclusions=src/**/*.spec.ts,src/**/*.test.ts,src/**/*.spec.js,src/**/*.test.js,src/**/__tests__/**
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4

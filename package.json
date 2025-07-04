@@ -15,9 +15,9 @@
     "build:mac": "npm run build:renderer && electron-builder --mac --publish=never",
     "type-check": "vue-tsc --noEmit",
     "type-check:watch": "vue-tsc --noEmit --watch",
-    "test": "vitest --run",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage --run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "electron",
@@ -139,6 +139,23 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    }
+  },
+  "vitest": {
+    "coverage": {
+      "provider": "v8",
+      "reporter": [
+        "text",
+        "lcov",
+        "html"
+      ],
+      "exclude": [
+        "node_modules/",
+        "dist/",
+        "**/*.d.ts",
+        "**/*.config.ts",
+        "**/*.config.js"
+      ]
     }
   }
 }
