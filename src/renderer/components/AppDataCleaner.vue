@@ -58,18 +58,7 @@ import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
 import { formatSize } from '@/utils/formatters'
-
-interface FolderItem {
-    path: string
-    size: number
-    id?: string
-}
-
-interface DeleteResult {
-    path: string
-    success: boolean | 'partial'
-    error?: string
-}
+import type { DeleteResult, FolderItem } from '@/types'
 
 // Reactive state
 const folders = ref<FolderItem[]>([])

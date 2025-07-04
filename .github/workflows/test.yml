@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches: ["main", "develop", "feature/*"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
+
+  notify:
+    name: Notify on Failure
+    needs: test
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check test status
+        run: |
+          echo "Tests failed in branch ${{ github.ref_name }}"
+          echo "See detailed logs at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

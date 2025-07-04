@@ -31,12 +31,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { formatSize } from '@/utils/formatters'
-
-interface FolderItem {
-    path: string
-    size: number
-    id?: string
-}
+import { FolderItem } from '@/types/common'
 
 const props = defineProps<{
     folders?: FolderItem[]

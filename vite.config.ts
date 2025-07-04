@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath, URL } from "node:url";
+import type { UserConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [vue()],
@@ -20,5 +21,18 @@ export default defineConfig({
   },
   esbuild: {
     target: "es2020"
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['test/setup.ts'],
+    include: ['**/*.{test,spec}.{js,ts,jsx,tsx}'],
+    coverage: {
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'test/setup.ts',
+      ],
+    },
   }
-});
+} as UserConfig);
