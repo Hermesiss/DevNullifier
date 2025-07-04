@@ -6,6 +6,7 @@ import { promises as fsPromises } from "fs";
 import os from "os";
 import { Worker } from "worker_threads";
 import * as appDataCleaner from "./appDataCleaner";
+import * as fileUtils from "./fileUtils";
 import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 
 let mainWindow: BrowserWindow | null = null;
@@ -309,4 +310,22 @@ ipcMain.handle("stop-developer-scan", () => {
     currentDeveloperScanWorker = null;
   }
   return true;
+});
+
+// Add new IPC handlers after other handlers
+ipcMain.handle("save-folders", async (event, folders) => {
+  await fileUtils.saveFolders(folders);
+  return true;
+});
+
+ipcMain.handle("load-saved-folders", async () => {
+  return fileUtils.loadSavedFolders();
+});
+
+ipcMain.handle("get-saved-folders-count", async () => {
+  return fileUtils.getSavedFoldersCount();
+});
+
+ipcMain.handle("get-directory-size", async (event, path) => {
+  return appDataCleaner.getDirectorySize(path);
 }); 

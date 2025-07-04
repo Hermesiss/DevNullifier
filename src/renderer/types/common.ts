@@ -1,7 +1,6 @@
 export interface FolderItem {
   path: string;
   size: number;
-  id?: string;
 }
 
 export interface TreeItem {
@@ -23,5 +22,4 @@ export interface FlatTreeItem {
 export interface DeleteResult {
   path: string;
   success: boolean | "partial";
-  error?: string;
 }

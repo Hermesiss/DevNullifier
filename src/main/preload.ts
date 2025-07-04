@@ -35,6 +35,10 @@ interface ElectronAPI {
   onScanFolderFound: (callback: (folder: Folder) => void) => void;
   onDeveloperProjectFound: (callback: (project: Project) => void) => void;
   removeAllListeners: (channel: string) => void;
+  saveFolders: (folders: any[]) => Promise<void>;
+  loadSavedFolders: () => Promise<void>;
+  getSavedFoldersCount: () => Promise<number>;
+  getDirectorySize: (path: string) => Promise<number>;
 }
 
 // Export the API type for use in other files
@@ -110,7 +114,13 @@ const api: ElectronAPI = {
   // Remove listeners
   removeAllListeners: (channel: string) => {
     ipcRenderer.removeAllListeners(channel);
-  }
+  },
+
+  // Add new handlers
+  saveFolders: (folders: any[]) => ipcRenderer.invoke("save-folders", folders),
+  loadSavedFolders: () => ipcRenderer.invoke("load-saved-folders"),
+  getSavedFoldersCount: () => ipcRenderer.invoke("get-saved-folders-count"),
+  getDirectorySize: (path: string) => ipcRenderer.invoke("get-directory-size", path),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);
