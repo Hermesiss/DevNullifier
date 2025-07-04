@@ -39,6 +39,9 @@ interface ElectronAPI {
   loadSavedFolders: () => Promise<void>;
   getSavedFoldersCount: () => Promise<number>;
   getDirectorySize: (path: string) => Promise<number>;
+  saveDeveloperProjects: (projects: any[]) => Promise<void>;
+  loadSavedDeveloperProjects: () => Promise<void>;
+  getSavedDeveloperProjectsCount: () => Promise<number>;
 }
 
 // Export the API type for use in other files
@@ -121,6 +124,11 @@ const api: ElectronAPI = {
   loadSavedFolders: () => ipcRenderer.invoke("load-saved-folders"),
   getSavedFoldersCount: () => ipcRenderer.invoke("get-saved-folders-count"),
   getDirectorySize: (path: string) => ipcRenderer.invoke("get-directory-size", path),
+  
+  // Developer cleaner handlers
+  saveDeveloperProjects: (projects: any[]) => ipcRenderer.invoke("save-developer-projects", projects),
+  loadSavedDeveloperProjects: () => ipcRenderer.invoke("load-saved-developer-projects"),
+  getSavedDeveloperProjectsCount: () => ipcRenderer.invoke("get-saved-developer-projects-count"),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

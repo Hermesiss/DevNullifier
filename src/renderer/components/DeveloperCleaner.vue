@@ -13,8 +13,8 @@
 
         <!-- Control Panel -->
         <ControlPanel ref="controlPanel" :is-scanning="isScanning" :is-deleting="isDeleting"
-            :has-enabled-categories="hasEnabledCategories" @start-scan="startScan" @stop-scan="stopScan"
-            @show-notification="showNotification" />
+            :has-enabled-categories="hasEnabledCategories" :scan-progress="scanProgress" @start-scan="startScan"
+            @quick-scan="startQuickScan" @stop-scan="stopScan" @show-notification="showNotification" />
 
         <!-- Results Table -->
         <ResultsTable :projects="projects" :is-scanning="isScanning" :is-deleting="isDeleting"
@@ -54,6 +54,7 @@ const selectedFolderPath = ref('')
 const statusText = ref('Ready')
 const categories = ref<DeveloperCategory[]>([])
 const hasEnabledCategories = ref(false)
+const scanProgress = ref(0)
 
 // Component refs
 const categoriesPanel = ref<InstanceType<typeof CategoriesPanel> | null>(null)
@@ -255,6 +256,8 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         return
     }
 
+    scanProgress.value = -1
+
     try {
         isScanning.value = true
         projects.value = []
@@ -313,6 +316,18 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         // Final sort
         projects.value.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
 
+        // Save projects after successful scan
+        // Convert reactive objects to plain objects to avoid cloning issues
+        const plainProjects: ProjectInfo[] = projects.value.map(project => ({
+            path: project.path,
+            lastModified: project.lastModified,
+            type: project.type,
+            selectedCacheSize: project.selectedCacheSize,
+            totalCacheSize: project.totalCacheSize,
+            caches: []
+        }))
+        await window.electronAPI.saveDeveloperProjects(plainProjects)
+
         const message = projects.value.length > 0
             ? `Found ${projects.value.length} development projects across ${pathText}`
             : `No development projects found in ${pathText}`
@@ -324,6 +339,65 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         console.error('Scan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         showNotification('Error during scan: ' + errorMessage, 'error')
+    } finally {
+        isScanning.value = false
+    }
+}
+
+const startQuickScan = async (): Promise<void> => {
+    try {
+        isScanning.value = true
+        statusText.value = 'Loading saved projects...'
+        projects.value = []
+
+        const savedProjects = await window.electronAPI.loadSavedDeveloperProjects()
+        if (savedProjects.length === 0) {
+            showNotification('No saved projects found!', 'warning')
+            isScanning.value = false
+            return
+        }
+
+        // Create serializable data for enabled categories
+        const enabledCategories = categories.value
+            .filter(cat => cat.enabled)
+            .map(cat => ({
+                id: cat.id,
+                name: cat.name,
+                detectionFiles: [...cat.detectionFiles],
+                cachePatterns: [...cat.cachePatterns],
+                warning: cat.warning,
+                warningText: cat.warningText
+            }))
+
+        statusText.value = 'Checking saved projects...'
+        const validProjects: ProjectInfo[] = []
+
+        for (let index = 0; index < savedProjects.length; index++) {
+            scanProgress.value = (index + 1) / savedProjects.length * 100
+            const project = savedProjects[index]
+            try {
+                // Rescan the project to get updated cache information
+                const [rescannedProject] = await window.electronAPI.scanDeveloperCaches([project.path], enabledCategories)
+                if (rescannedProject) {
+                    validProjects.push(processProject(rescannedProject))
+                }
+            } catch (error) {
+                console.warn(`Project no longer accessible: ${project.path}`)
+            }
+        }
+
+        projects.value = validProjects.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
+        statusText.value = `Found ${projects.value.length} projects`
+
+        if (projects.value.length === 0) {
+            showNotification('No accessible projects found', 'warning')
+        } else {
+            showNotification(`Found ${projects.value.length} projects`, 'success')
+        }
+    } catch (error) {
+        console.error('Quick scan error:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        showNotification('Error during quick scan: ' + errorMessage, 'error')
     } finally {
         isScanning.value = false
     }

@@ -328,4 +328,17 @@ ipcMain.handle("get-saved-folders-count", async () => {
 
 ipcMain.handle("get-directory-size", async (event, path) => {
   return appDataCleaner.getDirectorySize(path);
+});
+
+ipcMain.handle("save-developer-projects", async (event, projects) => {
+  await fileUtils.saveDeveloperProjects(projects);
+  return true;
+});
+
+ipcMain.handle("load-saved-developer-projects", async () => {
+  return fileUtils.loadSavedDeveloperProjects();
+});
+
+ipcMain.handle("get-saved-developer-projects-count", async () => {
+  return fileUtils.getSavedDeveloperProjectsCount();
 }); 

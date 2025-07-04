@@ -464,12 +464,6 @@ export async function scanDeveloperProjects(basePaths: string[], enabledCategori
 if (parentPort) {
   parentPort.on("message", async (message: WorkerMessage) => {
     try {
-      console.log("Developer scan worker started with:", {
-        basePaths: message.basePaths,
-        categoryCount: message.enabledCategories.length,
-        categoryNames: message.enabledCategories.map(cat => cat.name)
-      });
-
       // enabledCategories already contains the full category objects from the frontend
       const projects = await scanDeveloperProjects(message.basePaths, message.enabledCategories);
 
