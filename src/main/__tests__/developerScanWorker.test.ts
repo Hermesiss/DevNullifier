@@ -1,5 +1,4 @@
 import { promises as fs } from "fs";
-import path from "path";
 import { Category } from "../../types/developer-cleaner";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 

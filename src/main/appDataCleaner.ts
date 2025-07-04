@@ -72,87 +72,72 @@ export function getAppDataPaths() {
 }
 
 // Delete directory recursively with partial deletion detection
-export async function deleteDirectory(dirPath: string) {
+export async function deleteDirectory(
+  dirPath: string
+): Promise<boolean | "partial"> {
   try {
-    // First, check if directory exists
     const stats = await fs.stat(dirPath);
     if (!stats.isDirectory()) {
-      return false;
-    }
-
-    let totalItems = 0;
-    let deletedItems = 0;
-    let hasErrors = false;
-
-    async function deleteRecursively(currentPath: string) {
-      try {
-        const entries = await fs.readdir(currentPath);
-        const entriesWithTypes = await Promise.all(
-          entries.map(async entry => {
-            const fullPath = path.join(currentPath, entry);
-            const stat = await fs.stat(fullPath);
-            return {
-              name: entry,
-              isDirectory: () => stat.isDirectory(),
-              fullPath
-            };
-          })
-        );
-
-        for (const entry of entriesWithTypes) {
-          totalItems++;
-
-          try {
-            if (entry.isDirectory()) {
-              // Recursively delete subdirectory contents first
-              await deleteRecursively(entry.fullPath);
-              // Then try to delete the empty directory
-              await fs.rm(entry.fullPath, { recursive: true, force: true });
-            } else {
-              // Delete file
-              await fs.unlink(entry.fullPath);
-            }
-            deletedItems++;
-          } catch (err) {
-            console.error(`Failed to delete ${entry.fullPath}:`, err);
-            hasErrors = true;
-          }
-        }
-      } catch (err) {
-        console.error(`Failed to read directory ${currentPath}:`, err);
-        hasErrors = true;
-      }
-    }
-
-    // Delete all contents
-    await deleteRecursively(dirPath);
-
-    // Try to delete the root directory itself
-    try {
-      await fs.rm(dirPath, { recursive: true, force: true });
-      deletedItems++; // Count the root directory
-      totalItems++;
-    } catch (err) {
-      console.error(`Failed to delete root directory ${dirPath}:`, err);
-      hasErrors = true;
-    }
-
-    // Determine result based on what was deleted
-    if (totalItems === 0) {
-      // Empty directory - consider it successfully deleted
-      return true;
-    } else if (deletedItems === totalItems && !hasErrors) {
-      // Everything deleted successfully
-      return true;
-    } else if (deletedItems === 0) {
-      // Nothing was deleted
-      return false;
-    } else {
-      // Some items were deleted, some weren't
-      return "partial";
+      return false; // It's a file, not a directory.
     }
   } catch (err) {
-    console.error(`Failed to delete ${dirPath}:`, err);
-    return false;
+    // stat fails, e.g., path doesn't exist.
+    // Consider this a success since there's nothing to delete.
+    return true;
   }
+
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  const results = await Promise.all(
+    entries.map(entry => {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        return deleteDirectory(fullPath);
+      } else {
+        return fs
+          .unlink(fullPath)
+          .then(() => true)
+          .catch(() => false);
+      }
+    })
+  );
+
+  let successCount = results.filter(res => res === true).length;
+  let partialCount = results.filter(res => res === "partial").length;
+  let failedCount = results.length - successCount - partialCount;
+
+  // After attempting to delete contents, try to remove the directory itself.
+  if (failedCount === 0 && partialCount === 0) {
+    try {
+      await fs.rm(dirPath);
+      return true; // Everything deleted, including the root.
+    } catch {
+      // Failed to delete the root, but contents are gone.
+      return "partial";
+    }
+  }
+
+  if (partialCount > 0 || (successCount > 0 && failedCount > 0)) {
+    return "partial";
+  }
+
+  return false; // All children failed to delete.
+}
+
+export async function getDirectorySize(dirPath: string): Promise<number> {
+  let size = 0;
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        size += await getDirectorySize(fullPath);
+      } else {
+        const stats = await fs.stat(fullPath);
+        size += stats.size;
+      }
+    }
+  } catch (err) {
+    // Ignore errors (e.g., permission denied) and return size of what we can access.
+  }
+  return size;
 }

@@ -1,6 +1,5 @@
 import { getDirSize } from "../fileUtils";
 import { promises as fs } from "fs";
-import path from "path";
 import { vi, describe, it, expect, beforeEach, Mock } from "vitest";
 
 vi.mock("fs", () => ({
