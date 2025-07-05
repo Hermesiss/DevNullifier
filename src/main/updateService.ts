@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
 
@@ -8,6 +8,36 @@ export class UpdateService {
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
     this.initializeAutoUpdater();
+    this.setupIpcHandlers();
+  }
+
+  private setupIpcHandlers() {
+    ipcMain.handle(
+      "set-update-channel",
+      (_, channel: "latest" | "latest-develop") => {
+        this.setUpdateChannel(channel);
+      }
+    );
+  }
+
+  private setUpdateChannel(channel: "latest" | "latest-develop") {
+    autoUpdater.allowPrerelease = channel === "latest-develop";
+
+    let baseUrl =
+      channel === "latest"
+        ? "https://github.com/Hermesiss/DevNullifier/releases/latest/download/"
+        : "https://github.com/Hermesiss/DevNullifier/releases/download/latest-dev/";
+
+    autoUpdater.setFeedURL(baseUrl);
+
+    // Set platform-specific update config path
+    // if (process.platform === "win32") {
+    //   autoUpdater.updateConfigPath = baseUrl + "latest.yml";
+    // } else if (process.platform === "darwin") {
+    //   autoUpdater.updateConfigPath = baseUrl + "latest-mac.yml";
+    // } else if (process.platform === "linux") {
+    //   autoUpdater.updateConfigPath = baseUrl + "latest-linux.yml";
+    // }
   }
 
   private initializeAutoUpdater() {
@@ -16,22 +46,10 @@ export class UpdateService {
     autoUpdater.logger = log;
 
     // Configure update source and options
-    autoUpdater.channel = "latest";
     autoUpdater.allowDowngrade = false;
-    autoUpdater.setFeedURL({
-      provider: "github",
-      owner: "Hermesiss",
-      repo: "DevNullifier"
-    });
 
-    // Platform-specific configurations
-    if (process.platform === "win32") {
-      autoUpdater.updateConfigPath = "latest.yml";
-    } else if (process.platform === "darwin") {
-      autoUpdater.updateConfigPath = "latest-mac.yml";
-    } else if (process.platform === "linux") {
-      autoUpdater.updateConfigPath = "latest-linux.yml";
-    }
+    // Set update channel after config path
+    this.setUpdateChannel("latest");
 
     // Handle events
     autoUpdater.on("checking-for-update", () => {

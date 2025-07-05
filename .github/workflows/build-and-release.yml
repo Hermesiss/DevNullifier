@@ -231,7 +231,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/windows/DevNullifier-Setup.exe
-          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-Setup-dev.exe' || 'DevNullifier-Setup.exe' }}
+          asset_name: DevNullifier-Setup.exe
           asset_content_type: application/octet-stream
 
       - name: Upload latest.yml
@@ -358,20 +358,20 @@ jobs:
           }
 
           # Upload Windows assets
-          upload_asset "artifacts/windows/DevNullifier-Setup.exe" "DevNullifier-Setup-dev.exe" "application/octet-stream"
+          upload_asset "artifacts/windows/DevNullifier-Setup.exe" "DevNullifier-Setup.exe" "application/octet-stream"
           upload_asset "artifacts/windows/latest.yml" "latest.yml" "text/yaml"
-          upload_asset "artifacts/windows/DevNullifier-win-unpacked.zip" "DevNullifier-win-unpacked-dev.zip" "application/zip"
+          upload_asset "artifacts/windows/DevNullifier-win-unpacked.zip" "DevNullifier-win-unpacked.zip" "application/zip"
 
           # Upload Linux assets
           APPIMAGE=$(find artifacts/linux -name "*.AppImage" -type f | head -1)
           DEB=$(find artifacts/linux -name "*.deb" -type f | head -1)
-          upload_asset "$APPIMAGE" "DevNullifier-linux-x64-dev.AppImage" "application/octet-stream"
-          upload_asset "$DEB" "DevNullifier-linux-x64-dev.deb" "application/octet-stream"
-          upload_asset "artifacts/linux/DevNullifier-linux-unpacked.zip" "DevNullifier-linux-unpacked-dev.zip" "application/zip"
+          upload_asset "$APPIMAGE" "DevNullifier-linux-x64.AppImage" "application/octet-stream"
+          upload_asset "$DEB" "DevNullifier-linux-x64.deb" "application/octet-stream"
+          upload_asset "artifacts/linux/DevNullifier-linux-unpacked.zip" "DevNullifier-linux-unpacked.zip" "application/zip"
           upload_asset "artifacts/linux/latest-linux.yml" "latest-linux.yml" "text/yaml"
 
           # Upload macOS assets
           DMG=$(find artifacts/macos -name "*.dmg" -type f | head -1)
-          upload_asset "$DMG" "DevNullifier-mac-x64-dev.dmg" "application/octet-stream"
-          upload_asset "artifacts/macos/DevNullifier-mac-unpacked.zip" "DevNullifier-mac-unpacked-dev.zip" "application/zip"
+          upload_asset "$DMG" "DevNullifier-mac-x64.dmg" "application/octet-stream"
+          upload_asset "artifacts/macos/DevNullifier-mac-unpacked.zip" "DevNullifier-mac-unpacked.zip" "application/zip"
           upload_asset "artifacts/macos/latest-mac.yml" "latest-mac.yml" "text/yaml"
