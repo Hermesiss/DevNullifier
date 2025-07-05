@@ -1,6 +1,6 @@
 {
   "name": "devnullifier",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "DevNullifier: Clean application data, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
   "main": "dist-main/main/main.js",
   "scripts": {
@@ -23,7 +23,8 @@
     "test:watch:main": "vitest -c vitest.main.config.ts",
     "test:coverage": "npm run test:coverage:renderer && npm run test:coverage:main",
     "test:coverage:renderer": "vitest run --coverage",
-    "test:coverage:main": "vitest run -c vitest.main.config.ts --coverage"
+    "test:coverage:main": "vitest run -c vitest.main.config.ts --coverage",
+    "release": "electron-builder --publish always"
   },
   "keywords": [
     "electron",
@@ -70,6 +71,8 @@
   },
   "dependencies": {
     "@mdi/font": "^7.4.0",
+    "electron-log": "^5.4.1",
+    "electron-updater": "^6.6.2",
     "filesize": "^10.1.0",
     "humanize-duration": "^3.29.0",
     "vue": "^3.4.0",
@@ -86,6 +89,12 @@
       "dist-main/**/*",
       "package.json"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "Hermesiss",
+      "repo": "DevNullifier",
+      "releaseType": "release"
+    },
     "win": {
       "target": [
         {
@@ -101,6 +110,7 @@
           ]
         }
       ],
+      "artifactName": "DevNullifier-Setup.${ext}",
       "requestedExecutionLevel": "requireAdministrator",
       "icon": "src/assets/icon-256.png"
     },
@@ -119,6 +129,7 @@
           ]
         }
       ],
+      "artifactName": "DevNullifier-linux-${arch}.${ext}",
       "category": "Utility",
       "icon": "src/assets/icon-256.png"
     },
@@ -139,6 +150,7 @@
           ]
         }
       ],
+      "artifactName": "DevNullifier-mac-${arch}.${ext}",
       "category": "public.app-category.utilities",
       "icon": "src/assets/icon-512.png"
     },

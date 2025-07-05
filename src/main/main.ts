@@ -8,10 +8,12 @@ import { Worker } from "worker_threads";
 import * as appDataCleaner from "./appDataCleaner";
 import * as fileUtils from "./fileUtils";
 import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
+import { UpdateService } from "./updateService";
 
 let mainWindow: BrowserWindow | null = null;
 let currentAppDataScanWorker: Worker | null = null;
 let currentDeveloperScanWorker: Worker | null = null;
+let updateService: UpdateService | null = null;
 
 const isDev =
   process.env.NODE_ENV === "development" || !!process.env.VITE_DEV_SERVER_URL;
@@ -34,6 +36,12 @@ function createWindow() {
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, "../../dist-renderer/index.html"));
+  }
+
+  // Initialize update service
+  updateService = new UpdateService(mainWindow);
+  if (!isDev) {
+    updateService.checkForUpdates();
   }
 }
 
@@ -339,4 +347,17 @@ ipcMain.handle("load-saved-developer-projects", async () => {
 
 ipcMain.handle("get-saved-developer-projects-count", async () => {
   return fileUtils.getSavedDeveloperProjectsCount();
+});
+
+// Add IPC handlers for auto-update
+ipcMain.handle('check-for-updates', () => {
+  if (updateService) {
+    updateService.checkForUpdates();
+  }
+});
+
+ipcMain.handle('quit-and-install', () => {
+  if (updateService) {
+    updateService.quitAndInstall();
+  }
 }); 

@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.2.4] - Update Service
+
+### Added
+
+- **Update Service**: Check for updates and download them
+
 ## [1.2.3] - Quick scan
 
 ### Added
