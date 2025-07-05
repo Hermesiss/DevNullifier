@@ -92,7 +92,8 @@
     "publish": {
       "provider": "github",
       "owner": "Hermesiss",
-      "repo": "DevNullifier"
+      "repo": "DevNullifier",
+      "releaseType": "release"
     },
     "win": {
       "target": [
@@ -152,7 +153,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-Setup.${ext}"
     }
   },
   "vitest": {

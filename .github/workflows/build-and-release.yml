@@ -65,6 +65,7 @@ jobs:
           path: |
             ${{ steps.find-installer.outputs.installer_path }}
             dist/DevNullifier-win-unpacked.zip
+            dist/latest.yml
 
   build-linux:
     if: github.event_name == 'push' || (github.ref_name == 'develop' || github.ref_name == 'main' || startsWith(github.ref_name, 'feature/'))
@@ -203,6 +204,16 @@ jobs:
           asset_path: ${{ steps.find-windows-installer.outputs.installer_path }}
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-Setup-dev.exe' || 'DevNullifier-Setup.exe' }}
           asset_content_type: application/octet-stream
+
+      - name: Upload latest.yml
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/windows/latest.yml
+          asset_name: latest.yml
+          asset_content_type: text/yaml
 
       - name: Upload Windows ZIP Archive
         uses: actions/upload-release-asset@v1
