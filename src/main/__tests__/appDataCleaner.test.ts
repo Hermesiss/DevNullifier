@@ -1,10 +1,8 @@
 import { promises as fs } from "fs";
 import fsSync, { Dirent } from "fs";
-import path from "path";
 import os from "os";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { getAppDataPaths, deleteDirectory } from "../appDataCleaner";
-import { getDirectorySize as getDirectorySizeInternal } from "../appDataCleaner";
 
 // Mock modules
 vi.mock("fs", () => ({

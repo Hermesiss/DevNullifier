@@ -35,6 +35,9 @@ interface ElectronAPI {
   onDeleteProgress: (callback: (count: number) => void) => void;
   onScanFolderFound: (callback: (folders: Folder[]) => void) => void;
   onDeveloperProjectFound: (callback: (project: Project) => void) => void;
+  onUpdateStatus: (callback: (status: { message: string; data?: any }) => void) => void;
+  checkForUpdates: () => Promise<void>;
+  quitAndInstall: () => Promise<void>;
   removeAllListeners: (channel: string) => void;
   saveFolders: (folders: FolderItem[]) => Promise<void>;
   loadSavedFolders: () => Promise<FolderItem[]>;
@@ -130,6 +133,13 @@ const api: ElectronAPI = {
   saveDeveloperProjects: (projects: any[]) => ipcRenderer.invoke("save-developer-projects", projects),
   loadSavedDeveloperProjects: () => ipcRenderer.invoke("load-saved-developer-projects"),
   getSavedDeveloperProjectsCount: () => ipcRenderer.invoke("get-saved-developer-projects-count"),
+
+  // Update handlers
+  onUpdateStatus: (callback: (status: { message: string; data?: any }) => void) => {
+    ipcRenderer.on("update-status", (_event, status) => callback(status));
+  },
+  checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+  quitAndInstall: () => ipcRenderer.invoke("quit-and-install"),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

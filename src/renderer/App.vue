@@ -8,6 +8,8 @@
 
       <v-spacer></v-spacer>
 
+      <UpdateButton class="mr-2" />
+
       <v-menu>
         <template v-slot:activator="{ props }">
           <v-btn icon v-bind="props">
@@ -61,6 +63,7 @@ import { useTheme } from 'vuetify'
 import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
+import UpdateButton from './components/UpdateButton.vue'
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
