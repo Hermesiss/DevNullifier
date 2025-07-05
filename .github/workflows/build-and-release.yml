@@ -155,6 +155,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Delete previous latest-dev tag and release if on develop branch
+      - name: Delete previous latest-dev tag and release
+        if: github.ref_name == 'develop'
+        run: |
+          # Delete previous release
+          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest-dev" | \
+            jq -r '.id')
+          if [ "$RELEASE_ID" != "null" ]; then
+            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
+          fi
+
+          # Delete previous tag
+          git push --delete origin latest-dev || true
+        continue-on-error: true
+
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
@@ -183,6 +200,28 @@ jobs:
           release_name: ${{ github.ref_name == 'develop' && 'DevNullifier [Pre-release]' || 'DevNullifier' }} ${{ needs.build-windows.outputs.version }}
           draft: false
           prerelease: ${{ needs.build-windows.outputs.prerelease == 'true' }}
+
+      # Create latest-dev tag and release for develop branch
+      - name: Create latest-dev tag and release
+        if: github.ref_name == 'develop'
+        run: |
+          # Create and push latest-dev tag
+          git tag -f latest-dev
+          git push -f origin latest-dev
+
+          # Create latest-dev release
+          UPLOAD_URL=$(curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d '{
+              "tag_name": "latest-dev",
+              "name": "DevNullifier [Latest Development Build]",
+              "draft": false,
+              "prerelease": true
+            }' \
+            "https://api.github.com/repos/${{ github.repository }}/releases" | \
+            jq -r '.upload_url' | sed 's/{.*}//')
+
+          echo "LATEST_DEV_UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
 
       # Windows assets
       - name: Upload Windows Installer
@@ -300,3 +339,39 @@ jobs:
           asset_path: artifacts/macos/latest-mac.yml
           asset_name: latest-mac.yml
           asset_content_type: text/yaml
+
+      # Upload to latest-dev release if on develop branch
+      - name: Upload assets to latest-dev release
+        if: github.ref_name == 'develop'
+        run: |
+          # Function to upload asset
+          upload_asset() {
+            local file="$1"
+            local name="$2"
+            local type="$3"
+            
+            curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: $type" \
+              --data-binary "@$file" \
+              "${{ env.LATEST_DEV_UPLOAD_URL }}?name=$name"
+          }
+
+          # Upload Windows assets
+          upload_asset "artifacts/windows/DevNullifier-Setup.exe" "DevNullifier-Setup-dev.exe" "application/octet-stream"
+          upload_asset "artifacts/windows/latest.yml" "latest.yml" "text/yaml"
+          upload_asset "artifacts/windows/DevNullifier-win-unpacked.zip" "DevNullifier-win-unpacked-dev.zip" "application/zip"
+
+          # Upload Linux assets
+          APPIMAGE=$(find artifacts/linux -name "*.AppImage" -type f | head -1)
+          DEB=$(find artifacts/linux -name "*.deb" -type f | head -1)
+          upload_asset "$APPIMAGE" "DevNullifier-linux-x64-dev.AppImage" "application/octet-stream"
+          upload_asset "$DEB" "DevNullifier-linux-x64-dev.deb" "application/octet-stream"
+          upload_asset "artifacts/linux/DevNullifier-linux-unpacked.zip" "DevNullifier-linux-unpacked-dev.zip" "application/zip"
+          upload_asset "artifacts/linux/latest-linux.yml" "latest-linux.yml" "text/yaml"
+
+          # Upload macOS assets
+          DMG=$(find artifacts/macos -name "*.dmg" -type f | head -1)
+          upload_asset "$DMG" "DevNullifier-mac-x64-dev.dmg" "application/octet-stream"
+          upload_asset "artifacts/macos/DevNullifier-mac-unpacked.zip" "DevNullifier-mac-unpacked-dev.zip" "application/zip"
+          upload_asset "artifacts/macos/latest-mac.yml" "latest-mac.yml" "text/yaml"
