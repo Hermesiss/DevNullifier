@@ -1,12 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { Category, Project } from "../types/developer-cleaner";
-import type { FolderItem, ProjectInfo } from "../renderer/types";
-
-interface Folder {
-  path: string;
-  size: number;
-  name: string;
-}
+import type { FolderItem, ProjectInfo, ElectronAPI, Folder } from "../renderer/types";
 
 interface ScanFoldersOptions {
   paths: string[];
@@ -16,36 +10,6 @@ interface ScanFoldersOptions {
 interface ScanDeveloperOptions {
   basePaths: string[];
   enabledCategories: Category[];
-}
-
-// Define the shape of our API
-interface ElectronAPI {
-  getAppDataPaths: () => Promise<string[]>;
-  scanFolders: (paths: string[], maxDepth: number) => Promise<void>;
-  scanDeveloperCaches: (basePaths: string[], enabledCategories: Category[]) => Promise<void>;
-  stopAppDataScan: () => Promise<void>;
-  stopDeveloperScan: () => Promise<void>;
-  deleteFolders: (folderPaths: string[]) => Promise<void>;
-  checkAdmin: () => Promise<boolean>;
-  selectDirectory: () => Promise<string | null>;
-  getUserHome: () => Promise<string>;
-  getFolderContents: (folderPath: string) => Promise<string[]>;
-  onScanProgress: (callback: (count: number) => void) => void;
-  onScanCurrentPath: (callback: (path: string) => void) => void;
-  onDeleteProgress: (callback: (count: number) => void) => void;
-  onScanFolderFound: (callback: (folders: Folder[]) => void) => void;
-  onDeveloperProjectFound: (callback: (project: Project) => void) => void;
-  onUpdateStatus: (callback: (status: { message: string; data?: any }) => void) => void;
-  checkForUpdates: () => Promise<void>;
-  quitAndInstall: () => Promise<void>;
-  removeAllListeners: (channel: string) => void;
-  saveFolders: (folders: FolderItem[]) => Promise<void>;
-  loadSavedFolders: () => Promise<FolderItem[]>;
-  getSavedFoldersCount: () => Promise<number>;
-  getDirectorySize: (path: string) => Promise<number>;
-  saveDeveloperProjects: (projects: ProjectInfo[]) => Promise<void>;
-  loadSavedDeveloperProjects: () => Promise<ProjectInfo[]>;
-  getSavedDeveloperProjectsCount: () => Promise<number>;
 }
 
 // Export the API type for use in other files
@@ -112,10 +76,23 @@ const api: ElectronAPI = {
   },
 
   // Listen for developer-project-found (real-time project updates)
-  onDeveloperProjectFound: (callback: (project: Project) => void) => {
-    ipcRenderer.on("developer-project-found", (_event, project) =>
-      callback(project)
-    );
+  onDeveloperProjectFound: (callback: (project: ProjectInfo) => void) => {
+    ipcRenderer.on("developer-project-found", (_event, mainProject: Project) => {
+      // Convert Project to ProjectInfo
+      const project: ProjectInfo = {
+        path: mainProject.path,
+        type: mainProject.type,
+        lastModified: mainProject.lastModified || "",
+        totalCacheSize: mainProject.totalCacheSize,
+        selectedCacheSize: 0, // Default to 0 since main process doesn't track this
+        caches: mainProject.caches.map(cache => ({
+          ...cache,
+          category: cache.category || "Unknown" as any, // Convert string to CacheCategory
+          selectedSize: 0 // Default to 0 since main process doesn't track this
+        }))
+      };
+      callback(project);
+    });
   },
 
   // Remove listeners
@@ -130,7 +107,7 @@ const api: ElectronAPI = {
   getDirectorySize: (path: string) => ipcRenderer.invoke("get-directory-size", path),
   
   // Developer cleaner handlers
-  saveDeveloperProjects: (projects: any[]) => ipcRenderer.invoke("save-developer-projects", projects),
+  saveDeveloperProjects: (projects: ProjectInfo[]) => ipcRenderer.invoke("save-developer-projects", projects),
   loadSavedDeveloperProjects: () => ipcRenderer.invoke("load-saved-developer-projects"),
   getSavedDeveloperProjectsCount: () => ipcRenderer.invoke("get-saved-developer-projects-count"),
 

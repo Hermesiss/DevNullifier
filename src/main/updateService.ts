@@ -1,9 +1,9 @@
-import { app, BrowserWindow } from "electron";
+import { BrowserWindow } from "electron";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
 
 export class UpdateService {
-  private mainWindow: BrowserWindow;
+  private readonly mainWindow: BrowserWindow;
 
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
