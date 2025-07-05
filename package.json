@@ -110,6 +110,7 @@
           ]
         }
       ],
+      "artifactName": "DevNullifier-Setup.${ext}",
       "requestedExecutionLevel": "requireAdministrator",
       "icon": "src/assets/icon-256.png"
     },
@@ -128,6 +129,7 @@
           ]
         }
       ],
+      "artifactName": "DevNullifier-linux-${arch}.${ext}",
       "category": "Utility",
       "icon": "src/assets/icon-256.png"
     },
@@ -148,6 +150,7 @@
           ]
         }
       ],
+      "artifactName": "DevNullifier-mac-${arch}.${ext}",
       "category": "public.app-category.utilities",
       "icon": "src/assets/icon-512.png"
     },

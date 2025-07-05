@@ -15,12 +15,23 @@ export class UpdateService {
     log.transports.file.level = "info";
     autoUpdater.logger = log;
 
-    // Configure update source
+    // Configure update source and options
+    autoUpdater.channel = "latest";
+    autoUpdater.allowDowngrade = false;
     autoUpdater.setFeedURL({
       provider: "github",
       owner: "Hermesiss",
       repo: "DevNullifier"
     });
+
+    // Platform-specific configurations
+    if (process.platform === "win32") {
+      autoUpdater.updateConfigPath = "latest.yml";
+    } else if (process.platform === "darwin") {
+      autoUpdater.updateConfigPath = "latest-mac.yml";
+    } else if (process.platform === "linux") {
+      autoUpdater.updateConfigPath = "latest-linux.yml";
+    }
 
     // Handle events
     autoUpdater.on("checking-for-update", () => {

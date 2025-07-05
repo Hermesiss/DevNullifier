@@ -51,19 +51,12 @@ jobs:
           }
         shell: powershell
 
-      - name: Find installer file
-        id: find-installer
-        run: |
-          $installer = Get-ChildItem -Path "dist" -Filter "DevNullifier Setup*.exe" | Select-Object -First 1
-          echo "installer_path=dist/$($installer.Name)" >> $env:GITHUB_OUTPUT
-        shell: powershell
-
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts
           path: |
-            ${{ steps.find-installer.outputs.installer_path }}
+            dist/DevNullifier-Setup.exe
             dist/DevNullifier-win-unpacked.zip
             dist/latest.yml
 
@@ -95,8 +88,8 @@ jobs:
       - name: Find installer files
         id: find-installer
         run: |
-          APPIMAGE=$(find dist -name "*.AppImage" | head -1)
-          DEB=$(find dist -name "*.deb" | head -1)
+          APPIMAGE=$(find dist -name "*.AppImage" -type f | head -1)
+          DEB=$(find dist -name "*.deb" -type f | head -1)
           echo "appimage_path=$APPIMAGE" >> $GITHUB_OUTPUT
           echo "deb_path=$DEB" >> $GITHUB_OUTPUT
 
@@ -108,6 +101,7 @@ jobs:
             ${{ steps.find-installer.outputs.appimage_path }}
             ${{ steps.find-installer.outputs.deb_path }}
             dist/DevNullifier-linux-unpacked.zip
+            dist/latest-linux.yml
 
   build-macos:
     if: github.event_name == 'push' || (github.ref_name == 'develop' || github.ref_name == 'main' || startsWith(github.ref_name, 'feature/'))
@@ -137,7 +131,7 @@ jobs:
       - name: Find installer files
         id: find-installer
         run: |
-          DMG=$(find dist -name "*.dmg" | head -1)
+          DMG=$(find dist -name "*.dmg" -type f | head -1)
           echo "dmg_path=$DMG" >> $GITHUB_OUTPUT
 
       - name: Upload macOS artifacts
@@ -147,6 +141,7 @@ jobs:
           path: |
             ${{ steps.find-installer.outputs.dmg_path }}
             dist/DevNullifier-mac-unpacked.zip
+            dist/latest-mac.yml
 
   create-release:
     if: github.event_name == 'push' && (github.ref_name == 'develop' || github.ref_name == 'main')
@@ -189,19 +184,14 @@ jobs:
           draft: false
           prerelease: ${{ needs.build-windows.outputs.prerelease == 'true' }}
 
-      - name: Find Windows installer
-        id: find-windows-installer
-        run: |
-          installer=$(find artifacts/windows -name "DevNullifier Setup*.exe" | head -1)
-          echo "installer_path=$installer" >> $GITHUB_OUTPUT
-
+      # Windows assets
       - name: Upload Windows Installer
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-windows-installer.outputs.installer_path }}
+          asset_path: artifacts/windows/DevNullifier-Setup.exe
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-Setup-dev.exe' || 'DevNullifier-Setup.exe' }}
           asset_content_type: application/octet-stream
 
@@ -225,19 +215,14 @@ jobs:
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-win-unpacked-dev.zip' || 'DevNullifier-win-unpacked.zip' }}
           asset_content_type: application/zip
 
+      # Linux assets
       - name: Find Linux files
         id: find-linux-files
         run: |
-          appimage=$(find artifacts/linux -name "*.AppImage" | head -1)
-          deb=$(find artifacts/linux -name "*.deb" | head -1)
-          echo "appimage_path=$appimage" >> $GITHUB_OUTPUT
-          echo "deb_path=$deb" >> $GITHUB_OUTPUT
-
-      - name: Find macOS files
-        id: find-macos-files
-        run: |
-          dmg=$(find artifacts/macos -name "*.dmg" | head -1)
-          echo "dmg_path=$dmg" >> $GITHUB_OUTPUT
+          APPIMAGE=$(find artifacts/linux -name "*.AppImage" -type f | head -1)
+          DEB=$(find artifacts/linux -name "*.deb" -type f | head -1)
+          echo "appimage_path=$APPIMAGE" >> $GITHUB_OUTPUT
+          echo "deb_path=$DEB" >> $GITHUB_OUTPUT
 
       - name: Upload Linux AppImage
         uses: actions/upload-release-asset@v1
@@ -269,6 +254,23 @@ jobs:
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-unpacked-dev.zip' || 'DevNullifier-linux-unpacked.zip' }}
           asset_content_type: application/zip
 
+      - name: Upload latest-linux.yml
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/linux/latest-linux.yml
+          asset_name: latest-linux.yml
+          asset_content_type: text/yaml
+
+      # macOS assets
+      - name: Find macOS files
+        id: find-macos-files
+        run: |
+          DMG=$(find artifacts/macos -name "*.dmg" -type f | head -1)
+          echo "dmg_path=$DMG" >> $GITHUB_OUTPUT
+
       - name: Upload macOS DMG
         uses: actions/upload-release-asset@v1
         env:
@@ -288,3 +290,13 @@ jobs:
           asset_path: artifacts/macos/DevNullifier-mac-unpacked.zip
           asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-mac-unpacked-dev.zip' || 'DevNullifier-mac-unpacked.zip' }}
           asset_content_type: application/zip
+
+      - name: Upload latest-mac.yml
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/macos/latest-mac.yml
+          asset_name: latest-mac.yml
+          asset_content_type: text/yaml
