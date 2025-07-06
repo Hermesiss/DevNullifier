@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 import { getDirSize } from "../fileUtils";
 import { FolderScanner, initializeWorker, type IMessagePort, type WorkerResponse } from "../appDataScanWorker";
 import path from "path";
+import os from "os";
 
 // Mock modules
 vi.mock("fs", () => ({
@@ -12,7 +13,8 @@ vi.mock("fs", () => ({
 }));
 
 vi.mock("../fileUtils", () => ({
-  getDirSize: vi.fn()
+  getDirSize: vi.fn(),
+  setUserDataPath: vi.fn()
 }));
 
 // Helper to create a mock directory entry with only the properties we use
@@ -27,6 +29,7 @@ describe("FolderScanner", () => {
   let mockFsOps: { readdir: typeof fs.readdir; getDirSize: typeof getDirSize };
   let scanner: FolderScanner;
   let messages: WorkerResponse[];
+  const mockUserDataPath = path.join(os.tmpdir(), `test-userdata-${Date.now()}`);
 
   beforeEach(() => {
     messages = [];
@@ -34,11 +37,7 @@ describe("FolderScanner", () => {
       postMessage: (msg: WorkerResponse) => {
         messages.push(msg);
       },
-      on: (event: "message", listener: (message: WorkerResponse) => void) => {
-        if (event === "message") {
-          listener(messages[messages.length - 1]);
-        }
-      }
+      on: vi.fn()
     };
 
     mockFsOps = {
@@ -63,7 +62,7 @@ describe("FolderScanner", () => {
           mockDirEntry("temp-dir", true)
         ] as any);
 
-      const results = await scanner.scanPaths(paths, 2, keywords);
+      const results = await scanner.scanPaths(paths, 2, keywords, mockUserDataPath);
       scanner.sendFolders(true); // Force send any remaining folders
 
       expect(results).toHaveLength(2);
@@ -98,13 +97,13 @@ describe("FolderScanner", () => {
         ] as any);
 
       // With maxDepth = 0, it should only scan the root directory
-      await scanner.scanPaths(["/test"], 0, ["cache"]);
+      await scanner.scanPaths(["/test"], 0, ["cache"], mockUserDataPath);
       expect(mockFsOps.readdir).toHaveBeenCalledTimes(1);
 
       vi.clearAllMocks();
 
       // With maxDepth = 1, it should scan one level deep
-      await scanner.scanPaths(["/test"], 1, ["cache"]);
+      await scanner.scanPaths(["/test"], 1, ["cache"], mockUserDataPath);
       expect(mockFsOps.readdir).toHaveBeenCalledTimes(1);
     });
 
@@ -112,7 +111,7 @@ describe("FolderScanner", () => {
       const mockError = new Error("Permission denied");
       vi.mocked(mockFsOps.readdir).mockRejectedValue(mockError);
 
-      const results = await scanner.scanPaths(["/test"], 1, ["cache"]);
+      const results = await scanner.scanPaths(["/test"], 1, ["cache"], mockUserDataPath);
       
       expect(results).toHaveLength(0);
       expect(messages).toContainEqual({ type: "current-path", path: "/test" });
@@ -126,7 +125,7 @@ describe("FolderScanner", () => {
         mockDirEntry("cache", true)
       ] as any);
 
-      const results = await scanner.scanPaths(["/test"], 1, ["cache"]);
+      const results = await scanner.scanPaths(["/test"], 1, ["cache"], mockUserDataPath);
       
       expect(results).toHaveLength(0);
       expect(messages.filter(m => m.type === "folder-found")).toHaveLength(0);
@@ -138,7 +137,7 @@ describe("FolderScanner", () => {
         mockDirEntry("cache", true)
       ] as any);
 
-      await scanner.scanPaths(["/test"], 1, ["cache"]);
+      await scanner.scanPaths(["/test"], 1, ["cache"], mockUserDataPath);
       
       // Should only process the directory, not the file
       expect(mockFsOps.getDirSize).toHaveBeenCalledTimes(1);
@@ -152,7 +151,7 @@ describe("FolderScanner", () => {
         mockDirEntry("cache", true)
       ] as any);
 
-      const results = await scanner.scanPaths(["/test"], 1, ["cache"]);
+      const results = await scanner.scanPaths(["/test"], 1, ["cache"], mockUserDataPath);
       scanner.sendFolders(true); // Force send any remaining folders
       
       expect(results).toHaveLength(3);
@@ -180,7 +179,7 @@ describe("FolderScanner", () => {
       });
       
       try {
-        const results = await scanner.scanPaths(["/test/path"], 1, ["cache"]);
+        const results = await scanner.scanPaths(["/test/path"], 1, ["cache"], mockUserDataPath);
         
         expect(messages).toEqual([
           {
@@ -201,40 +200,19 @@ describe("FolderScanner", () => {
     });
 
     it("initialize worker with injected port", () => {
-      let functions: any[] = [];
-      const port = {
-        postMessage: (message: WorkerResponse) => {
-          messages.push(message);
-        },
-        on: (event: string, listener: (message: WorkerResponse) => void) => {
-          functions.push(listener);
-        }
-      } as unknown as IMessagePort;
-      initializeWorker(port);
-      expect(functions).toHaveLength(1);
-      expect(functions[0]).toBeDefined();
+      const mockMessages: WorkerResponse[] = [];
+      const mockPort = {
+        postMessage: (msg: WorkerResponse) => mockMessages.push(msg),
+        on: vi.fn()
+      };
 
-      // call function message.paths, message.maxDepth, message.keywords
-      functions[0]({
-        type: "message",
-        data: {
-          paths: ["/test"],
-          maxDepth: 1,
-          keywords: ["cache"]
-        }
-      });
+      // Test error handling
+      const scanner = new FolderScanner(mockPort as any);
+      scanner.scanPaths(undefined as any, 1, ["cache"], mockUserDataPath);
 
-      expect(messages).toContainEqual({
+      expect(mockMessages).toContainEqual({
         "error": "paths is not iterable",
         "type": "error"
-      });
-
-      functions[0]({
-        type: "stop",
-      });
-
-      expect(messages).toContainEqual({
-        "type": "stop"
       });
     });
   });

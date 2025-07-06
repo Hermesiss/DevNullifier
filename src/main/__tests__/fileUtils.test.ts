@@ -7,7 +7,8 @@ import {
   getSavedDeveloperProjectsPath,
   saveDeveloperProjects,
   loadSavedDeveloperProjects,
-  getSavedDeveloperProjectsCount
+  getSavedDeveloperProjectsCount,
+  setUserDataPath
 } from "../fileUtils";
 import { promises as fs, existsSync } from "fs";
 import path from "path";
@@ -36,7 +37,7 @@ describe("fileUtils", () => {
     }
     await fs.mkdir(tempDir, { recursive: true });
     await fs.mkdir(mockUserDataPath, { recursive: true });
-    (app.getPath as any).mockReturnValue(mockUserDataPath);
+    setUserDataPath(mockUserDataPath);
   });
 
   afterEach(async () => {
@@ -84,7 +85,6 @@ describe("fileUtils", () => {
     it("should get saved folders path correctly", async () => {
       const result = await getSavedFoldersPath();
       expect(result).toBe(path.join(mockUserDataPath, "saved-folders-appdata.json"));
-      expect(app.getPath).toHaveBeenCalledWith("userData");
     });
 
     it("should save and load folders correctly", async () => {
@@ -136,7 +136,6 @@ describe("fileUtils", () => {
     it("should get saved developer projects path correctly", async () => {
       const result = await getSavedDeveloperProjectsPath();
       expect(result).toBe(path.join(mockUserDataPath, "saved-folders-developer.json"));
-      expect(app.getPath).toHaveBeenCalledWith("userData");
     });
 
     it("should save and load developer projects correctly", async () => {

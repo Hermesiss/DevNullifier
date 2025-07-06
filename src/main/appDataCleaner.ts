@@ -103,8 +103,6 @@ export async function deleteDirectory(
     })
   );
 
-  console.log("Results:", results);
-
   let successCount = results.filter(res => res === true).length;
   let partialCount = results.filter(res => res === "partial").length;
   let failedCount = results.length - successCount - partialCount;
