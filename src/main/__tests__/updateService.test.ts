@@ -6,7 +6,10 @@ import log from "electron-log";
 
 // Mock modules
 vi.mock("electron", () => ({
-  BrowserWindow: vi.fn()
+  BrowserWindow: vi.fn(),
+  ipcMain: {
+    handle: vi.fn()
+  }
 }));
 
 type UpdaterEvents = {
@@ -24,6 +27,8 @@ vi.mock("electron-updater", () => ({
     setFeedURL: vi.fn(),
     checkForUpdates: vi.fn(),
     quitAndInstall: vi.fn(),
+    allowPrerelease: false,
+    allowDowngrade: false,
     on: vi.fn(<K extends keyof UpdaterEvents>(event: K, callback: UpdaterEvents[K]) => {
       // Store the callback for later use in tests
       return callback;
@@ -65,11 +70,9 @@ describe("UpdateService", () => {
     it("should configure logging and update source correctly", () => {
       expect(log.transports.file.level).toBe("info");
       expect(autoUpdater.logger).toBe(log);
-      expect(autoUpdater.setFeedURL).toHaveBeenCalledWith({
-        provider: "github",
-        owner: "Hermesiss",
-        repo: "DevNullifier"
-      });
+      expect(autoUpdater.setFeedURL).toHaveBeenCalledWith(
+        "https://github.com/Hermesiss/DevNullifier/releases/latest/download/"
+      );
     });
 
     it("should set up all required event listeners", () => {
