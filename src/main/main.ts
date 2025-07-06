@@ -10,6 +10,9 @@ import * as fileUtils from "./fileUtils";
 import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 import { UpdateService } from "./updateService";
 
+// Set user data path early
+fileUtils.setUserDataPath(app.getPath('userData'));
+
 let mainWindow: BrowserWindow | null = null;
 let currentAppDataScanWorker: Worker | null = null;
 let currentDeveloperScanWorker: Worker | null = null;
@@ -126,7 +129,12 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
       return originalTerminate();
     };
 
-    currentAppDataScanWorker.postMessage({ paths, maxDepth, keywords: appDataCleaner.KEYWORDS });
+    currentAppDataScanWorker.postMessage({ 
+      paths, 
+      maxDepth, 
+      keywords: appDataCleaner.KEYWORDS,
+      userDataPath: app.getPath('userData')  // Pass userDataPath to worker
+    });
   });
 });
 
@@ -305,7 +313,11 @@ ipcMain.handle(
         return originalTerminate();
       };
 
-      currentDeveloperScanWorker.postMessage({ basePaths, enabledCategories } as WorkerMessage);
+      currentDeveloperScanWorker.postMessage({ 
+        basePaths, 
+        enabledCategories,
+        userDataPath: app.getPath('userData')  // Pass userDataPath to worker
+      } as WorkerMessage);
     });
   }
 );

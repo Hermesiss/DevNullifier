@@ -1,7 +1,7 @@
 import { parentPort } from "worker_threads";
 import { promises as fs, Dirent } from "fs";
 import path from "path";
-import { getDirSize } from "./fileUtils";
+import * as fileUtils from "./fileUtils";
 import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 
 let isScanning = true;
@@ -233,7 +233,7 @@ export async function processMatchingPath(
 
   let size = 0;
   if (isDirectory) {
-    size = await getDirSize(cachePath);
+    size = await fileUtils.getDirSize(cachePath);
   } else {
     const stats = await fs.stat(cachePath);
     size = stats.size;
@@ -476,6 +476,12 @@ if (parentPort) {
         isScanning = false;
         return;
       }
+
+      // Set userDataPath if provided
+      if (message.userDataPath) {
+        fileUtils.setUserDataPath(message.userDataPath);
+      }
+
       // enabledCategories already contains the full category objects from the frontend
       const projects = await scanDeveloperProjects(message.basePaths, message.enabledCategories);
 

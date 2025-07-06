@@ -1,7 +1,8 @@
 import { parentPort } from "worker_threads";
 import path from "path";
-import { promises as fs, Dirent } from "fs";
-import { getDirSize } from "./fileUtils";
+import fs from "fs/promises";
+import type { Dirent } from "fs";
+import * as fileUtils from "./fileUtils";
 
 export interface Folder {
   path: string;
@@ -14,6 +15,7 @@ export interface WorkerMessage {
   paths: string[];
   maxDepth: number;
   keywords: string[];
+  userDataPath: string;
 }
 
 export type WorkerResponse =
@@ -39,7 +41,7 @@ export class FolderScanner {
     private readonly messagePort: IMessagePort,
     private readonly fsOps = {
       readdir: fs.readdir,
-      getDirSize
+      getDirSize: fileUtils.getDirSize
     }
   ) {}
 
@@ -150,13 +152,17 @@ export class FolderScanner {
   async scanPaths(
     paths: string[],
     maxDepth: number,
-    keywords: string[]
+    keywords: string[],
+    userDataPath: string
   ): Promise<Folder[]> {
     const allResults: Folder[] = [];
     this.foundCount = 0;
     this.isScanning = true;
 
     try {
+      // Set the userDataPath for fileUtils
+      fileUtils.setUserDataPath(userDataPath);
+
       for (const basePath of paths) {
         if (!this.isScanning) {
           break;
@@ -203,7 +209,12 @@ export function initializeWorker(injectedPort: IMessagePort | null = null) {
       scanner.stop();
       return;
     }
-    await scanner.scanPaths(message.paths, message.maxDepth, message.keywords);
+    await scanner.scanPaths(
+      message.paths,
+      message.maxDepth,
+      message.keywords,
+      message.userDataPath
+    );
     scanner.sendFolders(true);
   });
 }

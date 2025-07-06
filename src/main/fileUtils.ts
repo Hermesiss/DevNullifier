@@ -1,8 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { app } from 'electron';
 import type { FolderItem } from '../renderer/types';
 import type { ProjectInfo } from '../renderer/types/developer-cleaner';
+
+let userDataPath: string;
+
+export function setUserDataPath(path: string) {
+  userDataPath = path;
+}
 
 // Calculate directory size recursively
 export async function getDirSize(dirPath: string): Promise<number> {
@@ -32,7 +37,9 @@ export async function getDirSize(dirPath: string): Promise<number> {
 }
 
 export async function getSavedFoldersPath(): Promise<string> {
-    const userDataPath = app.getPath('userData');
+    if (!userDataPath) {
+      throw new Error('User data path not set');
+    }
     return path.join(userDataPath, 'saved-folders-appdata.json');
 }
 
@@ -57,7 +64,9 @@ export async function getSavedFoldersCount(): Promise<number> {
 }
 
 export async function getSavedDeveloperProjectsPath(): Promise<string> {
-    const userDataPath = app.getPath('userData');
+    if (!userDataPath) {
+      throw new Error('User data path not set');
+    }
     return path.join(userDataPath, 'saved-folders-developer.json');
 }
 
