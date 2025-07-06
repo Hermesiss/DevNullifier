@@ -31,9 +31,10 @@ export interface Project {
 }
 
 export interface WorkerMessage {
-  type: "scan" | "stop";
+  type?: "stop";
   basePaths: string[];
   enabledCategories: Category[];
+  userDataPath?: string;
 }
 
 export type WorkerResponse =
