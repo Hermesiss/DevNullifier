@@ -41,7 +41,7 @@ function createWindow() {
   // Initialize update service
   updateService = new UpdateService(mainWindow);
   if (!isDev) {
-    //updateService.checkForUpdates(); TODO: Uncomment this when ready to release
+    updateService.checkForUpdates();
   }
 }
 

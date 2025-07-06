@@ -131,14 +131,14 @@ function handleUpdateStatus(status: { message: string; data?: any }) {
 
 async function handleBetaChannelChange() {
     localStorage.setItem('useBetaChannel', useBetaChannel.value.toString());
-    await window.electronAPI.setUpdateChannel(useBetaChannel.value ? 'latest-develop' : 'latest');
+    await window.electronAPI.setUpdateChannel(useBetaChannel.value ? 'latest-dev' : 'latest');
     checkForUpdates();
 }
 
-onMounted(() => {
+onMounted(async () => {
     window.electronAPI.onUpdateStatus(handleUpdateStatus);
     // Set initial update channel
-    window.electronAPI.setUpdateChannel(useBetaChannel.value ? 'latest-develop' : 'latest');
+    await window.electronAPI.setUpdateChannel(useBetaChannel.value ? 'latest-dev' : 'latest');
 });
 
 onUnmounted(() => {

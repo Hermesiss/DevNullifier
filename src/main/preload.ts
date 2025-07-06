@@ -119,7 +119,7 @@ const api: ElectronAPI = {
   quitAndInstall: () => ipcRenderer.invoke("quit-and-install"),
 
   // New handler
-  setUpdateChannel: (channel: 'latest' | 'latest-develop') => ipcRenderer.invoke('set-update-channel', channel),
+  setUpdateChannel: (channel: 'latest' | 'latest-dev') => ipcRenderer.invoke('set-update-channel', channel),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

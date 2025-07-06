@@ -14,14 +14,14 @@ export class UpdateService {
   private setupIpcHandlers() {
     ipcMain.handle(
       "set-update-channel",
-      (_, channel: "latest" | "latest-develop") => {
+      (_, channel: "latest" | "latest-dev") => {
         this.setUpdateChannel(channel);
       }
     );
   }
 
-  private setUpdateChannel(channel: "latest" | "latest-develop") {
-    autoUpdater.allowPrerelease = channel === "latest-develop";
+  private setUpdateChannel(channel: "latest" | "latest-dev") {
+    autoUpdater.allowPrerelease = channel === "latest-dev";
 
     let baseUrl =
       channel === "latest"
@@ -29,15 +29,6 @@ export class UpdateService {
         : "https://github.com/Hermesiss/DevNullifier/releases/download/latest-dev/";
 
     autoUpdater.setFeedURL(baseUrl);
-
-    // Set platform-specific update config path
-    // if (process.platform === "win32") {
-    //   autoUpdater.updateConfigPath = baseUrl + "latest.yml";
-    // } else if (process.platform === "darwin") {
-    //   autoUpdater.updateConfigPath = baseUrl + "latest-mac.yml";
-    // } else if (process.platform === "linux") {
-    //   autoUpdater.updateConfigPath = baseUrl + "latest-linux.yml";
-    // }
   }
 
   private initializeAutoUpdater() {

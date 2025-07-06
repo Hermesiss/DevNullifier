@@ -38,11 +38,11 @@ jobs:
         id: package-version
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
-          $shortHash = git rev-parse --short HEAD
           $branch = "${{ github.ref_name }}"
+          $buildNumber = "${{ github.run_number }}"
 
           if ($branch -eq "develop") {
-            $finalVersion = "v$version-dev-$shortHash"
+            $finalVersion = "v$version-dev.$buildNumber"
             echo "version=$finalVersion" >> $env:GITHUB_OUTPUT
             echo "prerelease=true" >> $env:GITHUB_OUTPUT
           } else {
@@ -57,6 +57,7 @@ jobs:
           name: windows-artifacts
           path: |
             dist/DevNullifier-Setup.exe
+            dist/DevNullifier-Setup.exe.blockmap
             dist/DevNullifier-win-unpacked.zip
             dist/latest.yml
 
@@ -90,8 +91,10 @@ jobs:
         run: |
           APPIMAGE=$(find dist -name "*.AppImage" -type f | head -1)
           DEB=$(find dist -name "*.deb" -type f | head -1)
+          BLOCKMAP=$(find dist -name "*.AppImage.blockmap" -type f | head -1)
           echo "appimage_path=$APPIMAGE" >> $GITHUB_OUTPUT
           echo "deb_path=$DEB" >> $GITHUB_OUTPUT
+          echo "blockmap_path=$BLOCKMAP" >> $GITHUB_OUTPUT
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -99,6 +102,7 @@ jobs:
           name: linux-artifacts
           path: |
             ${{ steps.find-installer.outputs.appimage_path }}
+            ${{ steps.find-installer.outputs.blockmap_path }}
             ${{ steps.find-installer.outputs.deb_path }}
             dist/DevNullifier-linux-unpacked.zip
             dist/latest-linux.yml
@@ -223,155 +227,213 @@ jobs:
 
           echo "LATEST_DEV_UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
 
-      # Windows assets
-      - name: Upload Windows Installer
-        uses: actions/upload-release-asset@v1
+      # Upload assets with error handling
+      - name: Upload Release Assets
+        id: upload_assets
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/windows/DevNullifier-Setup.exe
-          asset_name: DevNullifier-Setup.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload latest.yml
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/windows/latest.yml
-          asset_name: latest.yml
-          asset_content_type: text/yaml
-
-      - name: Upload Windows ZIP Archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/windows/DevNullifier-win-unpacked.zip
-          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-win-unpacked-dev.zip' || 'DevNullifier-win-unpacked.zip' }}
-          asset_content_type: application/zip
-
-      # Linux assets
-      - name: Find Linux files
-        id: find-linux-files
+          RELEASE_ID: ${{ steps.create_release.outputs.id }}
+          TAG_NAME: ${{ needs.build-windows.outputs.version }}
         run: |
+          upload_asset() {
+            local file="$1"
+            local name="$2"
+            local type="$3"
+            local max_retries=3
+            local retry_count=0
+            
+            while [ $retry_count -lt $max_retries ]; do
+              echo "Uploading $name (attempt $((retry_count + 1))/$max_retries)..."
+              
+              # Check if file exists and is readable
+              if [ ! -f "$file" ]; then
+                echo "::warning::File $file not found, skipping..."
+                return 0
+              fi
+              
+              # Extract base upload URL (remove {?name,label} template suffix)
+              local upload_url="${{ steps.create_release.outputs.upload_url }}"
+              upload_url="${upload_url%\{*}"
+              
+              # Attempt upload with increased timeout and better error handling
+              response=$(curl --fail --silent --show-error \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Content-Type: ${type}" \
+                --connect-timeout 10 \
+                --max-time 600 \
+                --retry 3 \
+                --retry-delay 5 \
+                --upload-file "${file}" \
+                "${upload_url}?name=${name}" 2>&1)
+              
+              if [ $? -eq 0 ]; then
+                echo "Successfully uploaded $name"
+                return 0
+              else
+                echo "Failed to upload $name (attempt $((retry_count + 1))/$max_retries)"
+                echo "Error: $response"
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Retrying in 10 seconds..."
+                  sleep 10
+                fi
+              fi
+            done
+            
+            echo "::error::Failed to upload $name after $max_retries attempts"
+            return 1
+          }
+
+          # Windows assets
+          upload_asset "artifacts/windows/DevNullifier-Setup.exe" "DevNullifier-Setup.exe" "application/octet-stream"
+          upload_asset "artifacts/windows/DevNullifier-Setup.exe.blockmap" "DevNullifier-Setup.exe.blockmap" "application/octet-stream"
+          upload_asset "artifacts/windows/latest.yml" "latest.yml" "text/yaml"
+          upload_asset "artifacts/windows/DevNullifier-win-unpacked.zip" "${{ github.ref_name == 'develop' && 'DevNullifier-win-unpacked-dev.zip' || 'DevNullifier-win-unpacked.zip' }}" "application/zip"
+
+          # Linux assets
           APPIMAGE=$(find artifacts/linux -name "*.AppImage" -type f | head -1)
           DEB=$(find artifacts/linux -name "*.deb" -type f | head -1)
-          echo "appimage_path=$APPIMAGE" >> $GITHUB_OUTPUT
-          echo "deb_path=$DEB" >> $GITHUB_OUTPUT
+          BLOCKMAP=$(find artifacts/linux -name "*.AppImage.blockmap" -type f | head -1)
+          if [ -n "$APPIMAGE" ]; then
+            upload_asset "$APPIMAGE" "${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.AppImage' || 'DevNullifier-linux-x64.AppImage' }}" "application/octet-stream"
+          fi
+          if [ -n "$BLOCKMAP" ]; then
+            upload_asset "$BLOCKMAP" "${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.AppImage.blockmap' || 'DevNullifier-linux-x64.AppImage.blockmap' }}" "application/octet-stream"
+          fi
+          if [ -n "$DEB" ]; then
+            upload_asset "$DEB" "${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.deb' || 'DevNullifier-linux-x64.deb' }}" "application/octet-stream"
+          fi
+          upload_asset "artifacts/linux/DevNullifier-linux-unpacked.zip" "${{ github.ref_name == 'develop' && 'DevNullifier-linux-unpacked-dev.zip' || 'DevNullifier-linux-unpacked.zip' }}" "application/zip"
+          upload_asset "artifacts/linux/latest-linux.yml" "latest-linux.yml" "text/yaml"
 
-      - name: Upload Linux AppImage
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-linux-files.outputs.appimage_path }}
-          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.AppImage' || 'DevNullifier-linux-x64.AppImage' }}
-          asset_content_type: application/octet-stream
-
-      - name: Upload Linux DEB
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-linux-files.outputs.deb_path }}
-          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-x64-dev.deb' || 'DevNullifier-linux-x64.deb' }}
-          asset_content_type: application/octet-stream
-
-      - name: Upload Linux ZIP Archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/linux/DevNullifier-linux-unpacked.zip
-          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-linux-unpacked-dev.zip' || 'DevNullifier-linux-unpacked.zip' }}
-          asset_content_type: application/zip
-
-      - name: Upload latest-linux.yml
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/linux/latest-linux.yml
-          asset_name: latest-linux.yml
-          asset_content_type: text/yaml
-
-      # macOS assets
-      - name: Find macOS files
-        id: find-macos-files
-        run: |
+          # macOS assets
           DMG=$(find artifacts/macos -name "*.dmg" -type f | head -1)
-          echo "dmg_path=$DMG" >> $GITHUB_OUTPUT
+          BLOCKMAP=$(find artifacts/macos -name "*.dmg.blockmap" -type f | head -1)
+          if [ -n "$DMG" ]; then
+            upload_asset "$DMG" "${{ github.ref_name == 'develop' && 'DevNullifier-mac-x64-dev.dmg' || 'DevNullifier-mac-x64.dmg' }}" "application/octet-stream"
+          fi
+          if [ -n "$BLOCKMAP" ]; then
+            upload_asset "$BLOCKMAP" "${{ github.ref_name == 'develop' && 'DevNullifier-mac-x64-dev.dmg.blockmap' || 'DevNullifier-mac-x64.dmg.blockmap' }}" "application/octet-stream"
+          fi
+          upload_asset "artifacts/macos/DevNullifier-mac-unpacked.zip" "${{ github.ref_name == 'develop' && 'DevNullifier-mac-unpacked-dev.zip' || 'DevNullifier-mac-unpacked.zip' }}" "application/zip"
+          upload_asset "artifacts/macos/latest-mac.yml" "latest-mac.yml" "text/yaml"
 
-      - name: Upload macOS DMG
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.find-macos-files.outputs.dmg_path }}
-          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-mac-x64-dev.dmg' || 'DevNullifier-mac-x64.dmg' }}
-          asset_content_type: application/octet-stream
+      # Cleanup on failure
+      - name: Cleanup on failure
+        if: steps.upload_assets.outcome == 'failure'
+        run: |
+          echo "Upload failed, cleaning up..."
 
-      - name: Upload macOS ZIP Archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/macos/DevNullifier-mac-unpacked.zip
-          asset_name: ${{ github.ref_name == 'develop' && 'DevNullifier-mac-unpacked-dev.zip' || 'DevNullifier-mac-unpacked.zip' }}
-          asset_content_type: application/zip
+          # Delete the release
+          curl -X DELETE \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}"
 
-      - name: Upload latest-mac.yml
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/macos/latest-mac.yml
-          asset_name: latest-mac.yml
-          asset_content_type: text/yaml
+          # Delete the tag
+          git push --delete origin ${{ needs.build-windows.outputs.version }} || true
 
-      # Upload to latest-dev release if on develop branch
+          # If on develop, also clean up latest-dev
+          if [ "${{ github.ref_name }}" = "develop" ]; then
+            # Delete latest-dev release
+            LATEST_DEV_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest-dev" | \
+              jq -r '.id')
+            if [ "$LATEST_DEV_ID" != "null" ]; then
+              curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/releases/$LATEST_DEV_ID"
+            fi
+            
+            # Delete latest-dev tag
+            git push --delete origin latest-dev || true
+          fi
+
+          exit 1
+
+      # Upload to latest-dev release if on develop branch and main upload succeeded
       - name: Upload assets to latest-dev release
-        if: github.ref_name == 'develop'
+        if: github.ref_name == 'develop' && steps.upload_assets.outcome == 'success'
         run: |
           # Function to upload asset
           upload_asset() {
             local file="$1"
             local name="$2"
             local type="$3"
+            local max_retries=3
+            local retry_count=0
             
-            curl -X POST \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: $type" \
-              --data-binary "@$file" \
-              "${{ env.LATEST_DEV_UPLOAD_URL }}?name=$name"
+            while [ $retry_count -lt $max_retries ]; do
+              echo "Uploading $name to latest-dev (attempt $((retry_count + 1))/$max_retries)..."
+              
+              # Check if file exists and is readable
+              if [ ! -f "$file" ]; then
+                echo "::warning::File $file not found, skipping..."
+                return 0
+              fi
+              
+              # Extract base upload URL (remove {?name,label} template suffix)
+              local upload_url="${LATEST_DEV_UPLOAD_URL}"
+              upload_url="${upload_url%\{*}"
+              
+              # Attempt upload with increased timeout and better error handling
+              response=$(curl --fail --silent --show-error \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Content-Type: ${type}" \
+                --connect-timeout 10 \
+                --max-time 600 \
+                --retry 3 \
+                --retry-delay 5 \
+                --upload-file "${file}" \
+                "${upload_url}?name=${name}" 2>&1)
+              
+              if [ $? -eq 0 ]; then
+                echo "Successfully uploaded $name to latest-dev"
+                return 0
+              else
+                echo "Failed to upload $name to latest-dev (attempt $((retry_count + 1))/$max_retries)"
+                echo "Error: $response"
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "Retrying in 10 seconds..."
+                  sleep 10
+                fi
+              fi
+            done
+            
+            echo "::error::Failed to upload $name to latest-dev after $max_retries attempts"
+            return 1
           }
 
-          # Upload Windows assets
+          # Windows assets
           upload_asset "artifacts/windows/DevNullifier-Setup.exe" "DevNullifier-Setup.exe" "application/octet-stream"
+          upload_asset "artifacts/windows/DevNullifier-Setup.exe.blockmap" "DevNullifier-Setup.exe.blockmap" "application/octet-stream"
           upload_asset "artifacts/windows/latest.yml" "latest.yml" "text/yaml"
           upload_asset "artifacts/windows/DevNullifier-win-unpacked.zip" "DevNullifier-win-unpacked.zip" "application/zip"
 
-          # Upload Linux assets
+          # Linux assets
           APPIMAGE=$(find artifacts/linux -name "*.AppImage" -type f | head -1)
           DEB=$(find artifacts/linux -name "*.deb" -type f | head -1)
-          upload_asset "$APPIMAGE" "DevNullifier-linux-x64.AppImage" "application/octet-stream"
-          upload_asset "$DEB" "DevNullifier-linux-x64.deb" "application/octet-stream"
+          BLOCKMAP=$(find artifacts/linux -name "*.AppImage.blockmap" -type f | head -1)
+          if [ -n "$APPIMAGE" ]; then
+            upload_asset "$APPIMAGE" "DevNullifier-linux-x64.AppImage" "application/octet-stream"
+          fi
+          if [ -n "$BLOCKMAP" ]; then
+            upload_asset "$BLOCKMAP" "DevNullifier-linux-x64.AppImage.blockmap" "application/octet-stream"
+          fi
+          if [ -n "$DEB" ]; then
+            upload_asset "$DEB" "DevNullifier-linux-x64.deb" "application/octet-stream"
+          fi
           upload_asset "artifacts/linux/DevNullifier-linux-unpacked.zip" "DevNullifier-linux-unpacked.zip" "application/zip"
           upload_asset "artifacts/linux/latest-linux.yml" "latest-linux.yml" "text/yaml"
 
-          # Upload macOS assets
+          # macOS assets
           DMG=$(find artifacts/macos -name "*.dmg" -type f | head -1)
-          upload_asset "$DMG" "DevNullifier-mac-x64.dmg" "application/octet-stream"
+          BLOCKMAP=$(find artifacts/macos -name "*.dmg.blockmap" -type f | head -1)
+          if [ -n "$DMG" ]; then
+            upload_asset "$DMG" "DevNullifier-mac-x64.dmg" "application/octet-stream"
+          fi
+          if [ -n "$BLOCKMAP" ]; then
+            upload_asset "$BLOCKMAP" "DevNullifier-mac-x64.dmg.blockmap" "application/octet-stream"
+          fi
           upload_asset "artifacts/macos/DevNullifier-mac-unpacked.zip" "DevNullifier-mac-unpacked.zip" "application/zip"
           upload_asset "artifacts/macos/latest-mac.yml" "latest-mac.yml" "text/yaml"
