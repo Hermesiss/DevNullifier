@@ -54,9 +54,26 @@
   <body style="display: none">
     <header class="header">
       <div class="container">
-        <div class="language-selector">
-          <a href="index.html" class="active">EN</a>
-          <a href="ru.html">RU</a>
+        <div class="top-controls">
+          <div class="language-selector">
+            <a href="index.html" class="active">EN</a>
+            <a href="ru.html">RU</a>
+          </div>
+          <div class="theme-selector">
+            <button class="theme-btn" data-theme="light" title="Light theme">
+              <i class="fas fa-sun"></i>
+            </button>
+            <button class="theme-btn" data-theme="dark" title="Dark theme">
+              <i class="fas fa-moon"></i>
+            </button>
+            <button
+              class="theme-btn active"
+              data-theme="system"
+              title="System theme"
+            >
+              <i class="fas fa-desktop"></i>
+            </button>
+          </div>
         </div>
         <div class="logo">
           <img
@@ -132,7 +149,7 @@
               href="https://github.com/Hermesiss/DevNullifier/releases/"
               class="download-btn releases"
             >
-              <i class="fa-brands fa-github"></i>
+              <i class="fa-brands fa-github" style="color: #2c3e50"></i>
               <span class="releases-subtitle"> All releases </span>
             </a>
           </div>
@@ -169,8 +186,17 @@
             <div class="tool-icon" title="Unity">
               <img
                 src="https://cdn.simpleicons.org/unity/222c37"
+                media="(prefers-color-scheme: dark)"
                 alt="Unity"
                 style="width: 48px; height: 48px; margin-bottom: 12px"
+                class="theme-light-only"
+              />
+              <img
+                src="https://cdn.simpleicons.org/unity/ffffff"
+                media="(prefers-color-scheme: dark)"
+                alt="Unity"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+                class="theme-dark-only"
               />
               <span>Unity</span>
             </div>
@@ -179,6 +205,14 @@
                 src="https://cdn.simpleicons.org/unrealengine/313131"
                 alt="Unreal Engine"
                 style="width: 48px; height: 48px; margin-bottom: 12px"
+                class="theme-light-only"
+              />
+              <img
+                src="https://cdn.simpleicons.org/unrealengine/ffffff"
+                media="(prefers-color-scheme: dark)"
+                alt="Unreal Engine"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+                class="theme-dark-only"
               />
               <span>Unreal</span>
             </div>
@@ -270,6 +304,14 @@
                 src="https://cdn.simpleicons.org/symfony/1A171B"
                 alt="Symfony"
                 style="width: 48px; height: 48px; margin-bottom: 12px"
+                class="theme-light-only"
+              />
+              <img
+                src="https://cdn.simpleicons.org/symfony/ffffff"
+                media="(prefers-color-scheme: dark)"
+                alt="Symfony"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+                class="theme-dark-only"
               />
               <span>Symfony</span>
             </div>

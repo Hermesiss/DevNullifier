@@ -1,3 +1,60 @@
+/* CSS Variables for theming */
+:root {
+  --bg-primary: linear-gradient(135deg, #4a90e2 0%, #491ab6 100%);
+  --bg-secondary: white;
+  --bg-tertiary: #fafbfc;
+  --bg-quaternary: #1a252f;
+  --text-primary: #333;
+  --text-secondary: #666;
+  --text-tertiary: #2c3e50;
+  --text-inverse: white;
+  --border-primary: rgba(0, 0, 0, 0.04);
+  --border-secondary: rgba(0, 0, 0, 0.1);
+  --shadow-light: rgba(0, 0, 0, 0.08);
+  --shadow-medium: rgba(0, 0, 0, 0.12);
+  --shadow-heavy: rgba(0, 0, 0, 0.15);
+  --accent-primary: #4a90e2;
+  --accent-secondary: #357abd;
+}
+
+[data-theme="dark"] {
+  --bg-primary: linear-gradient(135deg, #6297cc 0%, #e5ff00 100%);
+  --bg-secondary: #1e1e1e;
+  --bg-tertiary: #252525;
+  --bg-quaternary: #0d1117;
+  --text-primary: #e6e6e6;
+  --text-secondary: #b3b3b3;
+  --text-tertiary: #ffffff;
+  --text-inverse: #1e1e1e;
+  --border-primary: rgba(255, 255, 255, 0.1);
+  --border-secondary: rgba(255, 255, 255, 0.2);
+  --shadow-light: rgba(0, 0, 0, 0.3);
+  --shadow-medium: rgba(0, 0, 0, 0.4);
+  --shadow-heavy: rgba(0, 0, 0, 0.5);
+  --accent-primary: #4a90e2;
+  --accent-secondary: #357abd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-primary: linear-gradient(135deg, #6297cc 0%, #e5ff00 100%);
+    --bg-secondary: #1e1e1e;
+    --bg-tertiary: #252525;
+    --bg-quaternary: #0d1117;
+    --text-primary: #e6e6e6;
+    --text-secondary: #b3b3b3;
+    --text-tertiary: #ffffff;
+    --text-inverse: #1e1e1e;
+    --border-primary: rgba(255, 255, 255, 0.1);
+    --border-secondary: rgba(255, 255, 255, 0.2);
+    --shadow-light: rgba(0, 0, 0, 0.3);
+    --shadow-medium: rgba(0, 0, 0, 0.4);
+    --shadow-heavy: rgba(0, 0, 0, 0.5);
+    --accent-primary: #4a90e2;
+    --accent-secondary: #357abd;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -8,9 +65,10 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Oxygen, Ubuntu, Cantarell, sans-serif;
   line-height: 1.6;
-  color: #333;
-  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  color: var(--text-primary);
+  background: var(--bg-primary);
   min-height: 100vh;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 .container {
@@ -22,17 +80,23 @@ body {
 .header {
   text-align: center;
   padding: 60px 0;
-  color: white;
+  color: var(--text-inverse);
   position: relative;
 }
 
-.language-selector {
+.top-controls {
   position: absolute;
   top: 20px;
   right: 20px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+.language-selector {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 20px;
   padding: 6px 12px;
+  max-height: 40px;
   backdrop-filter: blur(15px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
@@ -71,6 +135,54 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.theme-selector {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 6px;
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 4px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-selector:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.theme-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  padding: 6px 8px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+}
+
+.theme-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.theme-btn.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.theme-btn i {
+  font-size: 14px;
+}
+
 /* Scroll to Top Button */
 .scroll-to-top {
   position: fixed;
@@ -78,8 +190,8 @@ body {
   right: 30px;
   width: 50px;
   height: 50px;
-  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
-  color: white;
+  background: var(--bg-primary);
+  color: var(--text-inverse);
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -89,7 +201,7 @@ body {
   visibility: hidden;
   transform: translateY(100px);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 20px rgba(74, 144, 226, 0.3);
+  box-shadow: 0 4px 20px var(--shadow-medium);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -102,9 +214,9 @@ body {
 }
 
 .scroll-to-top:hover {
-  background: linear-gradient(135deg, #357abd 0%, #2c6aa0 100%);
+  background: linear-gradient(135deg, var(--accent-secondary) 0%, #2c6aa0 100%);
   transform: translateY(-3px);
-  box-shadow: 0 8px 30px rgba(74, 144, 226, 0.4);
+  box-shadow: 0 8px 30px var(--shadow-heavy);
 }
 
 .scroll-to-top:active {
@@ -115,13 +227,13 @@ body {
   width: 120px;
   height: 120px;
   margin: 0 auto 30px;
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 60px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 32px var(--shadow-medium);
   border: 4px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -139,25 +251,27 @@ body {
 }
 
 .main-content {
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 24px 24px 0 0;
   margin-top: -32px;
   position: relative;
   z-index: 2;
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -4px 24px var(--shadow-light);
+  transition: background 0.3s ease;
 }
 
 .downloads {
   padding: 60px 0;
   text-align: center;
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 24px 24px 0 0;
+  transition: background 0.3s ease;
 }
 
 .downloads h2 {
   font-size: 2.5rem;
   margin-bottom: 40px;
-  color: #2c3e50;
+  color: var(--text-tertiary);
 }
 
 .download-buttons {
@@ -170,7 +284,7 @@ body {
 
 .releases {
   text-decoration: none;
-  color: #2c3e50;
+  color: var(--text-tertiary);
   background: #d8ec1f;
   /* content in 2 lines */
 }
@@ -191,13 +305,13 @@ body {
   font-weight: 600;
   font-size: 1.1rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
   border: none;
 }
 
 .download-btn:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px var(--shadow-heavy);
 }
 
 .download-btn.windows {
@@ -235,14 +349,15 @@ body {
 
 .features {
   padding: 80px 0;
-  background: #fafbfc;
+  background: var(--bg-tertiary);
+  transition: background 0.3s ease;
 }
 
 .features h2 {
   text-align: center;
   font-size: 2.5rem;
   margin-bottom: 60px;
-  color: #2c3e50;
+  color: var(--text-tertiary);
 }
 
 .features-grid {
@@ -253,38 +368,42 @@ body {
 }
 
 .feature-card {
-  background: white;
+  background: var(--bg-secondary);
   padding: 32px 24px;
   border-radius: 16px;
   text-align: center;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 12px var(--shadow-light);
+  border: 1px solid var(--border-primary);
 }
 
 .feature-card:hover {
   transform: translateY(-8px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 32px var(--shadow-medium);
 }
 
 .feature-icon {
   width: 72px;
   height: 72px;
   margin: 0 auto 24px;
-  background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+  background: var(--bg-primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 36px;
-  color: white;
-  box-shadow: 0 4px 16px rgba(74, 144, 226, 0.3);
+  color: var(--text-inverse);
+  box-shadow: 0 4px 16px var(--shadow-medium);
 }
 
 .feature-card h3 {
   font-size: 1.5rem;
   margin-bottom: 15px;
-  color: #2c3e50;
+  color: var(--text-tertiary);
+}
+
+.feature-card p {
+  color: var(--text-secondary);
 }
 
 .screenshots {
@@ -295,7 +414,7 @@ body {
 .screenshots h3 {
   font-size: 2rem;
   margin-bottom: 30px;
-  color: #2c3e50;
+  color: var(--text-tertiary);
 }
 
 .screenshot-grid {
@@ -308,7 +427,7 @@ body {
 .screenshot {
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 30px var(--border-secondary);
 }
 
 .screenshot img {
@@ -319,20 +438,21 @@ body {
 
 .supported-tools {
   padding: 80px 0;
-  background: white;
+  background: var(--bg-secondary);
+  transition: background 0.3s ease;
 }
 
 .supported-tools h2 {
   text-align: center;
   font-size: 2.5rem;
   margin-bottom: 20px;
-  color: #2c3e50;
+  color: var(--text-tertiary);
 }
 
 .supported-tools-subtitle {
   text-align: center;
   font-size: 1.2rem;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 50px;
   max-width: 800px;
   margin-left: auto;
@@ -352,38 +472,38 @@ body {
   flex-direction: column;
   align-items: center;
   padding: 24px 16px;
-  background: #fafbfc;
+  background: var(--bg-tertiary);
   border-radius: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  
   border: 2px solid transparent;
 }
 
 .tool-icon:hover {
   transform: translateY(-6px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  border-color: #4a90e2;
-  background: white;
+  box-shadow: 0 8px 24px var(--shadow-light);
+  border-color: var(--accent-primary);
+  background: var(--bg-secondary);
 }
 
 .tool-icon svg {
   width: 48px;
   height: 48px;
-  color: #4a90e2;
+  color: var(--accent-primary);
   margin-bottom: 12px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tool-icon:hover svg {
-  color: #357abd;
+  color: var(--accent-secondary);
   transform: scale(1.05);
 }
 
 .tool-icon span {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--text-tertiary);
   text-align: center;
   line-height: 1.2;
 }
@@ -408,10 +528,11 @@ body {
 }
 
 .footer {
-  background: #1a252f;
+  background: var(--bg-quaternary);
   color: white;
   text-align: center;
   padding: 40px 0;
+  transition: background 0.3s ease;
 }
 
 .github-link {
@@ -498,7 +619,7 @@ body {
 
 .screenshot:hover {
   transform: scale(1.02);
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 15px 40px var(--shadow-heavy);
 }
 
 @media (max-width: 768px) {
@@ -510,18 +631,36 @@ body {
     font-size: 1.1rem;
   }
 
-  .language-selector {
+  .top-controls {
     position: relative;
     top: auto;
     right: auto;
     margin-bottom: 20px;
-    display: inline-block;
+    justify-content: center;
+  }
+
+  .language-selector,
+  .theme-selector {
+    position: relative;
+    top: auto;
+    right: auto;
+    display: inline-flex;
     padding: 4px 10px;
   }
 
   .language-selector a {
     font-size: 12px;
     min-width: 35px;
+  }
+
+  .theme-btn {
+    padding: 4px 6px;
+    min-width: 28px;
+    height: 28px;
+  }
+
+  .theme-btn i {
+    font-size: 12px;
   }
 
   .scroll-to-top {
@@ -571,7 +710,7 @@ body {
   }
 
   .header {
-    padding: 40px 0;
+    padding: 12px 0 64px 0;
   }
 
   .logo {
@@ -591,6 +730,13 @@ body {
     padding: 0 15px;
   }
 
+  .top-controls {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
   .download-buttons {
     gap: 15px;
   }
@@ -608,12 +754,23 @@ body {
     font-size: 14px;
   }
 
-  .language-selector {
+  .language-selector,
+  .theme-selector {
     padding: 3px 8px;
   }
 
   .language-selector a {
     font-size: 11px;
     min-width: 30px;
+  }
+
+  .theme-btn {
+    padding: 3px 5px;
+    min-width: 24px;
+    height: 24px;
+  }
+
+  .theme-btn i {
+    font-size: 10px;
   }
 } 
