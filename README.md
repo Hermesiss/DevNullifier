@@ -45,7 +45,7 @@ Download the latest release from the [Releases](https://github.com/Hermesiss/Dev
 
 ## Application Data Cleaner
 
-![Application Data Cleaning Interface](.docs/img-appdata.png)
+![Application Data Cleaning Interface](.docs/img/img-appdata.png)
 
 Cleans application data folders that accumulate temporary files, caches, and junk data.
 
@@ -62,9 +62,9 @@ Cleans application data folders that accumulate temporary files, caches, and jun
 
 ## Dev Cleaner
 
-![Developer Cache Cleaning](.docs/img-dev-filters.png)
-![Pattern-Based Filtering](.docs/img-dev-patterns.png)
-![Folder Explorer](.docs/img-folder-explorer.png)
+![Developer Cache Cleaning](.docs/img/img-dev-filters.png)
+![Pattern-Based Filtering](.docs/img/img-dev-patterns.png)
+![Folder Explorer](.docs/img/img-folder-explorer.png)
 
 Cleans development-related temporary folders that consume significant disk space.
 
