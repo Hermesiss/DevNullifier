@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DevNullifier - Удобный инструмент для очистки кэша разработки</title>
+    <meta
+      name="description"
+      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и ненужных данных."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://hermesiss.github.io/DevNullifier"
+    />
+    <meta
+      property="og:title"
+      content="DevNullifier - Удобный инструмент для очистки кэша разработки"
+    />
+    <meta
+      property="og:description"
+      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и ненужных данных."
+    />
+    <meta
+      property="og:image"
+      content="https://hermesiss.github.io/DevNullifier/img/og-image.jpg"
+    />
+    <meta property="og:image:alt" content="DevNullifier screenshot and logo" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:url"
+      content="https://hermesiss.github.io/DevNullifier"
+    />
+    <meta
+      name="twitter:title"
+      content="DevNullifier - Удобный инструмент для очистки кэша разработки"
+    />
+    <meta
+      name="twitter:description"
+      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и ненужных данных."
+    />
+    <meta
+      name="twitter:image"
+      content="https://hermesiss.github.io/DevNullifier/img/og-image.jpg"
+    />
+    <meta name="twitter:image:alt" content="DevNullifier screenshot and logo" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body style="display: none">
+    <header class="header">
+      <div class="container">
+        <div class="language-selector">
+          <a href="index.html">EN</a>
+          <a href="ru.html" class="active">RU</a>
+        </div>
+        <div class="logo">
+          <img
+            src="img/icon-256.png"
+            alt="DevNullifier Logo"
+            style="width: 100%; height: 100%"
+          />
+        </div>
+        <h1>DevNullifier</h1>
+        <p>
+          Надоела AppData на 200 Gb? Лень удалять вручную Binaries у старых
+          Unreal Engine проектов?
+        </p>
+        <br />
+        <p>
+          DevNullifier - приложение для очистки кэша разработки, временных
+          файлов и ненужный данных. Оно поможет вам освободить дисковое
+          пространство и поддержать среду разработки в порядке.
+        </p>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="downloads">
+        <div class="container">
+          <h2>Скачать</h2>
+          <div class="download-buttons">
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-Setup.exe"
+              class="download-btn windows"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M3,12V6.75L9,5.43V11.91L3,12M20,3V11.75L10,11.9V5.21L20,3M3,13L9,13.09V19.9L3,18.75V13M20,13.25V22L10,20.09V13.1L20,13.25Z"
+                />
+              </svg>
+              <span>Windows</span>
+            </a>
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-linux-x64.AppImage"
+              class="download-btn linux"
+            >
+              <img
+                src="https://cdn.simpleicons.org/linux/ffffff/ffffff"
+                alt="Linux"
+                style="width: 24px; height: 24px; margin-right: 10px"
+              />
+              <span>Linux (AppImage)</span>
+            </a>
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-linux-x64.deb"
+              class="download-btn debian"
+            >
+              <img
+                src="https://cdn.simpleicons.org/debian/ffffff/ffffff"
+                alt="Linux"
+                style="width: 24px; height: 24px; margin-right: 10px"
+              />
+              <span>Debian</span>
+            </a>
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-mac-x64.dmg"
+              class="download-btn macos"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M18.71,19.5C17.88,20.74 17,21.95 15.66,21.97C14.32,22 13.89,21.18 12.37,21.18C10.84,21.18 10.37,21.95 9.1,22C7.79,22.05 6.8,20.68 5.96,19.47C4.25,17 2.94,12.45 4.7,9.39C5.57,7.87 7.13,6.91 8.82,6.88C10.1,6.86 11.32,7.75 12.11,7.75C12.89,7.75 14.37,6.68 15.92,6.84C16.57,6.87 18.39,7.1 19.56,8.82C19.47,8.88 17.39,10.1 17.41,12.63C17.44,15.65 20.06,16.66 20.09,16.67C20.06,16.74 19.67,18.11 18.71,19.5M13,3.5C13.73,2.67 14.94,2.04 15.94,2C16.07,3.17 15.6,4.35 14.9,5.19C14.21,6.04 13.07,6.7 11.95,6.61C11.8,5.46 12.36,4.26 13,3.5Z"
+                />
+              </svg>
+              <span>macOS</span>
+            </a>
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/"
+              class="download-btn releases"
+            >
+              <i class="fa-brands fa-github"></i>
+              <span class="releases-subtitle"> Все релизы </span>
+            </a>
+          </div>
+
+          <div class="badges">
+            <img
+              src="https://img.shields.io/badge/license-MIT-blue.svg"
+              alt="MIT License"
+            />
+            <img
+              src="https://img.shields.io/github/package-json/v/Hermesiss/DevNullifier"
+              alt="Version"
+            />
+            <img
+              src="https://img.shields.io/github/downloads/Hermesiss/DevNullifier/total"
+              alt="Downloads"
+            />
+            <img
+              src="https://img.shields.io/github/last-commit/Hermesiss/DevNullifier"
+              alt="Last Commit"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="supported-tools">
+        <div class="container">
+          <h2>Поддерживаемые инструменты разработки</h2>
+          <p class="supported-tools-subtitle">
+            DevNullifier может очищать кэш, временные файлы и артефакты сборки
+            из этих сред разработки и инструментов:
+          </p>
+          <div class="tools-grid">
+            <div class="tool-icon" title="Unity">
+              <img
+                src="https://cdn.simpleicons.org/unity/000000/ffffff"
+                alt="Unity"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Unity</span>
+            </div>
+            <div class="tool-icon" title="Unreal Engine">
+              <img
+                src="https://cdn.simpleicons.org/unrealengine/313131/ffffff"
+                alt="Unreal Engine"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Unreal</span>
+            </div>
+            <div class="tool-icon" title=".NET">
+              <img
+                src="https://cdn.simpleicons.org/dotnet/512BD4/ffffff"
+                alt=".NET"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>.NET</span>
+            </div>
+            <div class="tool-icon" title="C++">
+              <img
+                src="https://cdn.simpleicons.org/cplusplus/00599C/ffffff"
+                alt="C++"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>C++</span>
+            </div>
+            <div class="tool-icon" title="Python">
+              <i
+                class="fa-brands fa-python"
+                style="font-size: 48px; color: #3776ab; margin-bottom: 12px"
+              ></i>
+              <span>Python</span>
+            </div>
+            <div class="tool-icon" title="Node.js">
+              <i
+                class="fa-brands fa-node-js"
+                style="font-size: 48px; color: #339933; margin-bottom: 12px"
+              ></i>
+              <span>Node.js</span>
+            </div>
+            <div class="tool-icon" title="Rust">
+              <img
+                src="https://cdn.simpleicons.org/rust/000000/ffffff"
+                alt="Rust"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Rust</span>
+            </div>
+            <div class="tool-icon" title="Java">
+              <i
+                class="fa-brands fa-java"
+                style="font-size: 48px; color: #ed8b00; margin-bottom: 12px"
+              ></i>
+              <span>Java</span>
+            </div>
+            <div class="tool-icon" title="Kotlin">
+              <img
+                src="https://cdn.simpleicons.org/kotlin/0095D5/ffffff"
+                alt="Kotlin"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Kotlin</span>
+            </div>
+            <div class="tool-icon" title="Android">
+              <i
+                class="fa-brands fa-android"
+                style="font-size: 48px; color: #3ddc84; margin-bottom: 12px"
+              ></i>
+              <span>Android</span>
+            </div>
+            <div class="tool-icon" title="Xcode">
+              <img
+                src="https://cdn.simpleicons.org/xcode/147EFB/ffffff"
+                alt="Xcode"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Xcode</span>
+            </div>
+            <div class="tool-icon" title="PHP">
+              <i
+                class="fa-brands fa-php"
+                style="font-size: 48px; color: #777bb4; margin-bottom: 12px"
+              ></i>
+              <span>PHP</span>
+            </div>
+            <div class="tool-icon" title="Laravel">
+              <img
+                src="https://cdn.simpleicons.org/laravel/FF2D20/ffffff"
+                alt="Laravel"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Laravel</span>
+            </div>
+            <div class="tool-icon" title="Symfony">
+              <img
+                src="https://cdn.simpleicons.org/symfony/000000/ffffff"
+                alt="Symfony"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Symfony</span>
+            </div>
+            <div class="tool-icon" title="TensorFlow/ML">
+              <img
+                src="https://cdn.simpleicons.org/tensorflow/FF6F00/ffffff"
+                alt="TensorFlow"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>ML/AI</span>
+            </div>
+            <div class="tool-icon" title="Docker">
+              <i
+                class="fa-brands fa-docker"
+                style="font-size: 48px; color: #2496ed; margin-bottom: 12px"
+              ></i>
+              <span>Docker</span>
+            </div>
+            <div class="tool-icon" title="Gatsby">
+              <img
+                src="https://cdn.simpleicons.org/gatsby/663399/ffffff"
+                alt="Gatsby"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Gatsby</span>
+            </div>
+            <div class="tool-icon" title="Jest">
+              <img
+                src="https://cdn.simpleicons.org/jest/C21325/ffffff"
+                alt="Jest"
+                style="width: 48px; height: 48px; margin-bottom: 12px"
+              />
+              <span>Jest</span>
+            </div>
+            <div class="tool-icon" title="Visual Studio Code">
+              <i
+                class="fa-brands fa-vuejs"
+                style="font-size: 48px; color: #007acc; margin-bottom: 12px"
+              ></i>
+              <span>VS Code</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="features">
+        <div class="container">
+          <h2>Возможности</h2>
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">🧹</div>
+              <h3>Умная очистка</h3>
+              <p>
+                Автоматически обнаруживает и очищает временные файлы, кэши и
+                ненужные данные из вашей среды разработки.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">📊</div>
+              <h3>Визуализация размера</h3>
+              <p>Наглядное отображение размера папок и файлов.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🎯</div>
+              <h3>Селективное удаление</h3>
+              <p>Ручной выбор папок для очистки. Никаких случайных удалений.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">⚙️</div>
+              <h3>Настраиваемое сканирование</h3>
+              <p>
+                Настройка глубины сканирования и паттернов под ваш рабочий
+                процесс разработки.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">📁</div>
+              <h3>Мультиплатформенная поддержка</h3>
+              <p>
+                Работает на Windows, Linux и macOS. Очищает специфичные для
+                платформы кэши и временные директории.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🛡️</div>
+              <h3>Безопасно и надёжно</h3>
+              <p>
+                Нацелено только на папки, которые можно восстановить, такие как
+                node_modules, артефакты сборки и директории кэша.
+              </p>
+            </div>
+          </div>
+
+          <div class="screenshots">
+            <h3>Скриншоты</h3>
+            <div class="screenshot-grid">
+              <div
+                class="screenshot"
+                onclick="openModal('img/img-appdata.png', 'Application Data Cleaning Interface')"
+              >
+                <img
+                  src="img/img-appdata.png"
+                  alt="Application Data Cleaning Interface"
+                  onerror="this.style.display='none'"
+                />
+              </div>
+              <div
+                class="screenshot"
+                onclick="openModal('img/img-dev-filters.png', 'Developer Cache Cleaning')"
+              >
+                <img
+                  src="img/img-dev-filters.png"
+                  alt="Developer Cache Cleaning"
+                  onerror="this.style.display='none'"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Lightbox Modal -->
+    <div id="imageModal" class="modal" onclick="closeModal()">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <img id="modalImage" src="" alt="" />
+      </div>
+    </div>
+
+    <!-- Scroll to Top Button -->
+    <button
+      id="scrollToTop"
+      class="scroll-to-top"
+      onclick="scrollToTop()"
+      title="Прокрутить вверх"
+      aria-label="Прокрутить вверх"
+    >
+      <i class="fas fa-chevron-up"></i>
+    </button>
+
+    <footer class="footer">
+      <div class="container">
+        <p id="footer-text" data-translate="footer_text">
+          &copy; 2024 DevNullifier. Выпущено под лицензией MIT.
+        </p>
+        <a href="https://github.com/Hermesiss/DevNullifier" class="github-link">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12,2A10,10 0 0,0 2,12C2,16.42 4.87,20.17 8.84,21.5C9.34,21.58 9.5,21.27 9.5,21C9.5,20.77 9.5,20.14 9.5,19.31C6.73,19.91 6.14,17.97 6.14,17.97C5.68,16.81 5.03,16.5 5.03,16.5C4.12,15.88 5.1,15.9 5.1,15.9C6.1,15.97 6.63,16.93 6.63,16.93C7.5,18.45 8.97,18 9.54,17.76C9.63,17.11 9.89,16.67 10.17,16.42C7.95,16.17 5.62,15.31 5.62,11.5C5.62,10.39 6,9.5 6.65,8.79C6.55,8.54 6.2,7.5 6.75,6.15C6.75,6.15 7.59,5.88 9.5,7.17C10.29,6.95 11.15,6.84 12,6.84C12.85,6.84 13.71,6.95 14.5,7.17C16.41,5.88 17.25,6.15 17.25,6.15C17.8,7.5 17.45,8.54 17.35,8.79C18,9.5 18.38,10.39 18.38,11.5C18.38,15.32 16.04,16.16 13.81,16.41C14.17,16.72 14.5,17.33 14.5,18.26C14.5,19.6 14.5,20.68 14.5,21C14.5,21.27 14.66,21.59 15.17,21.5C19.14,20.16 22,16.42 22,12A10,10 0 0,0 12,2Z"
+            />
+          </svg>
+          <span>Посмотреть на GitHub</span>
+        </a>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
