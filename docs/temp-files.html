@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-DKV2VWPVF6"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-DKV2VWPVF6");
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Why Temp Files Waste Your Disk Space - Windows, Mac, Linux | DevNullifier
+    </title>
+    <meta
+      name="description"
+      content="Learn why temporary files accumulate and waste disk space on Windows, Mac, and Linux. Discover safe methods to clean temp files and reclaim storage space."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://hermesiss.github.io/DevNullifier/temp-files.html"
+    />
+    <meta
+      property="og:title"
+      content="Why Temp Files Waste Your Disk Space - Windows, Mac, Linux | DevNullifier"
+    />
+    <meta
+      property="og:description"
+      content="Learn why temporary files accumulate and waste disk space on Windows, Mac, and Linux. Discover safe methods to clean temp files and reclaim storage space."
+    />
+    <meta
+      property="og:image"
+      content="https://hermesiss.github.io/DevNullifier/img/og-image.jpg"
+    />
+    <meta property="og:image:alt" content="DevNullifier screenshot and logo" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:url"
+      content="https://hermesiss.github.io/DevNullifier/temp-files.html"
+    />
+    <meta
+      name="twitter:title"
+      content="Why Temp Files Waste Your Disk Space - Windows, Mac, Linux | DevNullifier"
+    />
+    <meta
+      name="twitter:description"
+      content="Learn why temporary files accumulate and waste disk space on Windows, Mac, and Linux. Discover safe methods to clean temp files and reclaim storage space."
+    />
+    <meta
+      name="twitter:image"
+      content="https://hermesiss.github.io/DevNullifier/img/og-image.jpg"
+    />
+    <meta name="twitter:image:alt" content="DevNullifier screenshot and logo" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body style="display: none">
+    <header class="header">
+      <div class="container">
+        <div class="top-controls">
+          <div class="language-selector">
+            <a href="index.html">← Back</a>
+          </div>
+          <div class="theme-selector">
+            <button class="theme-btn" data-theme="light" title="Light theme">
+              <i class="fas fa-sun"></i>
+            </button>
+            <button class="theme-btn" data-theme="dark" title="Dark theme">
+              <i class="fas fa-moon"></i>
+            </button>
+            <button
+              class="theme-btn active"
+              data-theme="system"
+              title="System theme"
+            >
+              <i class="fas fa-desktop"></i>
+            </button>
+          </div>
+        </div>
+        <div class="logo">
+          <img
+            src="img/icon-256.png"
+            alt="DevNullifier Logo"
+            style="width: 100%; height: 100%"
+          />
+        </div>
+        <h1>Why Temp Files Waste Your Disk Space</h1>
+        <p>
+          Temporary files are meant to be temporary, but they often stick around
+          forever, silently consuming gigabytes of precious disk space.
+        </p>
+        <br />
+        <p>
+          Learn why temp files accumulate, where they hide, and how to safely
+          clean them across Windows, Mac, and Linux systems.
+        </p>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="features">
+        <div class="container">
+          <h2>The Hidden Cost of Temporary Files</h2>
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">📈</div>
+              <h3>Exponential Growth</h3>
+              <p>
+                Temp files grow exponentially over time. A fresh system might
+                have 100MB of temp files, but after months of use, this can
+                balloon to 50GB or more.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🔄</div>
+              <h3>Never Cleaned</h3>
+              <p>
+                Applications create temporary files but often fail to clean them
+                up properly, especially when they crash or are forcefully
+                terminated.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">⚡</div>
+              <h3>Performance Impact</h3>
+              <p>
+                Excessive temp files can slow down file operations, increase
+                boot times, and consume valuable SSD space that could be used
+                for actual data.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="supported-tools">
+        <div class="container">
+          <h2>Common Temp File Locations</h2>
+          <p class="supported-tools-subtitle">
+            Each platform has specific locations where temporary files
+            accumulate:
+          </p>
+
+          <div class="platform-guide">
+            <div class="platform-section">
+              <h3><i class="fab fa-windows"></i> Windows Temp Locations</h3>
+              <div class="temp-locations">
+                <div class="temp-item">
+                  <h4>User Temp Directory</h4>
+                  <code>%TEMP%</code>
+                  <p>
+                    <strong>Full path:</strong>
+                    C:\Users\[username]\ AppData\Local\Temp
+                  </p>
+                  <p>
+                    <strong>Contains:</strong> User-specific temporary files
+                    from applications
+                  </p>
+                  <p><strong>Typical size:</strong> 1-20GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="safe">✓ Yes, files older than 24 hours</span>
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>System Temp Directory</h4>
+                  <code>%WINDIR%\Temp</code>
+                  <p><strong>Full path:</strong> C:\Windows\Temp</p>
+                  <p>
+                    <strong>Contains:</strong> System-wide temporary files,
+                    installer remnants
+                  </p>
+                  <p><strong>Typical size:</strong> 500MB-5GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="caution"
+                      >⚠ With admin rights, files older than 7 days</span
+                    >
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>Prefetch Files</h4>
+                  <code>%WINDIR%\Prefetch</code>
+                  <p><strong>Full path:</strong> C:\Windows\Prefetch</p>
+                  <p>
+                    <strong>Contains:</strong> Application launch optimization
+                    files
+                  </p>
+                  <p><strong>Typical size:</strong> 100-500MB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="safe">✓ Yes, but will regenerate</span>
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>Recent Documents</h4>
+                  <code>%APPDATA%\Microsoft\Windows\Recent</code>
+                  <p>
+                    <strong>Full path:</strong>
+                    C:\Users\[username]\
+                    AppData\Roaming\Microsoft\Windows\Recent
+                  </p>
+                  <p>
+                    <strong>Contains:</strong> Shortcuts to recently opened
+                    files
+                  </p>
+                  <p><strong>Typical size:</strong> 10-50MB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="safe"
+                      >✓ Yes, just clears recent files list</span
+                    >
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="platform-section">
+              <h3><i class="fab fa-apple"></i> macOS Temp Locations</h3>
+              <div class="temp-locations">
+                <div class="temp-item">
+                  <h4>System Temp Directory</h4>
+                  <code>/tmp</code>
+                  <p><strong>Contains:</strong> System-wide temporary files</p>
+                  <p><strong>Typical size:</strong> 500MB-2GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="safe"
+                      >✓ Yes, automatically cleaned on reboot</span
+                    >
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>Private Temp Directory</h4>
+                  <code>/private/var/tmp</code>
+                  <p>
+                    <strong>Contains:</strong> System temporary files that
+                    persist across reboots
+                  </p>
+                  <p><strong>Typical size:</strong> 100MB-1GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="caution">⚠ Files older than 30 days</span>
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>User Temp Directory</h4>
+                  <code>$TMPDIR</code>
+                  <p><strong>Full path:</strong> /var/folders/[random]/T/</p>
+                  <p>
+                    <strong>Contains:</strong> User-specific temporary files
+                  </p>
+                  <p><strong>Typical size:</strong> 1-10GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="safe">✓ Yes, most files</span>
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>Trash Directory</h4>
+                  <code>~/.Trash</code>
+                  <p>
+                    <strong>Contains:</strong> Deleted files awaiting permanent
+                    removal
+                  </p>
+                  <p><strong>Typical size:</strong> 0-50GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="safe"
+                      >✓ Yes, but files will be permanently deleted</span
+                    >
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="platform-section">
+              <h3><i class="fab fa-linux"></i> Linux Temp Locations</h3>
+              <div class="temp-locations">
+                <div class="temp-item">
+                  <h4>System Temp Directory</h4>
+                  <code>/tmp</code>
+                  <p><strong>Contains:</strong> System-wide temporary files</p>
+                  <p><strong>Typical size:</strong> 100MB-5GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="safe">✓ Yes, often cleared on reboot</span>
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>Variable Temp Directory</h4>
+                  <code>/var/tmp</code>
+                  <p>
+                    <strong>Contains:</strong> Temporary files that persist
+                    across reboots
+                  </p>
+                  <p><strong>Typical size:</strong> 50MB-2GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="caution">⚠ Files older than 30 days</span>
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>User Temp Directory</h4>
+                  <code>$XDG_RUNTIME_DIR or /run/user/[uid]</code>
+                  <p><strong>Contains:</strong> User session temporary files</p>
+                  <p><strong>Typical size:</strong> 10-100MB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="safe">✓ Yes, cleared on logout</span>
+                  </p>
+                </div>
+                <div class="temp-item">
+                  <h4>System Logs</h4>
+                  <code>/var/log</code>
+                  <p><strong>Contains:</strong> System and application logs</p>
+                  <p><strong>Typical size:</strong> 100MB-10GB</p>
+                  <p>
+                    <strong>Safe to clean:</strong>
+                    <span class="caution">⚠ Old log files only</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="features">
+        <div class="container">
+          <h2>Types of Temporary Files</h2>
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">📄</div>
+              <h3>Application Temp Files</h3>
+              <p>
+                Created by applications during normal operation. Examples:
+                document recovery files, image processing temp files,
+                compilation artifacts.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🌐</div>
+              <h3>Browser Cache</h3>
+              <p>
+                Web browsers cache images, scripts, and pages locally. This can
+                grow to 10GB+ and includes cookies, sessions, and offline data.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">💿</div>
+              <h3>Installer Remnants</h3>
+              <p>
+                Software installers extract files to temp directories. Failed or
+                interrupted installations often leave behind GB of unused files.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🔄</div>
+              <h3>System Temp Files</h3>
+              <p>
+                Created by the operating system for swapping, caching, and
+                temporary storage. Usually cleaned automatically but can
+                accumulate.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">💥</div>
+              <h3>Crash Dumps</h3>
+              <p>
+                Generated when applications crash. These can be very large
+                (1GB+) and are rarely needed unless debugging specific issues.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">📊</div>
+              <h3>Log Files</h3>
+              <p>
+                Application and system logs that grow over time. Old logs are
+                rarely needed and can consume significant space.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="supported-tools">
+        <div class="container">
+          <h2>Manual Cleanup Commands</h2>
+          <p class="supported-tools-subtitle">
+            Quick commands to clean temp files on each platform:
+          </p>
+
+          <div class="platform-guide">
+            <div class="platform-section">
+              <h3><i class="fab fa-windows"></i> Windows Commands</h3>
+              <div class="commands-list">
+                <div class="command-item">
+                  <h4>Clean User Temp</h4>
+                  <code>del /q /f /s %TEMP%\*</code>
+                  <p>Deletes all files in user temp directory</p>
+                </div>
+                <div class="command-item">
+                  <h4>Clean System Temp (Admin)</h4>
+                  <code>del /q /f /s %WINDIR%\Temp\*</code>
+                  <p>Requires administrator privileges</p>
+                </div>
+                <div class="command-item">
+                  <h4>Disk Cleanup Tool</h4>
+                  <code>cleanmgr /sagerun:1</code>
+                  <p>Runs Windows built-in disk cleanup</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="platform-section">
+              <h3><i class="fab fa-apple"></i> macOS Commands</h3>
+              <div class="commands-list">
+                <div class="command-item">
+                  <h4>Clean System Temp</h4>
+                  <code>sudo rm -rf /tmp/*</code>
+                  <p>Cleans system temp directory</p>
+                </div>
+                <div class="command-item">
+                  <h4>Clean User Temp</h4>
+                  <code>rm -rf $TMPDIR/*</code>
+                  <p>Cleans user temp directory</p>
+                </div>
+                <div class="command-item">
+                  <h4>Empty Trash</h4>
+                  <code>rm -rf ~/.Trash/*</code>
+                  <p>Permanently deletes trash contents</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="platform-section">
+              <h3><i class="fab fa-linux"></i> Linux Commands</h3>
+              <div class="commands-list">
+                <div class="command-item">
+                  <h4>Clean System Temp</h4>
+                  <code>sudo find /tmp -type f -atime +7 -delete</code>
+                  <p>Deletes files older than 7 days</p>
+                </div>
+                <div class="command-item">
+                  <h4>Clean User Cache</h4>
+                  <code>rm -rf ~/.cache/*</code>
+                  <p>Cleans user cache directory</p>
+                </div>
+                <div class="command-item">
+                  <h4>Journal Logs</h4>
+                  <code>sudo journalctl --vacuum-time=2weeks</code>
+                  <p>Keeps only 2 weeks of system logs</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="downloads">
+        <div class="container">
+          <h2>Stop Wasting Space with DevNullifier</h2>
+          <p
+            style="
+              font-size: 1.2rem;
+              margin-bottom: 30px;
+              color: var(--text-secondary);
+            "
+          >
+            Manual temp file cleanup is time-consuming and risky. DevNullifier
+            automatically identifies and safely removes temporary files across
+            all your applications and system locations.
+          </p>
+
+          <div
+            class="feature-highlight"
+            style="
+              background: var(--bg-tertiary);
+              padding: 30px;
+              border-radius: 12px;
+              margin-bottom: 40px;
+            "
+          >
+            <h3 style="color: var(--text-tertiary); margin-bottom: 20px">
+              Why DevNullifier is Better
+            </h3>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 20px;
+              "
+            >
+              <div>
+                <h4 style="color: var(--accent-primary); margin-bottom: 8px">
+                  🎯 Smart Detection
+                </h4>
+                <p style="color: var(--text-secondary); margin: 0">
+                  Identifies safe-to-delete temp files across hundreds of
+                  applications
+                </p>
+              </div>
+              <div>
+                <h4 style="color: var(--accent-primary); margin-bottom: 8px">
+                  🛡️ Safety First
+                </h4>
+                <p style="color: var(--text-secondary); margin: 0">
+                  Never deletes important files, settings, or user data
+                </p>
+              </div>
+              <div>
+                <h4 style="color: var(--accent-primary); margin-bottom: 8px">
+                  📊 Visual Overview
+                </h4>
+                <p style="color: var(--text-secondary); margin: 0">
+                  See exactly what's consuming space before deletion
+                </p>
+              </div>
+              <div>
+                <h4 style="color: var(--accent-primary); margin-bottom: 8px">
+                  ⚡ One-Click Cleanup
+                </h4>
+                <p style="color: var(--text-secondary); margin: 0">
+                  Clean all temp files across your system in seconds
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="download-buttons">
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-Setup.exe"
+              class="download-btn windows"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M3,12V6.75L9,5.43V11.91L3,12M20,3V11.75L10,11.9V5.21L20,3M3,13L9,13.09V19.9L3,18.75V13M20,13.25V22L10,20.09V13.1L20,13.25Z"
+                />
+              </svg>
+              <span>Download for Windows</span>
+            </a>
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-linux-x64.AppImage"
+              class="download-btn linux"
+            >
+              <img
+                src="https://cdn.simpleicons.org/linux/ffffff/ffffff"
+                alt="Linux"
+                style="width: 24px; height: 24px; margin-right: 10px"
+              />
+              <span>Download for Linux</span>
+            </a>
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-mac-x64.dmg"
+              class="download-btn macos"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M18.71,19.5C17.88,20.74 17,21.95 15.66,21.97C14.32,22 13.89,21.18 12.37,21.18C10.84,21.18 10.37,21.95 9.1,22C7.79,22.05 6.8,20.68 5.96,19.47C4.25,17 2.94,12.45 4.7,9.39C5.57,7.87 7.13,6.91 8.82,6.88C10.1,6.86 11.32,7.75 12.11,7.75C12.89,7.75 14.37,6.68 15.92,6.84C16.57,6.87 18.39,7.1 19.56,8.82C19.47,8.88 17.39,10.1 17.41,12.63C17.44,15.65 20.06,16.66 20.09,16.67C20.06,16.74 19.67,18.11 18.71,19.5M13,3.5C13.73,2.67 14.94,2.04 15.94,2C16.07,3.17 15.6,4.35 14.9,5.19C14.21,6.04 13.07,6.7 11.95,6.61C11.8,5.46 12.36,4.26 13,3.5Z"
+                />
+              </svg>
+              <span>Download for macOS</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Scroll to Top Button -->
+    <button
+      id="scrollToTop"
+      class="scroll-to-top"
+      onclick="scrollToTop()"
+      title="Scroll to top"
+      aria-label="Scroll to top"
+    >
+      <i class="fas fa-chevron-up"></i>
+    </button>
+
+    <footer class="footer">
+      <div class="container">
+        <p id="footer-text" data-translate="footer_text">
+          &copy; 2024 DevNullifier. Released under the MIT License.
+        </p>
+        <a href="https://github.com/Hermesiss/DevNullifier" class="github-link">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12,2A10,10 0 0,0 2,12C2,16.42 4.87,20.17 8.84,21.5C9.34,21.58 9.5,21.27 9.5,21C9.5,20.77 9.5,20.14 9.5,19.31C6.73,19.91 6.14,17.97 6.14,17.97C5.68,16.81 5.03,16.5 5.03,16.5C4.12,15.88 5.1,15.9 5.1,15.9C6.1,15.97 6.63,16.93 6.63,16.93C7.5,18.45 8.97,18 9.54,17.76C9.63,17.11 9.89,16.67 10.17,16.42C7.95,16.17 5.62,15.31 5.62,11.5C5.62,10.39 6,9.5 6.65,8.79C6.55,8.54 6.2,7.5 6.75,6.15C6.75,6.15 7.59,5.88 9.5,7.17C10.29,6.95 11.15,6.84 12,6.84C12.85,6.84 13.71,6.95 14.5,7.17C16.41,5.88 17.25,6.15 17.25,6.15C17.8,7.5 17.45,8.54 17.35,8.79C18,9.5 18.38,10.39 18.38,11.5C18.38,15.32 16.04,16.16 13.81,16.41C14.17,16.72 14.5,17.33 14.5,18.26C14.5,19.6 14.5,20.68 14.5,21C14.5,21.27 14.66,21.59 15.17,21.5C19.14,20.16 22,16.42 22,12A10,10 0 0,0 12,2Z"
+            />
+          </svg>
+          <span>View on GitHub</span>
+        </a>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

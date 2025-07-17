@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-DKV2VWPVF6"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-DKV2VWPVF6");
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>How to Clear Cache | DevNullifier</title>
+    <meta
+      name="description"
+      content="Learn how to safely clear development caches from Node.js, Python, .NET, Unity, and other development tools. Step-by-step guide for Windows, Mac, and Linux."
+    />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://hermesiss.github.io/DevNullifier/clear-cache.html"
+    />
+    <meta property="og:title" content="How to Clear Cache | DevNullifier" />
+    <meta
+      property="og:description"
+      content="Learn how to safely clear development caches from Node.js, Python, .NET, Unity, and other development tools. Step-by-step guide for Windows, Mac, and Linux."
+    />
+    <meta
+      property="og:image"
+      content="https://hermesiss.github.io/DevNullifier/img/og-image.jpg"
+    />
+    <meta property="og:image:alt" content="DevNullifier screenshot and logo" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:url"
+      content="https://hermesiss.github.io/DevNullifier/clear-cache.html"
+    />
+    <meta name="twitter:title" content="How to Clear Cache | DevNullifier" />
+    <meta
+      name="twitter:description"
+      content="Learn how to safely clear development caches from Node.js, Python, .NET, Unity, and other development tools. Step-by-step guide for Windows, Mac, and Linux."
+    />
+    <meta
+      name="twitter:image"
+      content="https://hermesiss.github.io/DevNullifier/img/og-image.jpg"
+    />
+    <meta name="twitter:image:alt" content="DevNullifier screenshot and logo" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body style="display: none">
+    <header class="header">
+      <div class="container">
+        <div class="top-controls">
+          <div class="language-selector">
+            <a href="index.html">← Back</a>
+          </div>
+          <div class="theme-selector">
+            <button class="theme-btn" data-theme="light" title="Light theme">
+              <i class="fas fa-sun"></i>
+            </button>
+            <button class="theme-btn" data-theme="dark" title="Dark theme">
+              <i class="fas fa-moon"></i>
+            </button>
+            <button
+              class="theme-btn active"
+              data-theme="system"
+              title="System theme"
+            >
+              <i class="fas fa-desktop"></i>
+            </button>
+          </div>
+        </div>
+        <div class="logo">
+          <img
+            src="img/icon-256.png"
+            alt="DevNullifier Logo"
+            style="width: 100%; height: 100%"
+          />
+        </div>
+        <h1>How to Clear Development Caches Safely</h1>
+        <p>
+          Development caches can consume gigabytes of disk space over time.
+          Learn how to safely clear them without breaking your projects.
+        </p>
+        <br />
+        <p>
+          From Node.js modules to Unity caches, we'll show you the safest
+          methods to reclaim disk space while preserving your development
+          workflow.
+        </p>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="features">
+        <div class="container">
+          <h2>Why Clear Development Caches?</h2>
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">💾</div>
+              <h3>Disk Space Recovery</h3>
+              <p>
+                Development caches can grow to several GB. Node.js projects
+                alone can accumulate hundreds of MB in node_modules per project.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🔧</div>
+              <h3>Fix Build Issues</h3>
+              <p>
+                Corrupted cache files can cause mysterious build failures.
+                Clearing caches often resolves these issues instantly.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">⚡</div>
+              <h3>Improve Performance</h3>
+              <p>
+                Fresh caches can improve build times and reduce memory usage in
+                your development environment.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="supported-tools">
+        <div class="container">
+          <h2>Common Development Cache Locations</h2>
+          <p class="supported-tools-subtitle">
+            Here are the most common cache locations you should know about:
+          </p>
+
+          <div class="cache-guide">
+            <div class="platform-section">
+              <h3><i class="fab fa-windows"></i> Windows Cache Locations</h3>
+              <div class="cache-locations">
+                <div class="cache-item">
+                  <h4>Node.js / NPM</h4>
+                  <code>%APPDATA%\npm-cache</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>Python pip</h4>
+                  <code>%LOCALAPPDATA%\pip\Cache</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>Unity</h4>
+                  <code>%LOCALAPPDATA%\Unity\cache</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>.NET NuGet</h4>
+                  <code>%USERPROFILE%\.nuget\packages</code>
+                  <p>
+                    Safe to delete: <span class="caution">⚠ With caution</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="platform-section">
+              <h3><i class="fab fa-apple"></i> macOS Cache Locations</h3>
+              <div class="cache-locations">
+                <div class="cache-item">
+                  <h4>Node.js / NPM</h4>
+                  <code>~/.npm</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>Python pip</h4>
+                  <code>~/Library/Caches/pip</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>Unity</h4>
+                  <code>~/Library/Unity/cache</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>Xcode</h4>
+                  <code>~/Library/Developer/Xcode/DerivedData</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="platform-section">
+              <h3><i class="fab fa-linux"></i> Linux Cache Locations</h3>
+              <div class="cache-locations">
+                <div class="cache-item">
+                  <h4>Node.js / NPM</h4>
+                  <code>~/.npm</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>Python pip</h4>
+                  <code>~/.cache/pip</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>Unity</h4>
+                  <code>~/.cache/unity3d</code>
+                  <p>Safe to delete: <span class="safe">✓ Yes</span></p>
+                </div>
+                <div class="cache-item">
+                  <h4>Docker</h4>
+                  <code>/var/lib/docker</code>
+                  <p>
+                    Safe to delete:
+                    <span class="caution">⚠ Use docker system prune</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="features">
+        <div class="container">
+          <h2>Safe Clearing Methods</h2>
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">📋</div>
+              <h3>Manual Commands</h3>
+              <div class="commands">
+                <h4>NPM Cache Clear</h4>
+                <code>npm cache clean --force</code>
+                <h4>Python pip Cache Clear</h4>
+                <code>pip cache purge</code>
+                <h4>Docker System Prune</h4>
+                <code>docker system prune -a</code>
+              </div>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">⚠️</div>
+              <h3>Important Warnings</h3>
+              <p>
+                <strong>Never delete:</strong> Source code, .git folders, or
+                active project files.<br />
+                <strong>Be careful with:</strong> Global package caches that may
+                break other projects.<br />
+                <strong>Always backup:</strong> Important projects before
+                cleaning.
+              </p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🔄</div>
+              <h3>Regeneration</h3>
+              <p>
+                Most caches regenerate automatically when needed. Package
+                managers will re-download dependencies, and build tools will
+                recreate cache files on next use.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="downloads">
+        <div class="container">
+          <h2>Automate Cache Cleaning with DevNullifier</h2>
+          <p
+            style="
+              font-size: 1.2rem;
+              margin-bottom: 30px;
+              color: var(--text-secondary);
+            "
+          >
+            Manually clearing caches is tedious and error-prone. DevNullifier
+            automates this process safely across all your development tools.
+          </p>
+          <div class="download-buttons">
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-Setup.exe"
+              class="download-btn windows"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M3,12V6.75L9,5.43V11.91L3,12M20,3V11.75L10,11.9V5.21L20,3M3,13L9,13.09V19.9L3,18.75V13M20,13.25V22L10,20.09V13.1L20,13.25Z"
+                />
+              </svg>
+              <span>Download for Windows</span>
+            </a>
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-linux-x64.AppImage"
+              class="download-btn linux"
+            >
+              <img
+                src="https://cdn.simpleicons.org/linux/ffffff/ffffff"
+                alt="Linux"
+                style="width: 24px; height: 24px; margin-right: 10px"
+              />
+              <span>Download for Linux</span>
+            </a>
+            <a
+              href="https://github.com/Hermesiss/DevNullifier/releases/latest/download/DevNullifier-mac-x64.dmg"
+              class="download-btn macos"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M18.71,19.5C17.88,20.74 17,21.95 15.66,21.97C14.32,22 13.89,21.18 12.37,21.18C10.84,21.18 10.37,21.95 9.1,22C7.79,22.05 6.8,20.68 5.96,19.47C4.25,17 2.94,12.45 4.7,9.39C5.57,7.87 7.13,6.91 8.82,6.88C10.1,6.86 11.32,7.75 12.11,7.75C12.89,7.75 14.37,6.68 15.92,6.84C16.57,6.87 18.39,7.1 19.56,8.82C19.47,8.88 17.39,10.1 17.41,12.63C17.44,15.65 20.06,16.66 20.09,16.67C20.06,16.74 19.67,18.11 18.71,19.5M13,3.5C13.73,2.67 14.94,2.04 15.94,2C16.07,3.17 15.6,4.35 14.9,5.19C14.21,6.04 13.07,6.7 11.95,6.61C11.8,5.46 12.36,4.26 13,3.5Z"
+                />
+              </svg>
+              <span>Download for macOS</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Scroll to Top Button -->
+    <button
+      id="scrollToTop"
+      class="scroll-to-top"
+      onclick="scrollToTop()"
+      title="Scroll to top"
+      aria-label="Scroll to top"
+    >
+      <i class="fas fa-chevron-up"></i>
+    </button>
+
+    <footer class="footer">
+      <div class="container">
+        <p id="footer-text" data-translate="footer_text">
+          &copy; 2024 DevNullifier. Released under the MIT License.
+        </p>
+        <a href="https://github.com/Hermesiss/DevNullifier" class="github-link">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12,2A10,10 0 0,0 2,12C2,16.42 4.87,20.17 8.84,21.5C9.34,21.58 9.5,21.27 9.5,21C9.5,20.77 9.5,20.14 9.5,19.31C6.73,19.91 6.14,17.97 6.14,17.97C5.68,16.81 5.03,16.5 5.03,16.5C4.12,15.88 5.1,15.9 5.1,15.9C6.1,15.97 6.63,16.93 6.63,16.93C7.5,18.45 8.97,18 9.54,17.76C9.63,17.11 9.89,16.67 10.17,16.42C7.95,16.17 5.62,15.31 5.62,11.5C5.62,10.39 6,9.5 6.65,8.79C6.55,8.54 6.2,7.5 6.75,6.15C6.75,6.15 7.59,5.88 9.5,7.17C10.29,6.95 11.15,6.84 12,6.84C12.85,6.84 13.71,6.95 14.5,7.17C16.41,5.88 17.25,6.15 17.25,6.15C17.8,7.5 17.45,8.54 17.35,8.79C18,9.5 18.38,10.39 18.38,11.5C18.38,15.32 16.04,16.16 13.81,16.41C14.17,16.72 14.5,17.33 14.5,18.26C14.5,19.6 14.5,20.68 14.5,21C14.5,21.27 14.66,21.59 15.17,21.5C19.14,20.16 22,16.42 22,12A10,10 0 0,0 12,2Z"
+            />
+          </svg>
+          <span>View on GitHub</span>
+        </a>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
