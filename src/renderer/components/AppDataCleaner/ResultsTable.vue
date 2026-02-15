@@ -1,15 +1,15 @@
 <template>
     <v-card>
         <v-card-title>
-            <span>Found Folders</span>
+            <span>{{ t('common.found_folders') }}</span>
             <v-spacer />
             <v-chip v-if="totalSize > 0" color="info" variant="outlined">
                 {{ formatSize(selectedSize) }} / {{ formatSize(totalSize) }}
             </v-chip>
         </v-card-title>
 
-        <v-data-table v-model="selected" :headers="headers" :items="uniqueItems" :items-per-page="50" item-value="path"
-            show-select :loading="isScanning" loading-text="Scanning for folders..."
+        <v-data-table v-model="selected" :headers="translatedHeaders" :items="uniqueItems" :items-per-page="50" item-value="path"
+            show-select :loading="isScanning" :loading-text="t('common.loading')"
             :sort-by="[{ key: 'size', order: 'desc' }]" class="elevation-1">
             <template #item.size="{ item }">
                 {{ formatSize(item.size) }}
@@ -32,8 +32,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { formatSize } from '@/utils/formatters'
 import { FolderItem } from '@/types/common'
+
+const { t } = useI18n()
 
 const props = defineProps<{
     folders?: FolderItem[]
@@ -68,10 +71,10 @@ const selected = computed({
     set: (val: string[]) => emits('update:modelValue', val),
 })
 
-const headers = [
-    { title: 'Path', key: 'path', sortable: true },
-    { title: 'Size', key: 'size', sortable: true, width: '150px' },
-]
+const translatedHeaders = computed(() => [
+    { title: t('common.path'), key: 'path', sortable: true },
+    { title: t('common.size'), key: 'size', sortable: true, width: '150px' },
+])
 
 const totalSize = computed(() => uniqueItems.value.reduce((sum, f) => sum + f.size, 0))
 const selectedSize = computed(() =>

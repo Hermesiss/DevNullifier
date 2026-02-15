@@ -14,6 +14,7 @@
         <template v-slot:activator="{ props }">
           <v-btn icon v-bind="props">
             <v-icon>{{ getThemeIcon() }}</v-icon>
+            <v-tooltip activator="parent" location="bottom">{{ t('theme.' + themeMode) }}</v-tooltip>
           </v-btn>
         </template>
         <v-list>
@@ -22,7 +23,25 @@
             <template v-slot:prepend>
               <v-icon>{{ mode.icon }}</v-icon>
             </template>
-            <v-list-item-title>{{ mode.title }}</v-list-item-title>
+            <v-list-item-title>{{ t('theme.' + mode.value) }}</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+
+      <v-menu>
+        <template v-slot:activator="{ props }">
+          <v-btn icon v-bind="props">
+            <span class="text-h6">{{ currentLanguage.icon }}</span>
+            <v-tooltip activator="parent" location="bottom">{{ currentLanguage.title }}</v-tooltip>
+          </v-btn>
+        </template>
+        <v-list>
+          <v-list-item v-for="lang in languages" :key="lang.value" @click="setLanguage(lang.value)"
+            :class="{ 'v-list-item--active': locale === lang.value }">
+            <template v-slot:prepend>
+              <span class="mr-2">{{ lang.icon }}</span>
+            </template>
+            <v-list-item-title>{{ lang.title }}</v-list-item-title>
           </v-list-item>
         </v-list>
       </v-menu>
@@ -33,11 +52,11 @@
         <v-tabs v-model="activeTab" color="primary" class="mb-4">
           <v-tab value="appdata">
             <v-icon left>mdi-folder-remove</v-icon>
-            Application Data
+            {{ t('app.tabs.appdata') }}
           </v-tab>
           <v-tab value="developer">
             <v-icon left>mdi-code-braces</v-icon>
-            Developer Cache
+            {{ t('app.tabs.developer') }}
           </v-tab>
         </v-tabs>
 
@@ -58,12 +77,38 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useTheme } from 'vuetify'
+import { useI18n } from 'vue-i18n'
 import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
+
+const { t, locale } = useI18n()
+
+// Language functionality
+type LanguageCode = 'en' | 'ru'
+
+interface LanguageOption {
+  value: LanguageCode
+  title: string
+  icon: string
+}
+
+const languages: LanguageOption[] = [
+  { value: 'en', title: 'English', icon: '🇺🇸' },
+  { value: 'ru', title: 'Русский', icon: '🇷🇺' }
+]
+
+const currentLanguage = computed(() => {
+  return languages.find(l => l.value === locale.value) || languages[0]
+})
+
+const setLanguage = (lang: LanguageCode) => {
+  locale.value = lang
+  localStorage.setItem('devnullifier-language', lang)
+}
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -120,11 +165,30 @@ const handleSystemThemeChange = (e: MediaQueryListEvent): void => {
   }
 }
 
-// Load theme mode from localStorage on startup
-onMounted(() => {
+// Load theme mode and language from localStorage on startup
+onMounted(async () => {
   const savedThemeMode = localStorage.getItem('devnullifier-theme-mode')
   if (savedThemeMode && ['light', 'dark', 'system'].includes(savedThemeMode)) {
     themeMode.value = savedThemeMode as ThemeMode
+  }
+
+  // Language initialization
+  const savedLanguage = localStorage.getItem('devnullifier-language') as LanguageCode | null
+  if (savedLanguage && ['en', 'ru'].includes(savedLanguage)) {
+    locale.value = savedLanguage
+  } else {
+    // Detect OS language
+    try {
+      const osLocale = await window.electronAPI.getLocale()
+      if (osLocale.startsWith('ru')) {
+        locale.value = 'ru'
+      } else {
+        locale.value = 'en'
+      }
+    } catch (e) {
+      console.error('Failed to get OS locale:', e)
+      locale.value = 'en'
+    }
   }
 
   // Apply initial theme

@@ -32,11 +32,11 @@ export interface Folder {
 
 export interface ElectronAPI {
   getAppDataPaths: () => Promise<string[]>;
-  scanFolders: (paths: string[], maxDepth: number) => Promise<void>;
-  scanDeveloperCaches: (basePaths: string[], enabledCategories: DeveloperCategory[]) => Promise<void>;
+  scanFolders: (paths: string[], maxDepth: number) => Promise<FolderItem[]>;
+  scanDeveloperCaches: (basePaths: string[], enabledCategories: DeveloperCategory[]) => Promise<ProjectInfo[]>;
   stopAppDataScan: () => Promise<void>;
   stopDeveloperScan: () => Promise<void>;
-  deleteFolders: (folderPaths: string[]) => Promise<void>;
+  deleteFolders: (folderPaths: string[]) => Promise<DeleteResult[]>;
   checkAdmin: () => Promise<boolean>;
   selectDirectory: () => Promise<string | null>;
   getUserHome: () => Promise<string>;
@@ -58,6 +58,7 @@ export interface ElectronAPI {
   loadSavedDeveloperProjects: () => Promise<ProjectInfo[]>;
   getSavedDeveloperProjectsCount: () => Promise<number>;
   setUpdateChannel: (channel: 'latest' | 'latest-dev') => Promise<void>;
+  getLocale: () => Promise<string>;
 }
 
 // Add global type augmentation for Window interface

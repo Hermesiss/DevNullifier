@@ -17,7 +17,7 @@
                     <v-btn color="error" :disabled="selectedCount === 0 || isScanning || isDeleting"
                         :loading="isDeleting" @click="$emit('delete')">
                         <v-icon left>mdi-delete</v-icon>
-                        Delete Selected ({{ selectedCount }})
+                        {{ t('common.delete_selected') }} ({{ selectedCount }})
                     </v-btn>
                 </v-col>
             </v-row>
@@ -26,6 +26,10 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 const props = defineProps<{
     statusText: string
     deleteProgress: number

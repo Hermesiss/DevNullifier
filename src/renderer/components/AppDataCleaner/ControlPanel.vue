@@ -9,14 +9,13 @@
                             <v-btn :color="isScanning ? 'error' : 'primary'" :disabled="isDeleting"
                                 @click="isScanning ? $emit('stop-scan') : $emit('scan')">
                                 <v-icon left>{{ isScanning ? 'mdi-stop' : 'mdi-magnify' }}</v-icon>
-                                {{ isScanning ? 'Stop' : 'Scan' }}
-
+                                {{ isScanning ? t('common.stop') : t('common.scan') }}
                             </v-btn>
                         </v-col>
                         <v-col cols="auto">
                             <v-btn color="info" :loading="isScanning" :disabled="isDeleting || savedFoldersCount === 0"
                                 @click="$emit('quick-scan')" prepend-icon="mdi-flash">
-                                Quick Scan ({{ savedFoldersCount }})
+                                {{ t('common.quick_scan') }} ({{ savedFoldersCount }})
                             </v-btn>
                         </v-col>
 
@@ -25,19 +24,19 @@
                         <v-col cols="auto">
                             <v-btn variant="outlined" :disabled="foldersLength === 0 || isScanning || isDeleting"
                                 @click="$emit('select-all')">
-                                Select All
+                                {{ t('common.select_all') }}
                             </v-btn>
                         </v-col>
                         <v-col cols="auto">
                             <v-btn variant="outlined" :disabled="foldersLength === 0 || isScanning || isDeleting"
                                 @click="$emit('deselect-all')">
-                                Deselect All
+                                {{ t('common.deselect_all') }}
                             </v-btn>
                         </v-col>
 
                         <!-- Depth slider -->
                         <v-col cols="auto">
-                            <v-chip class="mr-2">Depth: {{ depthLabel }}</v-chip>
+                            <v-chip class="mr-2">{{ t('common.depth') }}: {{ depthLabel }}</v-chip>
                             <v-slider :model-value="maxDepth" min="0" max="10" step="1" style="width: 120px"
                                 :disabled="isScanning || isDeleting"
                                 @update:modelValue="$emit('update:maxDepth', $event)" />
@@ -55,6 +54,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps<{
     isScanning: boolean
