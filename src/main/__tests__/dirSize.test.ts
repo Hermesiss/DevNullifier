@@ -9,12 +9,13 @@ describe("getDirectorySize", () => {
 
   beforeEach(async () => {
     // Create a temporary directory
-    tempDir = path.join(os.tmpdir(), `test-${Date.now()}`);
+    tempDir = path.join(os.tmpdir(), `test-dirsize-${Date.now()}-${Math.floor(Math.random() * 1000)}`);
     if (existsSync(tempDir)) {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
-    await fs.mkdir(tempDir);
+    await fs.mkdir(tempDir, { recursive: true });
   });
+
 
   afterEach(async () => {
     // Clean up - remove temp directory and all contents

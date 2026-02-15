@@ -1,6 +1,6 @@
 {
   "name": "devnullifier",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "DevNullifier: Clean application data, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
   "main": "dist-main/main/main.js",
   "scripts": {
@@ -24,7 +24,8 @@
     "test:coverage": "npm run test:coverage:renderer && npm run test:coverage:main",
     "test:coverage:renderer": "vitest run --coverage",
     "test:coverage:main": "vitest run -c vitest.main.config.ts --coverage",
-    "release": "electron-builder --publish always"
+    "release": "electron-builder --publish always",
+    "prepare": "husky"
   },
   "keywords": [
     "electron",
@@ -61,6 +62,7 @@
     "cross-env": "^7.0.3",
     "electron": "^37.2.0",
     "electron-builder": "^24.0.0",
+    "husky": "^9.1.7",
     "jsdom": "^26.1.0",
     "typescript": "^5.8.3",
     "vite": "^5.0.0",

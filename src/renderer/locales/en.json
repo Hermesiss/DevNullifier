@@ -106,6 +106,45 @@
     "no_accessible_projects": "No accessible projects found",
     "error_project_update": "Error during project update",
     "no_caches_selected_delete": "No caches selected for deletion",
-    "no_caches_selected": "No caches selected"
+    "no_caches_selected": "No caches selected",
+    "match": "match",
+    "matches": "matches",
+    "selected": "selected",
+    "caution_required": "Caution Required",
+    "detection_files": "Detection Files",
+    "cache_patterns_to_clean": "Cache Patterns to Clean",
+    "close": "Close",
+    "today": "Today",
+    "days_ago": "days ago",
+    "warnings": {
+      "python": "venv/ might be the main virtual environment – be careful if no lockfile exists",
+      "nodejs": "node_modules/ may exist in subfolders if using monorepos",
+      "unity": "Library/ is only temporal at the Unity project root — could be important elsewhere",
+      "unreal": "Saved/Config/ might contain useful settings — review before deleting",
+      "java": ".idea/ may contain custom settings — remove only cache/temp files inside",
+      "cpp": "build/ might be used manually — check first",
+      "xcode": "Global DerivedData/ lives in ~/Library/Developer/Xcode/DerivedData",
+      "php": "Only delete vendor/ if composer.lock is present",
+      "ml": "Don't delete checkpoints unless you're sure they're not needed",
+      "ides": "Don't remove .idea/modules.xml or .vscode/settings.json if project-specific"
+    },
+    "category_names": {
+      "python": "Python",
+      "nodejs": "Node.js / JS / TS",
+      "unity": "Unity",
+      "unreal": "Unreal Engine",
+      "rust": "Rust",
+      "java": "Java / Kotlin / Android",
+      "dotnet": ".NET / C#",
+      "cpp": "C/C++",
+      "xcode": "Xcode / iOS / macOS",
+      "php": "PHP / Laravel",
+      "symfony": "Symfony",
+      "ml": "ML / Data Science",
+      "docker": "Docker / DevOps",
+      "static": "Static Site Generators",
+      "testing": "Testing Tools",
+      "ides": "IDEs / Editors"
+    }
   }
 }

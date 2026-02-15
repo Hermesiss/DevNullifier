@@ -139,16 +139,22 @@ export async function getDirectorySize(dirPath: string): Promise<number> {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
-      if (entry.isDirectory()) {
-        size += await getDirectorySize(fullPath);
-      } else {
-        const stats = await fs.stat(fullPath);
-        size += stats.size;
+      try {
+        if (entry.isDirectory()) {
+          size += await getDirectorySize(fullPath);
+        } else {
+          const stats = await fs.stat(fullPath);
+          size += stats.size;
+        }
+      } catch (err) {
+        // Ignore errors for individual files/directories (e.g., permission denied, busy)
+        console.warn(`Error accessing ${fullPath}:`, err);
       }
     }
   } catch (err) {
-    // Ignore errors (e.g., permission denied) and return size of what we can access.
-    console.log("Error getting directory size:", err);
+    // Ignore errors for readdir (e.g., directory deleted while reading)
+    console.warn(`Error reading directory ${dirPath}:`, err);
   }
   return size;
 }
+

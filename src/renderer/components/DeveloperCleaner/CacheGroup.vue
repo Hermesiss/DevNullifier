@@ -36,9 +36,9 @@
                     </div>
                     <div :class="secondaryTextClass">
                         {{ cacheGroup.matches.length }}
-                        {{ cacheGroup.matches.length === 1 ? 'match' : 'matches' }} •
-                        {{ formatSize(cacheGroup.selectedSize) }} of {{
-                            formatSize(cacheGroup.totalSize) }} selected
+                        {{ cacheGroup.matches.length === 1 ? t('common.match') : t('common.matches') }} •
+                        {{ formatSize(cacheGroup.selectedSize) }} {{ t('common.of') }} {{
+                            formatSize(cacheGroup.totalSize) }} {{ t('common.selected') }}
                     </div>
                 </div>
 
@@ -55,16 +55,16 @@
                     <div class="d-flex justify-space-between align-center mb-2">
                         <v-btn size="x-small" variant="text" @click="selectAllCachesInGroup(cacheGroup)"
                             :disabled="allGroupCachesSelected(cacheGroup)">
-                            Select All
+                            {{ t('common.select_all') }}
                         </v-btn>
                         <v-btn size="x-small" variant="text" @click="deselectAllCachesInGroup(cacheGroup)"
                             :disabled="noGroupCachesSelected(cacheGroup)">
-                            Deselect All
+                            {{ t('common.deselect_all') }}
                         </v-btn>
                         <v-chip size="x-small" color="primary">
                             {{cacheGroup.matches.filter(m => m.selected).length}}/{{
                                 cacheGroup.matches.length }}
-                            selected
+                            {{ t('common.selected') }}
                         </v-chip>
                     </div>
 
@@ -89,14 +89,14 @@
         <v-divider v-if="cacheGroups.length > 1" class="mt-2 mb-1" />
         <div class="d-flex justify-space-between align-center mt-1">
             <v-btn size="x-small" variant="text" @click="selectAllCaches" :disabled="allCachesSelected">
-                Select All
+                {{ t('common.select_all') }}
             </v-btn>
             <v-btn size="x-small" variant="text" @click="deselectAllCaches" :disabled="noCachesSelected">
-                Deselect All
+                {{ t('common.deselect_all') }}
             </v-btn>
             <v-chip size="x-small" color="primary">
-                {{ selectedCacheCount }} of {{ totalCacheCount }}
-                selected
+                {{ selectedCacheCount }} {{ t('common.of') }} {{ totalCacheCount }}
+                {{ t('common.selected') }}
             </v-chip>
         </div>
     </div>
@@ -104,10 +104,14 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
 import type { CacheGroup } from '@/types'
 import { getTypeColor } from '@/utils/categoryColors'
 import { formatSize } from '@/utils/formatters'
+
+// i18n
+const { t } = useI18n()
 
 // Theme
 const theme = useTheme()

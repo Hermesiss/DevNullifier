@@ -26,19 +26,27 @@ vi.mock("electron", () => ({
 
 describe("fileUtils", () => {
   let tempDir: string;
-  const mockUserDataPath = path.join(os.tmpdir(), `test-userdata-${Date.now()}`);
+  let mockUserDataPath: string;
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    // Create temporary directories
-    tempDir = path.join(os.tmpdir(), `test-${Date.now()}`);
+    // Create temporary directories with unique names
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    tempDir = path.join(os.tmpdir(), `test-fileutils-${suffix}`);
+    mockUserDataPath = path.join(os.tmpdir(), `test-userdata-${suffix}`);
+    
     if (existsSync(tempDir)) {
       await fs.rm(tempDir, { recursive: true, force: true });
     }
+    if (existsSync(mockUserDataPath)) {
+      await fs.rm(mockUserDataPath, { recursive: true, force: true });
+    }
+    
     await fs.mkdir(tempDir, { recursive: true });
     await fs.mkdir(mockUserDataPath, { recursive: true });
     setUserDataPath(mockUserDataPath);
   });
+
 
   afterEach(async () => {
     // Clean up - remove temp directories and all contents

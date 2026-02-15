@@ -77,7 +77,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['main.py', 'requirements.txt', 'pyproject.toml', '.venv/', '*.py'],
         cachePatterns: ['__pycache__/', '.pytest_cache/', '.mypy_cache/', '.tox/', '.hypothesis/', '.coverage', 'build/', 'dist/'],
         warning: true,
-        warningText: 'venv/ might be the main virtual environment – be careful if no lockfile exists'
+        warningText: ''
     },
     {
         id: 'nodejs',
@@ -86,7 +86,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['package.json', 'yarn.lock', 'vite.config.js', 'next.config.js', 'tsconfig.json'],
         cachePatterns: ['node_modules/', 'dist/', 'build/', '.next/', '.nuxt/', '.angular/', '.vite/', '.turbo/', '.expo/', '.parcel-cache/', '.eslintcache', '.cache/'],
         warning: true,
-        warningText: 'node_modules/ may exist in subfolders if using monorepos'
+        warningText: ''
     },
     {
         id: 'unity',
@@ -95,7 +95,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['Assets/', 'ProjectSettings/', 'Packages/', '*.unity'],
         cachePatterns: ['Library/', 'Temp/', 'Obj/', 'Build/', 'Builds/', '.vs/', 'Logs/', 'MemoryCaptures/', 'UserSettings/'],
         warning: true,
-        warningText: 'Library/ is only needed at the Unity project root — safe elsewhere'
+        warningText: ''
     },
     {
         id: 'unreal',
@@ -104,7 +104,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['*.uproject', 'Source/', 'Content/'],
         cachePatterns: ['Binaries/', 'Build/', 'Intermediate/', 'Saved/', 'DerivedDataCache/', 'Plugins/**/Intermediate/', 'Plugins/**/Binaries/'],
         warning: true,
-        warningText: 'Saved/Config/ might contain useful settings — review before deleting'
+        warningText: ''
     },
     {
         id: 'rust',
@@ -121,7 +121,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['build.gradle', 'pom.xml', 'AndroidManifest.xml', 'src/main/java/'],
         cachePatterns: ['build/', 'out/', '.gradle/', '.idea/', 'target/', '.settings/'],
         warning: true,
-        warningText: '.idea/ may contain custom settings — remove only cache/temp files inside'
+        warningText: ''
     },
     {
         id: 'dotnet',
@@ -138,7 +138,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['CMakeLists.txt', 'Makefile', '.vscode/launch.json', '*.cpp', '*.h'],
         cachePatterns: ['build/', 'CMakeFiles/', 'cmake-build-debug/', 'cmake-build-release/', 'Debug/', 'Release/'],
         warning: true,
-        warningText: 'build/ might be used manually — check first'
+        warningText: ''
     },
     {
         id: 'xcode',
@@ -147,7 +147,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['*.xcodeproj', 'Info.plist', 'Podfile', '*.swift'],
         cachePatterns: ['DerivedData/', 'build/', '*.xcuserdata/', '*.xcuserdatad/'],
         warning: true,
-        warningText: 'Global DerivedData/ lives in ~/Library/Developer/Xcode/DerivedData'
+        warningText: ''
     },
     {
         id: 'php',
@@ -156,7 +156,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['artisan', 'composer.json', 'routes/web.php', 'app/'],
         cachePatterns: ['vendor/', 'bootstrap/cache/', 'storage/framework/cache/', '.phpunit.result.cache'],
         warning: true,
-        warningText: 'Only delete vendor/ if composer.lock is present'
+        warningText: ''
     },
     {
         id: 'symfony',
@@ -173,7 +173,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['.ipynb', 'notebooks/', 'train.py', 'requirements.txt', 'wandb/'],
         cachePatterns: ['checkpoints/', 'runs/', 'logs/', '.ipynb_checkpoints/', '.cache/', 'wandb/', 'mlruns/'],
         warning: true,
-        warningText: "Don't delete checkpoints unless you're sure they're not needed"
+        warningText: ''
     },
     {
         id: 'docker',
@@ -206,7 +206,7 @@ const initialCategories: DeveloperCategory[] = [
         detectionFiles: ['.idea/', '.vscode/', '.history/', '*.sublime-*', '.DS_Store'],
         cachePatterns: ['.idea/workspace.xml', '.idea/caches/', '.vscode/ipch/', '.DS_Store', 'Thumbs.db'],
         warning: true,
-        warningText: "Don't remove .idea/modules.xml or .vscode/settings.json if project-specific"
+        warningText: ''
     }
 ]
 

@@ -26,8 +26,8 @@
                     </div>
                 </v-card-title>
                 <v-card-text>
-                    <v-data-table :headers="translatedHeaders" :items="projects" :items-per-page="50" :loading="isScanning"
-                        item-value="path" class="elevation-1">
+                    <v-data-table :headers="translatedHeaders" :items="projects" :items-per-page="50"
+                        :loading="isScanning" item-value="path" class="elevation-1">
                         <template v-slot:item.path="{ item }">
                             <div class="d-flex align-center">
                                 <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)"
@@ -119,9 +119,8 @@ const getRelativeTime = (dateString: string): string => {
     const diffMs = now.getTime() - date.getTime()
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-    if (diffDays === 0) return 'Today' // I'll leave these as they might be harder to localize without a proper lib, but I'll add them to locales if possible.
-    // Actually, I should localize them.
-    return diffDays === 0 ? 'Today' : `${diffDays} days ago`
+    if (diffDays === 0) return t('common.today')
+    return `${diffDays} ${t('common.days_ago')}`
 }
 
 const openFolderTree = (folderPath: string): void => {

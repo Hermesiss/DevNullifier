@@ -106,6 +106,45 @@
     "no_accessible_projects": "Доступные проекты не найдены",
     "error_project_update": "Ошибка при обновлении проекта",
     "no_caches_selected_delete": "Кэш для удаления не выбран",
-    "no_caches_selected": "Кэш не выбран"
+    "no_caches_selected": "Кэш не выбран",
+    "match": "совпадение",
+    "matches": "совпадения",
+    "selected": "выбрано",
+    "caution_required": "Требуется осторожность",
+    "detection_files": "Файлы для обнаружения",
+    "cache_patterns_to_clean": "Паттерны кэша для очистки",
+    "close": "Закрыть",
+    "today": "Сегодня",
+    "days_ago": "д. назад",
+    "warnings": {
+      "python": "venv/ может быть основной виртуальной средой — будьте осторожны, если нет lock-файла",
+      "nodejs": "node_modules/ могут существовать в подпапках, если используются монорепозитории",
+      "unity": "Library/ пересоздаётся только в корне проекта Unity — в других местах она может быть нужна",
+      "unreal": "Saved/Config/ может содержать полезные настройки — проверьте перед удалением",
+      "java": ".idea/ может содержать пользовательские настройки — удаляйте только кэш и временные файлы внутри",
+      "cpp": "build/ может использоваться вручную — проверьте перед удалением",
+      "xcode": "Глобальная папка DerivedData/ находится в ~/Library/Developer/Xcode/DerivedData",
+      "php": "Удаляйте vendor/ только если присутствует composer.lock",
+      "ml": "Не удаляйте чекпоинты, если не уверены, что они больше не нужны",
+      "ides": "Не удаляйте .idea/modules.xml или .vscode/settings.json, если они специфичны для проекта"
+    },
+    "category_names": {
+      "python": "Python",
+      "nodejs": "Node.js / JS / TS",
+      "unity": "Unity",
+      "unreal": "Unreal Engine",
+      "rust": "Rust",
+      "java": "Java / Kotlin / Android",
+      "dotnet": ".NET / C#",
+      "cpp": "C/C++",
+      "xcode": "Xcode / iOS / macOS",
+      "php": "PHP / Laravel",
+      "symfony": "Symfony",
+      "ml": "ML / Анализ данных",
+      "docker": "Docker / DevOps",
+      "static": "Генераторы статических сайтов",
+      "testing": "Инструменты тестирования",
+      "ides": "IDE / Редакторы"
+    }
   }
 }

@@ -6,7 +6,8 @@
                     <v-icon :class="{ 'rotate-90': showCategories }" class="mr-2 transition-transform">
                         mdi-chevron-right
                     </v-icon>
-                    {{ t('common.dev_categories') }} ({{ enabledCount }}/{{ categories.length }} {{ t('common.enabled') }})
+                    {{ t('common.dev_categories') }} ({{ enabledCount }}/{{ categories.length }} {{ t('common.enabled')
+                    }})
                     <v-spacer />
                     <v-chip size="small" v-if="!hasEnabledCategories"
                         :color="hasEnabledCategories ? 'success' : 'warning'">
@@ -39,7 +40,9 @@
                                         <v-checkbox v-model="category.enabled" color="primary" hide-details
                                             density="compact" @change="saveCategoryStates" />
                                         <div class="flex-grow-1 ml-1 d-flex align-center justify-space-between">
-                                            <span class="text-caption font-weight-medium">{{ category.name }}</span>
+                                            <span class="text-caption font-weight-medium">
+                                                {{ t('common.category_names.' + category.id) }}
+                                            </span>
                                             <v-btn icon variant="text" size="x-small"
                                                 @click.stop="showCategoryInfo(category)">
                                                 <v-icon size="small" :color="category.warning ? 'warning' : 'info'">
