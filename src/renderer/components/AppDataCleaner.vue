@@ -26,12 +26,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import ControlPanel from './AppDataCleaner/ControlPanel.vue'
 import ResultsTable from './AppDataCleaner/ResultsTable.vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
 import type { DeleteResult, FolderItem } from '@/types'
+
+const { t } = useI18n()
 
 // Reactive state
 const folders = ref<FolderItem[]>([])
@@ -42,7 +45,7 @@ const isDeleting = ref(false)
 const showDeleteDialog = ref(false)
 const showFolderTree = ref(false)
 const selectedFolderPath = ref('')
-const statusText = ref('Ready')
+const statusText = ref(t('common.ready'))
 const deleteProgress = ref(0)
 const scanProgress = ref(0)
 
@@ -76,16 +79,16 @@ const openFolderTree = (folderPath: string): void => {
 
 // Scan logic
 const stopScan = async (): Promise<void> => {
-    statusText.value = 'Stopping scan...'
+    statusText.value = t('common.stopping_scan')
 
     try {
         await window.electronAPI.stopAppDataScan()
-        statusText.value = 'Ready'
-        emit('showNotification', 'Scan stopped by user', 'info')
+        statusText.value = t('common.ready')
+        emit('showNotification', t('common.scan_stopped_user'), 'info')
     } catch (error) {
         console.error('Error stopping scan:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        emit('showNotification', 'Error stopping scan: ' + errorMessage, 'error')
+        emit('showNotification', `${t('common.error_stopping_scan')}: ${errorMessage}`, 'error')
     } finally {
         isScanning.value = false
     }
@@ -95,19 +98,19 @@ const startScan = async (): Promise<void> => {
     try {
         isScanning.value = true
         scanProgress.value = -1
-        statusText.value = 'Getting application data paths...'
+        statusText.value = t('common.getting_app_data_paths')
         folders.value = []
         selectedFolders.value = []
         const seenPaths = new Set<string>()
 
         const paths = await window.electronAPI.getAppDataPaths()
         if (paths.length === 0) {
-            emit('showNotification', 'No application data paths found!', 'warning')
+            emit('showNotification', t('common.no_app_data_paths'), 'warning')
             isScanning.value = false
             return
         }
 
-        statusText.value = 'Scanning folders...'
+        statusText.value = t('common.scanning_folders')
         // Listen for real-time folder updates
         window.electronAPI.onScanFolderFound((folderss: FolderItem[]) => {
             for (const folder of folderss) {
@@ -132,11 +135,11 @@ const startScan = async (): Promise<void> => {
                 path: f.path,
                 size: f.size
             })))
-            statusText.value = `Found ${folders.value.length} folders`
+            statusText.value = t('common.found_folders_count', { count: folders.value.length })
             if (folders.value.length === 0) {
-                emit('showNotification', 'No matching folders found', 'info')
+                emit('showNotification', t('common.no_folders_found'), 'info')
             } else {
-                emit('showNotification', `Found ${folders.value.length} folders`, 'success')
+                emit('showNotification', t('common.found_folders_count', { count: folders.value.length }), 'success')
             }
         }
     } catch (error) {
@@ -144,7 +147,7 @@ const startScan = async (): Promise<void> => {
         // Only show error notification if we weren't terminated
         if (isScanning.value) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-            emit('showNotification', 'Error during scan: ' + errorMessage, 'error')
+            emit('showNotification', `${t('common.error_scan')}: ${errorMessage}`, 'error')
         }
     } finally {
         // Only update scanning state here if we haven't started stopping
@@ -155,18 +158,18 @@ const startScan = async (): Promise<void> => {
 const startQuickScan = async (): Promise<void> => {
     try {
         isScanning.value = true
-        statusText.value = 'Loading saved folders...'
+        statusText.value = t('common.loading_saved_folders')
         folders.value = []
         selectedFolders.value = []
 
         const savedFolders = await window.electronAPI.loadSavedFolders()
         if (savedFolders.length === 0) {
-            emit('showNotification', 'No saved folders found!', 'warning')
+            emit('showNotification', t('common.no_saved_folders'), 'warning')
             isScanning.value = false
             return
         }
 
-        statusText.value = 'Checking saved folders...'
+        statusText.value = t('common.checking_saved_folders')
         const validFolders: FolderItem[] = []
 
         for (let index = 0; index < savedFolders.length; index++) {
@@ -186,17 +189,17 @@ const startQuickScan = async (): Promise<void> => {
         }
 
         folders.value = validFolders.sort((a, b) => b.size - a.size)
-        statusText.value = `Found ${folders.value.length} folders`
+        statusText.value = t('common.found_folders_count', { count: folders.value.length })
 
         if (folders.value.length === 0) {
-            emit('showNotification', 'No accessible folders found', 'warning')
+            emit('showNotification', t('common.no_accessible_folders'), 'warning')
         } else {
-            emit('showNotification', `Found ${folders.value.length} folders`, 'success')
+            emit('showNotification', t('common.found_folders_count', { count: folders.value.length }), 'success')
         }
     } catch (error) {
         console.error('Quick scan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        emit('showNotification', 'Error during quick scan: ' + errorMessage, 'error')
+        emit('showNotification', `${t('common.error_quick_scan')}: ${errorMessage}`, 'error')
     } finally {
         isScanning.value = false
     }
@@ -205,7 +208,7 @@ const startQuickScan = async (): Promise<void> => {
 const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> => {
     try {
         selectedFolders.value = []
-        statusText.value = 'Updating affected directories...'
+        statusText.value = t('common.updating_dirs')
 
         // Get unique parent directories of deleted folders
         const parentDirs = new Set<string>()
@@ -222,7 +225,7 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
         })
 
         if (parentDirs.size === 0) {
-            statusText.value = 'No directories to update'
+            statusText.value = t('common.no_dirs_to_update')
             return
         }
 
@@ -250,12 +253,12 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
         // Re-sort the entire list
         folders.value.sort((a, b) => b.size - a.size)
 
-        statusText.value = `Updated ${affectedPaths.length} director${affectedPaths.length === 1 ? 'y' : 'ies'}`
+        statusText.value = t('common.updated_dirs_count', { count: affectedPaths.length })
 
     } catch (error) {
         console.error('Rescan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        emit('showNotification', 'Error updating directories: ' + errorMessage, 'error')
+        emit('showNotification', `${t('common.error_updating_dirs')}: ${errorMessage}`, 'error')
     }
 }
 
@@ -269,22 +272,22 @@ const confirmDelete = (): void => {
 const buildDeleteResultMessage = (successCount: number, partialCount: number, failCount: number): { message: string; color: string } => {
     if (failCount === 0 && partialCount === 0) {
         return {
-            message: `Successfully deleted ${successCount} folders`,
+            message: t('common.success_deleted_folders', { count: successCount }),
             color: 'success'
         }
     }
 
     if (successCount === 0 && partialCount === 0) {
         return {
-            message: `Failed to delete ${failCount} folders`,
+            message: t('common.fail_deleted_folders', { count: failCount }),
             color: 'error'
         }
     }
 
     const parts = []
-    if (successCount > 0) parts.push(`${successCount} deleted`)
-    if (partialCount > 0) parts.push(`${partialCount} partial`)
-    if (failCount > 0) parts.push(`${failCount} failed`)
+    if (successCount > 0) parts.push(`${successCount} ${t('common.deleted')}`)
+    if (partialCount > 0) parts.push(`${partialCount} ${t('common.partial')}`)
+    if (failCount > 0) parts.push(`${failCount} ${t('common.failed')}`)
 
     return {
         message: parts.join(', '),
@@ -297,7 +300,7 @@ const deleteFolders = async (): Promise<void> => {
         showDeleteDialog.value = false
         isDeleting.value = true
         deleteProgress.value = 0
-        statusText.value = 'Deleting folders...'
+        statusText.value = t('common.deleting_folders')
 
         const results = await window.electronAPI.deleteFolders([...selectedFolders.value])
 
@@ -315,7 +318,7 @@ const deleteFolders = async (): Promise<void> => {
     } catch (error) {
         console.error('Delete error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        emit('showNotification', 'Error during deletion: ' + errorMessage, 'error')
+        emit('showNotification', `${t('common.error_deletion')}: ${errorMessage}`, 'error')
     } finally {
         isDeleting.value = false
         deleteProgress.value = 0
@@ -332,11 +335,11 @@ const setupEventListeners = (): void => {
 
     // Attach listeners
     window.electronAPI.onScanProgress((count: number) => {
-        statusText.value = `Found ${count} folders`
+        statusText.value = t('common.found_folders_count', { count: count })
     })
 
     window.electronAPI.onScanCurrentPath((path: string) => {
-        statusText.value = `Scanning: ${path}`
+        statusText.value = t('common.scanning_path', { path: path })
     })
 
     window.electronAPI.onDeleteProgress((count: number) => {

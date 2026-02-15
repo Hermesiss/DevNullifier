@@ -20,7 +20,7 @@ export class UpdateService {
     );
   }
 
-  private setUpdateChannel(channel: "latest" | "latest-dev") {
+  public setUpdateChannel(channel: "latest" | "latest-dev") {
     autoUpdater.allowPrerelease = channel === "latest-dev";
 
     let baseUrl =

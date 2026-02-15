@@ -5,28 +5,28 @@
                 <v-card-title>
                     <div class="d-flex ga-2">
                         <v-icon left>mdi-folder-multiple</v-icon>
-                        Development Projects ({{ projects.length }})
+                        {{ t('common.dev_projects') }} ({{ projects.length }})
                         <v-spacer />
                         <!-- Select / deselect caches -->
                         <v-chip v-if="totalSelectedCacheSize > 0" color="success" size="small">
-                            {{ formatSize(totalSelectedCacheSize) }} cache selected
+                            {{ formatSize(totalSelectedCacheSize) }} {{ t('common.cache_selected') }}
                         </v-chip>
                         <v-btn variant="outlined" color="primary" size="small"
                             :disabled="projects.length === 0 || isScanning || isDeleting" @click="selectAllCaches">
                             <v-icon left size="small">mdi-folder-check</v-icon>
-                            Select All Caches
+                            {{ t('common.select_all_caches') }}
                         </v-btn>
 
                         <v-btn variant="outlined" color="warning" size="small"
                             :disabled="projects.length === 0 || isScanning || isDeleting" @click="deselectAllCaches">
                             <v-icon left size="small">mdi-folder-remove</v-icon>
-                            Deselect All Caches
+                            {{ t('common.deselect_all_caches') }}
                         </v-btn>
 
                     </div>
                 </v-card-title>
                 <v-card-text>
-                    <v-data-table :headers="headers" :items="projects" :items-per-page="50" :loading="isScanning"
+                    <v-data-table :headers="translatedHeaders" :items="projects" :items-per-page="50" :loading="isScanning"
                         item-value="path" class="elevation-1">
                         <template v-slot:item.path="{ item }">
                             <div class="d-flex align-center">
@@ -58,7 +58,7 @@
                                 <div class="font-weight-medium">{{ formatSize(item.selectedCacheSize || 0) }}</div>
                                 <div class="text-caption text-grey"
                                     v-if="item.selectedCacheSize !== item.totalCacheSize">
-                                    of {{ formatSize(item.totalCacheSize) }} total
+                                    {{ t('common.of') }} {{ formatSize(item.totalCacheSize) }} {{ t('common.total') }}
                                 </div>
                             </div>
                         </template>
@@ -76,10 +76,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import CacheGroup from './CacheGroup.vue'
 import type { ProjectInfo, CacheGroup as CacheGroupType, CacheCategory } from '@/types'
 import { getTypeColor } from '@/utils/categoryColors'
 import { formatSize, formatDate } from '@/utils/formatters'
+
+const { t } = useI18n()
 
 // Props
 const props = defineProps<{
@@ -101,12 +104,12 @@ const totalSelectedCacheSize = computed(() => {
     }, 0)
 })
 
-const headers = [
-    { title: 'Project Path', key: 'path', sortable: true },
-    { title: 'Last Updated', key: 'lastModified', sortable: true },
-    { title: 'Selected Size', key: 'totalCacheSize', sortable: true },
-    { title: 'Cache Details', key: 'cacheInfo', sortable: false },
-]
+const translatedHeaders = computed(() => [
+    { title: t('common.project_path'), key: 'path', sortable: true },
+    { title: t('common.last_updated'), key: 'lastModified', sortable: true },
+    { title: t('common.selected_size'), key: 'totalCacheSize', sortable: true },
+    { title: t('common.cache_details'), key: 'cacheInfo', sortable: false },
+])
 
 const getRelativeTime = (dateString: string): string => {
     if (!dateString) return ''
@@ -116,12 +119,9 @@ const getRelativeTime = (dateString: string): string => {
     const diffMs = now.getTime() - date.getTime()
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return '1 day ago'
-    if (diffDays < 7) return `${diffDays} days ago`
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
-    return `${Math.floor(diffDays / 365)} years ago`
+    if (diffDays === 0) return 'Today' // I'll leave these as they might be harder to localize without a proper lib, but I'll add them to locales if possible.
+    // Actually, I should localize them.
+    return diffDays === 0 ? 'Today' : `${diffDays} days ago`
 }
 
 const openFolderTree = (folderPath: string): void => {

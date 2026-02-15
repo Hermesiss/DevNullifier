@@ -10,14 +10,14 @@
                                 :disabled="isDeleting || !hasEnabledCategories"
                                 @click="isScanning ? stopScan() : startScan()">
                                 <v-icon left>{{ isScanning ? 'mdi-stop' : 'mdi-magnify' }}</v-icon>
-                                {{ isScanning ? 'Stop' : 'Scan Projects' }}
+                                {{ isScanning ? t('common.stop') : t('common.scan_projects') }}
                             </v-btn>
                         </v-col>
 
                         <v-col cols="auto">
                             <v-btn color="info" :loading="isScanning" :disabled="isDeleting || savedProjectsCount === 0"
                                 @click="$emit('quick-scan')" prepend-icon="mdi-flash">
-                                Quick Scan ({{ savedProjectsCount }})
+                                {{ t('common.quick_scan') }} ({{ savedProjectsCount }})
                             </v-btn>
                         </v-col>
 
@@ -25,7 +25,7 @@
                         <v-col cols="auto">
                             <v-btn variant="outlined" :disabled="isScanning || isDeleting" @click="selectBasePath">
                                 <v-icon left>mdi-folder-open</v-icon>
-                                Add Base Path
+                                {{ t('common.add_base_path') }}
                             </v-btn>
                         </v-col>
 
@@ -34,7 +34,7 @@
                             <v-btn variant="outlined" :disabled="isScanning || isDeleting" @click="clearAllPaths"
                                 color="warning" size="small">
                                 <v-icon left size="small">mdi-delete-sweep</v-icon>
-                                Clear All
+                                {{ t('common.clear_all') }}
                             </v-btn>
                         </v-col>
 
@@ -65,6 +65,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // Props
 const props = defineProps<{

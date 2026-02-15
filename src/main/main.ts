@@ -372,4 +372,14 @@ ipcMain.handle('quit-and-install', () => {
   if (updateService) {
     updateService.quitAndInstall();
   }
+});
+
+ipcMain.handle('set-update-channel', (event, channel) => {
+  if (updateService) {
+    updateService.setUpdateChannel(channel);
+  }
+});
+
+ipcMain.handle('get-locale', () => {
+  return app.getLocale();
 }); 

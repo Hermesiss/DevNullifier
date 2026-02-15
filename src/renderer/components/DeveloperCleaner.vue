@@ -33,7 +33,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import DeleteDialog from './DeleteDialog.vue'
+
+const { t } = useI18n()
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
 import CategoriesPanel from './DeveloperCleaner/CategoriesPanel.vue'
@@ -51,7 +54,7 @@ const selectedCategory = ref<DeveloperCategory | null>(null)
 const showDeleteDialog = ref(false)
 const showFolderTree = ref(false)
 const selectedFolderPath = ref('')
-const statusText = ref('Ready')
+const statusText = ref(t('common.ready'))
 const categories = ref<DeveloperCategory[]>([])
 const hasEnabledCategories = ref(false)
 const scanProgress = ref(0)
@@ -252,7 +255,7 @@ const openFolderTree = (folderPath: string): void => {
 
 const startScan = async (basePaths: string[]): Promise<void> => {
     if (!window.electronAPI.scanDeveloperCaches) {
-        showNotification('Developer cache scanning not yet implemented', 'warning')
+        showNotification(t('common.dev_scan_not_implemented'), 'warning')
         return
     }
 
@@ -268,8 +271,8 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         }
 
         const pathCount = basePaths.length
-        const pathText = pathCount === 1 ? '1 path' : `${pathCount} paths`
-        statusText.value = `Scanning ${pathText} for development projects...`
+        const pathText = pathCount === 1 ? `1 ${t('common.path')}` : `${pathCount} ${t('common.paths')}`
+        statusText.value = t('common.scanning_paths_count', { count: pathCount })
 
         // Create serializable data - convert Vue reactive arrays to plain arrays/objects
         const plainBasePaths = [...basePaths]
@@ -278,6 +281,7 @@ const startScan = async (basePaths: string[]): Promise<void> => {
             .map(cat => ({
                 id: cat.id,
                 name: cat.name,
+                enabled: cat.enabled,
                 detectionFiles: [...cat.detectionFiles],
                 cachePatterns: [...cat.cachePatterns],
                 warning: cat.warning,
@@ -329,8 +333,8 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         await window.electronAPI.saveDeveloperProjects(plainProjects)
 
         const message = projects.value.length > 0
-            ? `Found ${projects.value.length} development projects across ${pathText}`
-            : `No development projects found in ${pathText}`
+            ? t('common.found_projects_count', { count: projects.value.length, paths: pathText })
+            : t('common.no_projects_found', { paths: pathText })
 
         showNotification(message, projects.value.length > 0 ? 'success' : 'info')
         statusText.value = message
@@ -338,7 +342,7 @@ const startScan = async (basePaths: string[]): Promise<void> => {
     } catch (error) {
         console.error('Scan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        showNotification('Error during scan: ' + errorMessage, 'error')
+        showNotification(`${t('common.error_scan')}: ${errorMessage}`, 'error')
     } finally {
         isScanning.value = false
     }
@@ -347,12 +351,12 @@ const startScan = async (basePaths: string[]): Promise<void> => {
 const startQuickScan = async (): Promise<void> => {
     try {
         isScanning.value = true
-        statusText.value = 'Loading saved projects...'
+        statusText.value = t('common.loading_saved_projects')
         projects.value = []
 
         const savedProjects = await window.electronAPI.loadSavedDeveloperProjects()
         if (savedProjects.length === 0) {
-            showNotification('No saved projects found!', 'warning')
+            showNotification(t('common.no_saved_projects'), 'warning')
             isScanning.value = false
             return
         }
@@ -363,13 +367,14 @@ const startQuickScan = async (): Promise<void> => {
             .map(cat => ({
                 id: cat.id,
                 name: cat.name,
+                enabled: cat.enabled,
                 detectionFiles: [...cat.detectionFiles],
                 cachePatterns: [...cat.cachePatterns],
                 warning: cat.warning,
                 warningText: cat.warningText
             }))
 
-        statusText.value = 'Checking saved projects...'
+        statusText.value = t('common.checking_saved_projects')
         const validProjects: ProjectInfo[] = []
 
         for (let index = 0; index < savedProjects.length; index++) {
@@ -387,17 +392,17 @@ const startQuickScan = async (): Promise<void> => {
         }
 
         projects.value = validProjects.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
-        statusText.value = `Found ${projects.value.length} projects`
+        statusText.value = t('common.found_projects', { count: projects.value.length })
 
         if (projects.value.length === 0) {
-            showNotification('No accessible projects found', 'warning')
+            showNotification(t('common.no_accessible_projects'), 'warning')
         } else {
-            showNotification(`Found ${projects.value.length} projects`, 'success')
+            showNotification(t('common.found_projects', { count: projects.value.length }), 'success')
         }
     } catch (error) {
         console.error('Quick scan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        showNotification('Error during quick scan: ' + errorMessage, 'error')
+        showNotification(`${t('common.error_quick_scan')}: ${errorMessage}`, 'error')
     } finally {
         isScanning.value = false
     }
@@ -405,12 +410,12 @@ const startQuickScan = async (): Promise<void> => {
 
 const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => {
     if (!window.electronAPI.scanDeveloperCaches) {
-        showNotification('Developer cache scanning not yet implemented', 'warning')
+        showNotification(t('common.dev_scan_not_implemented'), 'warning')
         return
     }
 
     try {
-        statusText.value = `Updating ${projectPaths.length} project${projectPaths.length === 1 ? '' : 's'}...`
+        statusText.value = t('common.updating_projects_count', { count: projectPaths.length })
 
         // Create serializable data - convert Vue reactive arrays to plain arrays/objects
         const enabledCategories = categories.value
@@ -418,6 +423,7 @@ const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => 
             .map(cat => ({
                 id: cat.id,
                 name: cat.name,
+                enabled: cat.enabled,
                 detectionFiles: [...cat.detectionFiles],
                 cachePatterns: [...cat.cachePatterns],
                 warning: cat.warning,
@@ -440,27 +446,27 @@ const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => 
         // Re-sort the entire list by total cache size
         projects.value.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
 
-        statusText.value = `Updated ${projectPaths.length} project${projectPaths.length === 1 ? '' : 's'}`
+        statusText.value = t('common.updated_projects_count', { count: projectPaths.length })
 
     } catch (error) {
         console.error('Rescan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        showNotification('Error during project update: ' + errorMessage, 'error')
+        showNotification(`${t('common.error_project_update')}: ${errorMessage}`, 'error')
     }
 }
 
 const stopScan = async (): Promise<void> => {
-    statusText.value = 'Stopping scan...'
+    statusText.value = t('common.stopping_scan')
     try {
         if (window.electronAPI.stopDeveloperScan) {
             await window.electronAPI.stopDeveloperScan()
-            showNotification('Scan stopped by user', 'info')
+            showNotification(t('common.scan_stopped_user'), 'info')
         } else {
-            showNotification('Scan stopped', 'info')
+            showNotification(t('common.scan_stopped'), 'info')
         }
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        showNotification('Error stopping scan: ' + errorMessage, 'error')
+        showNotification(`${t('common.error_stopping_scan')}: ${errorMessage}`, 'error')
     } finally {
         isScanning.value = false
     }
@@ -499,7 +505,7 @@ const processProject = (project: any): ProjectInfo => {
 // Delete functionality
 const confirmDelete = (): void => {
     if (selectedCacheCount.value === 0) {
-        showNotification('No caches selected for deletion', 'warning')
+        showNotification(t('common.no_caches_selected_delete'), 'warning')
         return
     }
     showDeleteDialog.value = true
@@ -508,7 +514,7 @@ const confirmDelete = (): void => {
 const deleteCaches = async (): Promise<void> => {
     showDeleteDialog.value = false
     isDeleting.value = true
-    statusText.value = 'Preparing to delete selected caches...'
+    statusText.value = t('common.preparing_delete')
 
     try {
         // Collect all selected cache paths from all projects
@@ -524,32 +530,32 @@ const deleteCaches = async (): Promise<void> => {
         })
 
         if (selectedCachePaths.length === 0) {
-            showNotification('No caches selected', 'warning')
+            showNotification(t('common.no_caches_selected'), 'warning')
             return
         }
 
-        statusText.value = `Deleting ${selectedCachePaths.length} cache folders...`
+        statusText.value = t('common.deleting_cache_folders', { count: selectedCachePaths.length })
 
         const results = await window.electronAPI.deleteFolders([...selectedCachePaths])
 
         const successCount = results.filter((r: any) => r.success).length
         const failCount = results.length - successCount
 
+        const parts: string[] = []
+        if (successCount > 0) parts.push(`${successCount} ${t('common.deleted')}`)
+        if (failCount > 0) parts.push(`${failCount} ${t('common.failed')}`)
+
         let message = ''
         if (failCount === 0) {
-            message = `Successfully deleted ${successCount} cache folders`
+            message = t('common.success_deleted_cache', { count: successCount })
         } else if (successCount === 0) {
-            message = `Failed to delete ${failCount} cache folders`
+            message = t('common.fail_deleted_cache', { count: failCount })
         } else {
-            message = `Deleted ${successCount} cache folders, ${failCount} failed`
+            message = t('common.deleted_cache_failed', { success: successCount, fail: failCount })
         }
 
-        const parts: string[] = []
-        if (successCount > 0) parts.push(`${successCount} deleted`)
-        if (failCount > 0) parts.push(`${failCount} failed`)
-
         showNotification(message, failCount === 0 ? 'success' : 'warning')
-        statusText.value = `Deletion complete: ${parts.join(', ')}`
+        statusText.value = `${t('common.deletion_complete')}: ${parts.join(', ')}`
 
         // Refresh only the projects that had caches deleted
         if (successCount > 0) {
@@ -573,8 +579,8 @@ const deleteCaches = async (): Promise<void> => {
     } catch (error) {
         console.error('Delete error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        showNotification('Error during deletion: ' + errorMessage, 'error')
-        statusText.value = 'Deletion failed'
+        showNotification(`${t('common.error_deletion')}: ${errorMessage}`, 'error')
+        statusText.value = t('common.deletion_failed')
     } finally {
         isDeleting.value = false
     }

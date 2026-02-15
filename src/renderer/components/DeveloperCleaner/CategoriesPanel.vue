@@ -6,11 +6,11 @@
                     <v-icon :class="{ 'rotate-90': showCategories }" class="mr-2 transition-transform">
                         mdi-chevron-right
                     </v-icon>
-                    Development Categories ({{ enabledCount }}/{{ categories.length }} enabled)
+                    {{ t('common.dev_categories') }} ({{ enabledCount }}/{{ categories.length }} {{ t('common.enabled') }})
                     <v-spacer />
                     <v-chip size="small" v-if="!hasEnabledCategories"
                         :color="hasEnabledCategories ? 'success' : 'warning'">
-                        {{ hasEnabledCategories ? 'Ready' : 'No categories enabled' }}
+                        {{ hasEnabledCategories ? t('common.ready') : t('common.no_categories_enabled') }}
                     </v-chip>
                 </v-card-title>
 
@@ -20,13 +20,13 @@
                             <v-col cols="auto">
                                 <v-btn variant="outlined" size="small" @click="enableAll">
                                     <v-icon left size="small">mdi-check-all</v-icon>
-                                    Enable All
+                                    {{ t('common.enable_all') }}
                                 </v-btn>
                             </v-col>
                             <v-col cols="auto">
                                 <v-btn variant="outlined" size="small" @click="disableAll">
                                     <v-icon left size="small">mdi-close-box-multiple</v-icon>
-                                    Disable All
+                                    {{ t('common.disable_all') }}
                                 </v-btn>
                             </v-col>
                         </v-row>
@@ -60,6 +60,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 import type { DeveloperCategory } from '@/types'
 
 // Props
