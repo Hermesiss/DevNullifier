@@ -32,7 +32,14 @@ import {
   normalizePathKey,
   type ProtectionContext
 } from "./deletionPolicy";
-import { collectExistingToolCaches, type ToolCacheFound } from "./globalToolCaches";
+import {
+  collectExistingToolCaches,
+  presentToolCaches,
+  toolCacheCandidates,
+  toolCacheCatalog,
+  type ToolCacheFound,
+  type ToolCacheLocale
+} from "./globalToolCaches";
 import { pathMatchesExclude } from "./excludeGlobs";
 import { queryLockingProcess } from "./lockingProcess";
 import { elevationCommandEnv } from "./elevation";
@@ -419,24 +426,49 @@ ipcMain.handle("get-folder-contents", async (event, folderPath: string): Promise
   }
 });
 
-ipcMain.handle("scan-global-caches", async () => {
+ipcMain.handle("scan-global-caches", async (_event, locale?: ToolCacheLocale) => {
+  const resolved: ToolCacheLocale = locale === "ru" ? "ru" : "en";
   const home = os.homedir();
   const protection = await protectionContext();
-  const found = await collectExistingToolCaches(home, process.platform, {
-    stat: target => fsPromises.lstat(target),
-    getDirSize: target => fileUtils.getDirSize(target)
-  });
-
-  const visible: ToolCacheFound[] = [];
+  const fsOps = {
+    stat: (target: string) => fsPromises.lstat(target),
+    getDirSize: (target: string) => fileUtils.getDirSize(target),
+    readdir: async (dir: string) => {
+      const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+      return entries
+        .filter(entry => entry.isDirectory() || entry.isFile())
+        .map(entry => entry.name);
+    }
+  };
+  const candidates = await toolCacheCandidates(home, process.platform, fsOps);
+  const total = candidates.length;
   const accepted: string[] = [];
-  for (const item of found) {
-    if (!canDelete(item.path, new Set([normalizePathKey(item.path)]), protection)) continue;
-    accepted.push(item.path);
-    visible.push({ id: item.id, label: item.label, path: item.path, size: item.size });
-  }
+  const visible: ToolCacheFound[] = [];
+
+  sendToRenderer("tool-cache-scan-progress", { checked: 0, total, path: "" });
+
+  await collectExistingToolCaches(
+    home,
+    process.platform,
+    fsOps,
+    async (progress, hit) => {
+      sendToRenderer("tool-cache-scan-progress", progress);
+      if (!hit) return;
+      if (!canDelete(hit.path, new Set([normalizePathKey(hit.path)]), protection)) return;
+      accepted.push(hit.path);
+      visible.push(hit);
+      sendToRenderer("tool-cache-found", presentToolCaches([hit], resolved)[0]);
+    }
+  );
+
   acceptedToolCaches = accepted;
   scanAllowlist.addDeveloper(accepted, protection);
-  return visible;
+  return presentToolCaches(visible, resolved);
+});
+
+ipcMain.handle("get-tool-cache-catalog", async (_event, locale?: ToolCacheLocale) => {
+  const resolved: ToolCacheLocale = locale === "ru" ? "ru" : "en";
+  return toolCacheCatalog(os.homedir(), process.platform, resolved);
 });
 
 // Scan for developer caches

@@ -45,9 +45,38 @@ export interface Folder {
 
 export interface ToolCacheItem {
   id: string;
+  parentId: string;
+  parentLabel: string;
+  parentPath: string;
+  parentDescription: string;
   label: string;
   path: string;
   size: number;
+  category: string;
+  categoryLabel: string;
+  description: string;
+}
+
+export interface ToolCacheCatalogPart {
+  id: string;
+  label: string;
+  path: string;
+  description: string;
+}
+
+export interface ToolCacheCatalogItem {
+  id: string;
+  label: string;
+  path: string;
+  description: string;
+  parts: ToolCacheCatalogPart[];
+  discoversChildren: boolean;
+}
+
+export interface ToolCacheCatalogCategory {
+  id: string;
+  label: string;
+  items: ToolCacheCatalogItem[];
 }
 
 export interface ElectronAPI {
@@ -59,7 +88,10 @@ export interface ElectronAPI {
     maxDepth?: number,
     resetAllowlist?: boolean
   ) => Promise<ProjectInfo[]>;
-  scanGlobalCaches: () => Promise<ToolCacheItem[]>;
+  scanGlobalCaches: (locale?: string) => Promise<ToolCacheItem[]>;
+  getToolCacheCatalog: (locale?: string) => Promise<ToolCacheCatalogCategory[]>;
+  onToolCacheScanProgress: (callback: (progress: { checked: number; total: number; path: string }) => void) => void;
+  onToolCacheFound: (callback: (item: ToolCacheItem) => void) => void;
   stopAppDataScan: () => Promise<void>;
   stopDeveloperScan: () => Promise<void>;
   deleteFolders: (folderPaths: string[]) => Promise<DeleteResult[]>;

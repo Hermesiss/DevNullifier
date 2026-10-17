@@ -41,7 +41,14 @@ const api: ElectronAPI = {
       resetAllowlist
     } as ScanDeveloperOptions),
 
-  scanGlobalCaches: () => ipcRenderer.invoke("scan-global-caches"),
+  scanGlobalCaches: (locale) => ipcRenderer.invoke("scan-global-caches", locale),
+  getToolCacheCatalog: (locale) => ipcRenderer.invoke("get-tool-cache-catalog", locale),
+  onToolCacheScanProgress: (callback) => {
+    ipcRenderer.on("tool-cache-scan-progress", (_event, progress) => callback(progress));
+  },
+  onToolCacheFound: (callback) => {
+    ipcRenderer.on("tool-cache-found", (_event, item) => callback(item));
+  },
 
   // Stop scanning
   stopAppDataScan: () => ipcRenderer.invoke("stop-appdata-scan"),

@@ -3,7 +3,8 @@
     "title": "DevNullifier",
     "tabs": {
       "appdata": "Application Data",
-      "developer": "Developer Cache"
+      "developer": "Developer Cache",
+      "tools": "Tool Caches"
     }
   },
   "theme": {
@@ -73,6 +74,16 @@
     "scan_projects": "Scan Projects",
     "scan_tool_caches": "Scan tool caches",
     "tool_caches": "Tool caches",
+    "tool": "Tool",
+    "tool_parts": "Parts",
+    "tool_parts_count": "{count} parts",
+    "found_tool_caches": "Found Tool Caches",
+    "found_tool_caches_count": "Found {count} tool caches",
+    "tool_cache_scan_progress": "Checking {checked}/{total}: {path}",
+    "tool_discovers_children": "Versioned/child folders are discovered during scan.",
+    "tool_caches_info": "About tool caches",
+    "tool_caches_info_title": "Known tool caches",
+    "tool_caches_info_hint": "Paths checked on this machine. Only existing folders appear after Scan.",
     "no_tool_caches": "No tool caches found",
     "add_base_path": "Add Base Path",
     "clear_all": "Clear All",
