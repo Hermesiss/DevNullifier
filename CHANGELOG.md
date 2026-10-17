@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.15]
+
+### Added
+
+- A Dev Cleaner project inside another project is shown as a nested row.
+
 ## [1.3.14]
 
 ### Added

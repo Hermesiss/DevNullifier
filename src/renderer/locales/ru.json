@@ -32,6 +32,7 @@
     "all": "Все",
     "app_group": "Приложение",
     "grouped_folders": "{count} папок",
+    "nested_projects": "{count} вложенных",
     "quick_scan": "Быстрое сканирование",
     "delete_selected": "Удалить выбранные",
     "found_folders": "Найденные папки",

@@ -33,35 +33,50 @@
                         <v-select v-model="categoryFilter" class="filter-category" :items="typeOptions"
                             :label="t('common.filter_category')" density="compact" variant="outlined" hide-details />
                     </div>
-                    <v-data-table :headers="translatedHeaders" :items="filteredProjects" :items-per-page="50"
-                        :loading="isScanning" item-value="path" class="elevation-1">
+                    <v-data-table :headers="translatedHeaders" :items="tableRows" :items-per-page="50"
+                        :loading="isScanning" :item-value="rowItemValue" class="elevation-1">
                         <template v-slot:item.path="{ item }">
-                            <div class="d-flex align-center">
-                                <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)"
+                            <div class="d-flex align-center project-path-cell"
+                                :style="{ paddingLeft: `${item.depth * 1.25}rem` }">
+                                <v-btn v-if="item.depth === 0 && item.hasChildren" icon variant="text" size="small"
+                                    class="expand-toggle" :disabled="isScanning || isDeleting"
+                                    :aria-expanded="expandedRoots.has(item.project.path)"
+                                    @click.stop="toggleRootExpanded(item.project.path)">
+                                    <v-icon size="small"
+                                        :class="{ 'rotate-90': expandedRoots.has(item.project.path) }">
+                                        mdi-chevron-right
+                                    </v-icon>
+                                </v-btn>
+                                <span v-else-if="item.depth === 0" class="expand-spacer" aria-hidden="true" />
+                                <v-btn icon variant="text" size="small" @click="openFolderTree(item.project.path)"
                                     :disabled="isScanning || isDeleting" class="ml-2">
                                     <v-icon size="small" color="primary">mdi-folder-open</v-icon>
                                 </v-btn>
                                 <v-btn icon variant="text" size="small" :disabled="isScanning || isDeleting"
-                                    :aria-label="t('common.open_folder')" @click="openInFileManager(item.path)">
+                                    :aria-label="t('common.open_folder')" @click="openInFileManager(item.project.path)">
                                     <v-icon size="small">mdi-open-in-new</v-icon>
                                     <v-tooltip activator="parent" location="bottom">{{ t('common.open_folder') }}</v-tooltip>
                                 </v-btn>
                                 <v-btn icon variant="text" size="small" :disabled="isScanning || isDeleting"
-                                    :aria-label="copiedPath === item.path ? t('common.copied') : t('common.copy_path')"
-                                    @click="copyPath(item.path)">
+                                    :aria-label="copiedPath === item.project.path ? t('common.copied') : t('common.copy_path')"
+                                    @click="copyPath(item.project.path)">
                                     <v-icon size="small">mdi-content-copy</v-icon>
                                     <v-tooltip activator="parent" location="bottom">
-                                        {{ copiedPath === item.path ? t('common.copied') : t('common.copy_path') }}
+                                        {{ copiedPath === item.project.path ? t('common.copied') : t('common.copy_path') }}
                                     </v-tooltip>
                                 </v-btn>
                                 <div class="flex-grow-1 text-truncate mr-2">
-                                    {{ item.path }}
+                                    {{ item.project.path }}
                                 </div>
+                                <v-chip v-if="item.depth === 0 && item.nestedCount > 0" size="x-small" variant="tonal"
+                                    class="ml-1 shrink-0">
+                                    {{ t('common.nested_projects', { count: item.nestedCount }) }}
+                                </v-chip>
                             </div>
                         </template>
                         <template v-slot:item.type="{ item }">
                             <div class="d-flex flex-wrap ga-1">
-                                <v-chip v-for="type in item.type.split(', ')" :key="type" size="small"
+                                <v-chip v-for="type in item.project.type.split(', ')" :key="type" size="small"
                                     :color="getTypeColor(type.trim() as CacheCategory)">
                                     {{ type.trim() }}
                                 </v-chip>
@@ -69,22 +84,22 @@
                         </template>
                         <template v-slot:item.lastModified="{ item }">
                             <div class="text-caption">
-                                <div>{{ formatDate(item.lastModified) }}</div>
-                                <div class="text-grey">{{ getRelativeTime(item.lastModified) }}</div>
+                                <div>{{ formatDate(item.project.lastModified) }}</div>
+                                <div class="text-grey">{{ getRelativeTime(item.project.lastModified) }}</div>
                             </div>
                         </template>
                         <template v-slot:item.totalCacheSize="{ item }">
                             <div>
-                                <div class="font-weight-medium">{{ formatSize(item.selectedCacheSize || 0) }}</div>
+                                <div class="font-weight-medium">{{ formatSize(item.project.selectedCacheSize || 0) }}</div>
                                 <div class="text-caption text-grey"
-                                    v-if="item.selectedCacheSize !== item.totalCacheSize">
-                                    {{ t('common.of') }} {{ formatSize(item.totalCacheSize) }} {{ t('common.total') }}
+                                    v-if="item.project.selectedCacheSize !== item.project.totalCacheSize">
+                                    {{ t('common.of') }} {{ formatSize(item.project.totalCacheSize) }} {{ t('common.total') }}
                                 </div>
                             </div>
                         </template>
                         <template v-slot:item.cacheInfo="{ item }">
-                            <CacheGroup :cache-groups="item.caches" :is-scanning="isScanning" :is-deleting="isDeleting"
-                                @cache-selection-changed="updateCacheSelection(item)"
+                            <CacheGroup :cache-groups="item.project.caches" :is-scanning="isScanning" :is-deleting="isDeleting"
+                                @cache-selection-changed="updateCacheSelection(item.project)"
                                 @open-folder-tree="openFolderTree" />
                         </template>
                     </v-data-table>
@@ -104,8 +119,16 @@ import type { ProjectInfo, CacheGroup as CacheGroupType, CacheCategory, CacheMat
 import { getTypeColor } from '@/utils/categoryColors'
 import { formatSize, formatDate } from '@/utils/formatters'
 import { matchesCategory, matchesPathQuery } from '@/utils/tableFilter'
+import { countNestedProjects, nestProjects, type ProjectNode } from '@/utils/nestProjects'
 
 const { t } = useI18n()
+
+type ProjectTableRow = {
+    project: ProjectInfo
+    depth: number
+    nestedCount: number
+    hasChildren: boolean
+}
 
 // Props
 const props = defineProps<{
@@ -129,6 +152,7 @@ const totalSelectedCacheSize = computed(() => {
 
 const pathQuery = ref<string | null>('')
 const categoryFilter = ref<string | null>('')
+const expandedRoots = ref<Set<string>>(new Set())
 
 const filteredProjects = computed(() => {
     const query = pathQuery.value ?? ''
@@ -137,6 +161,40 @@ const filteredProjects = computed(() => {
         matchesPathQuery(project.path, query) && matchesCategory(project.type, category)
     )
 })
+
+const nestedProjectRoots = computed(() => nestProjects(filteredProjects.value))
+
+function flattenProjectNodes(nodes: readonly ProjectNode<ProjectInfo>[], depth: number): ProjectTableRow[] {
+    const rows: ProjectTableRow[] = []
+    for (const node of nodes) {
+        const hasChildren = node.children.length > 0
+        rows.push({
+            project: node.project,
+            depth,
+            nestedCount: countNestedProjects(node),
+            hasChildren,
+        })
+        const showNested =
+            depth === 0
+                ? hasChildren && expandedRoots.value.has(node.project.path)
+                : hasChildren
+        if (showNested) {
+            rows.push(...flattenProjectNodes(node.children, depth + 1))
+        }
+    }
+    return rows
+}
+
+const tableRows = computed(() => flattenProjectNodes(nestedProjectRoots.value, 0))
+
+const rowItemValue = (row: ProjectTableRow): string => row.project.path
+
+const toggleRootExpanded = (path: string): void => {
+    const next = new Set(expandedRoots.value)
+    if (next.has(path)) next.delete(path)
+    else next.add(path)
+    expandedRoots.value = next
+}
 
 const typeOptions = computed(() => {
     const types = new Set<string>()
@@ -153,10 +211,10 @@ const typeOptions = computed(() => {
 })
 
 const translatedHeaders = computed(() => [
-    { title: t('common.project_path'), key: 'path', sortable: true },
-    { title: t('common.project_type'), key: 'type', sortable: true },
-    { title: t('common.last_updated'), key: 'lastModified', sortable: true },
-    { title: t('common.selected_size'), key: 'totalCacheSize', sortable: true },
+    { title: t('common.project_path'), key: 'path', sortable: false },
+    { title: t('common.project_type'), key: 'type', sortable: false },
+    { title: t('common.last_updated'), key: 'lastModified', sortable: false },
+    { title: t('common.selected_size'), key: 'totalCacheSize', sortable: false },
     { title: t('common.cache_details'), key: 'cacheInfo', sortable: false },
 ])
 
@@ -253,5 +311,19 @@ const updateCacheSelection = (project: ProjectInfo): void => {
 .filter-category {
     flex: 0 1 220px;
     min-width: 160px;
+}
+
+.expand-spacer {
+    display: inline-block;
+    width: 32px;
+    flex-shrink: 0;
+}
+
+.expand-toggle :deep(.v-icon.rotate-90) {
+    transform: rotate(90deg);
+}
+
+.project-path-cell {
+    min-width: 0;
 }
 </style>
