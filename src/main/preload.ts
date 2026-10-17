@@ -43,6 +43,8 @@ const api: ElectronAPI = {
 
   scanGlobalCaches: (locale) => ipcRenderer.invoke("scan-global-caches", locale),
   getToolCacheCatalog: (locale) => ipcRenderer.invoke("get-tool-cache-catalog", locale),
+  scanGames: () => ipcRenderer.invoke("scan-games"),
+  uninstallGame: (request) => ipcRenderer.invoke("uninstall-game", request),
   onToolCacheScanProgress: (callback) => {
     ipcRenderer.on("tool-cache-scan-progress", (_event, progress) => callback(progress));
   },

@@ -4,7 +4,8 @@
     "tabs": {
       "appdata": "Application Data",
       "developer": "Developer Cache",
-      "tools": "Tool Caches"
+      "tools": "Tool Caches",
+      "games": "Games"
     }
   },
   "theme": {
@@ -85,6 +86,33 @@
     "tool_caches_info_title": "Known tool caches",
     "tool_caches_info_hint": "Paths checked on this machine. Only existing folders appear after Scan.",
     "no_tool_caches": "No tool caches found",
+    "found_games": "Installed games & apps",
+    "games_scanning": "Scanning launchers...",
+    "games_none_found": "No installed launcher apps found",
+    "games_found_count": "Found {count} installed apps",
+    "games_launcher": "Launcher",
+    "games_name": "Name",
+    "games_kind": "Type",
+    "games_kind_game": "Game",
+    "games_kind_app": "App",
+    "games_kind_tool": "Tool",
+    "games_kind_other": "Other",
+    "games_last_played": "Last played",
+    "games_never_played": "Never",
+    "games_last_played_filter": "Last played",
+    "games_filter_all": "All",
+    "games_filter_never": "Never played",
+    "games_filter_30": "Over 30 days ago",
+    "games_filter_90": "Over 90 days ago",
+    "games_filter_365": "Over 1 year ago",
+    "games_uninstall": "Uninstall",
+    "games_uninstall_opened": "Opened uninstall in launcher for {name}. Rescan after it finishes.",
+    "games_uninstall_failed": "Could not open launcher uninstall",
+    "games_info": "About games",
+    "games_info_title": "Games & launchers",
+    "games_info_body": "Installed apps are read from launcher data (Steam first). Uninstall opens the launcher's official uninstall dialog — DevNullifier does not delete game folders itself.",
+    "games_info_rescan": "After uninstall finishes (or is cancelled) in the launcher, press Scan again to refresh the list.",
+
     "add_base_path": "Add Base Path",
     "clear_all": "Clear All",
     "project_path": "Project Path",
