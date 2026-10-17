@@ -8,6 +8,12 @@ import { Worker } from "worker_threads";
 import * as appDataCleaner from "./appDataCleaner";
 import * as fileUtils from "./fileUtils";
 import { loadCleanerRules, permanentRemove, saveCleanerRules, type CleanerRules } from "./cleanerRules";
+import {
+  loadCustomScanRules,
+  mergeKeywords,
+  saveCustomScanRules,
+  type CustomScanRulesUpdate
+} from "./customScanRules";
 import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 import { UpdateService } from "./updateService";
 import {
@@ -158,7 +164,10 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
   }
 
   if (resetAllowlist) scanAllowlist.beginAppDataScan();
-  const protection = await protectionContext();
+  const [protection, customRules] = await Promise.all([
+    protectionContext(),
+    loadCustomScanRules()
+  ]);
 
   return new Promise((resolve, reject) => {
     const workerPath = path.join(__dirname, "appDataScanWorker.js");
@@ -226,7 +235,7 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
     currentAppDataScanWorker.postMessage({
       paths,
       maxDepth,
-      keywords: appDataCleaner.KEYWORDS,
+      keywords: mergeKeywords(appDataCleaner.KEYWORDS, customRules.keywords),
       userDataPath: app.getPath("userData"),
       protectedPaths: protection.protectedPaths,
       excludeGlobs: protection.excludeGlobs
@@ -238,6 +247,12 @@ ipcMain.handle("get-cleaner-rules", () => loadCleanerRules());
 
 ipcMain.handle("set-cleaner-rules", (_event, partial: Partial<CleanerRules>) => {
   return saveCleanerRules(partial);
+});
+
+ipcMain.handle("get-custom-scan-rules", () => loadCustomScanRules());
+
+ipcMain.handle("set-custom-scan-rules", (_event, partial: CustomScanRulesUpdate) => {
+  return saveCustomScanRules(partial);
 });
 
 ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {

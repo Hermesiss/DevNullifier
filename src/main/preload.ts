@@ -53,6 +53,8 @@ const api: ElectronAPI = {
 
   getCleanerRules: () => ipcRenderer.invoke("get-cleaner-rules"),
   setCleanerRules: rules => ipcRenderer.invoke("set-cleaner-rules", rules),
+  getCustomScanRules: () => ipcRenderer.invoke("get-custom-scan-rules"),
+  setCustomScanRules: rules => ipcRenderer.invoke("set-custom-scan-rules", rules),
 
   // Select directory
   selectDirectory: () => ipcRenderer.invoke("select-directory"),

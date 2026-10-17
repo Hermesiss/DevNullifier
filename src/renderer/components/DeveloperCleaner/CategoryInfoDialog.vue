@@ -2,7 +2,7 @@
     <v-dialog v-model="showDialog" max-width="600">
         <v-card v-if="category">
             <v-card-title class="d-flex align-center">
-                <span>{{ t('common.category_names.' + category.id) }}</span>
+                <span>{{ displayName }}</span>
                 <v-spacer />
                 <v-chip v-if="category.warning" size="small" color="warning">
                     <v-icon start size="small">mdi-alert</v-icon>
@@ -52,12 +52,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { DeveloperCategory } from '@/types'
 
 // i18n
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 // Props
 const props = defineProps<{
@@ -72,6 +72,14 @@ const emit = defineEmits<{
 
 // Reactive state
 const showDialog = ref(props.modelValue ?? false)
+
+const displayName = computed(() => {
+    if (!props.category) return ''
+    const key = `common.category_names.${props.category.id}`
+    if (!te(key)) return props.category.name
+    const translated = t(key)
+    return translated === key ? props.category.name : translated
+})
 
 // Watch for changes in modelValue prop
 watch(() => props.modelValue, (newValue) => {

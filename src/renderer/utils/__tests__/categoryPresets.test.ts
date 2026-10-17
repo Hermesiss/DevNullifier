@@ -24,6 +24,20 @@ describe('categoryPresets', () => {
       expect(result.find(c => c.id === 'unity')?.enabled).toBe(false)
     })
 
+    it('regenerable leaves custom categories disabled and aggressive enables them', () => {
+      const categories = [
+        { id: 'nodejs', enabled: false },
+        { id: 'custom-my-cache', enabled: true }
+      ]
+
+      const regenerable = applyCategoryPreset(categories, 'regenerable')
+      expect(regenerable.find(category => category.id === 'nodejs')?.enabled).toBe(true)
+      expect(regenerable.find(category => category.id === 'custom-my-cache')?.enabled).toBe(false)
+
+      const aggressive = applyCategoryPreset(categories, 'aggressive')
+      expect(aggressive.every(category => category.enabled)).toBe(true)
+    })
+
     it('aggressive enables every category', () => {
       const result = applyCategoryPreset(sampleCategories, 'aggressive')
 

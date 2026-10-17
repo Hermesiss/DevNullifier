@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.13]
+
+### Added
+
+- Custom Dev Cleaner categories and AppData keywords are stored beside the built-in lists and included in the next scan.
+
 ## [1.3.12]
 
 ### Added

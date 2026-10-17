@@ -56,6 +56,8 @@ export interface ElectronAPI {
   deleteFolders: (folderPaths: string[]) => Promise<DeleteResult[]>;
   getCleanerRules: () => Promise<CleanerRules>;
   setCleanerRules: (rules: Partial<CleanerRules>) => Promise<CleanerRules>;
+  getCustomScanRules: () => Promise<CustomScanRules>;
+  setCustomScanRules: (rules: CustomScanRulesUpdate) => Promise<CustomScanRules>;
   selectDirectory: () => Promise<string | null>;
   getUserHome: () => Promise<string>;
   getFolderContents: (folderPath: string) => Promise<FolderContents[]>;
@@ -93,3 +95,4 @@ declare global {
 // Import types needed for ElectronAPI
 import type { ProjectInfo, DeveloperCategory } from "./developer-cleaner";
 import type { CleanerRules } from "../../main/cleanerRules";
+import type { CustomScanRules, CustomScanRulesUpdate } from "../../main/customScanRules";
