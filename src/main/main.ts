@@ -14,6 +14,12 @@ import {
   saveCustomScanRules,
   type CustomScanRulesUpdate
 } from "./customScanRules";
+import {
+  appendDeletionLog,
+  deletionLogToCsv,
+  loadDeletionLog,
+  type DeletionLogEntry
+} from "./deletionLog";
 import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 import { UpdateService } from "./updateService";
 import {
@@ -277,6 +283,27 @@ ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {
   }
 
   return results;
+});
+
+ipcMain.handle("get-deletion-log", () => loadDeletionLog());
+
+ipcMain.handle("append-deletion-log", async (_event, entries: unknown) => {
+  const list = Array.isArray(entries) ? (entries as DeletionLogEntry[]) : [];
+  await appendDeletionLog(list);
+  return loadDeletionLog();
+});
+
+ipcMain.handle("export-deletion-log", async () => {
+  if (!mainWindow) return { saved: false };
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: "devnullifier-deletions.csv"
+  });
+
+  if (result.canceled || !result.filePath) return { saved: false };
+
+  await fsPromises.writeFile(result.filePath, deletionLogToCsv(await loadDeletionLog()), "utf-8");
+  return { saved: true };
 });
 
 // Get user home directory

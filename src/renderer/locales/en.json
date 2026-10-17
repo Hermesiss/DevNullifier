@@ -158,6 +158,12 @@
     "custom_category_name": "Name",
     "cache_patterns": "Cache patterns",
     "add": "Add",
+    "deletion_log": "Deletion log",
+    "export_csv": "Export CSV",
+    "log_empty": "No deletions yet",
+    "log_status_success": "Deleted",
+    "log_status_partial": "Partial",
+    "log_status_error": "Failed",
     "warnings": {
       "python": "venv/ and .venv/ are virtual environments. They can be recreated, but only if you can reinstall the dependencies.",
       "nodejs": "node_modules/ can be restored by the package manager. Nested packages in a monorepo are scanned separately.",

@@ -346,6 +346,25 @@ const buildDeleteResultMessage = (successCount: number, partialCount: number, fa
     }
 }
 
+const recordDeletionLog = async (
+    results: Array<{ path: string; success: boolean | 'partial' }>,
+    sizes: Map<string, number>
+): Promise<void> => {
+    if (results.length === 0) return
+    try {
+        await window.electronAPI.appendDeletionLog(results.map(result => {
+            const raw = sizes.get(result.path)
+            return {
+                path: result.path,
+                size: typeof raw === 'number' && Number.isFinite(raw) ? raw : 0,
+                status: result.success === true ? 'success' as const : result.success === 'partial' ? 'partial' as const : 'error' as const
+            }
+        }))
+    } catch (error) {
+        console.error('Failed to append deletion log:', error)
+    }
+}
+
 const deleteFolders = async (): Promise<void> => {
     try {
         showDeleteDialog.value = false
@@ -354,7 +373,9 @@ const deleteFolders = async (): Promise<void> => {
         statusText.value = t('common.deleting_folders')
 
         await whenRulesSaved()
+        const sizes = new Map(folders.value.map(folder => [folder.path, folder.size]))
         const results = await window.electronAPI.deleteFolders([...selectedFolders.value])
+        await recordDeletionLog(results, sizes)
         const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 
         const { message, color } = buildDeleteResultMessage(successCount, partialCount, failCount)

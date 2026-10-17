@@ -53,6 +53,10 @@ const api: ElectronAPI = {
   deleteFolders: (folderPaths: string[]) =>
     ipcRenderer.invoke("delete-folders", folderPaths),
 
+  getDeletionLog: () => ipcRenderer.invoke("get-deletion-log"),
+  appendDeletionLog: entries => ipcRenderer.invoke("append-deletion-log", entries),
+  exportDeletionLog: () => ipcRenderer.invoke("export-deletion-log"),
+
   getCleanerRules: () => ipcRenderer.invoke("get-cleaner-rules"),
   setCleanerRules: rules => ipcRenderer.invoke("set-cleaner-rules", rules),
   getCustomScanRules: () => ipcRenderer.invoke("get-custom-scan-rules"),

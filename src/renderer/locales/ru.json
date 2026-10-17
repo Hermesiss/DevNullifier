@@ -158,6 +158,12 @@
     "custom_category_name": "Имя",
     "cache_patterns": "Шаблоны кэша",
     "add": "Добавить",
+    "deletion_log": "Журнал удалений",
+    "export_csv": "Экспорт CSV",
+    "log_empty": "Удалений пока нет",
+    "log_status_success": "Удалено",
+    "log_status_partial": "Частично",
+    "log_status_error": "Ошибка",
     "warnings": {
       "python": "venv/ и .venv/ — виртуальные окружения. Их можно создать заново, если зависимости ставятся повторно.",
       "nodejs": "node_modules/ восстанавливается пакетным менеджером. Вложенные пакеты монорепы сканируются отдельно.",

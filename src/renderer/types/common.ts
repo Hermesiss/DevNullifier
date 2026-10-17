@@ -62,6 +62,11 @@ export interface ElectronAPI {
   stopAppDataScan: () => Promise<void>;
   stopDeveloperScan: () => Promise<void>;
   deleteFolders: (folderPaths: string[]) => Promise<DeleteResult[]>;
+  getDeletionLog: () => Promise<DeletionLogEntry[]>;
+  appendDeletionLog: (
+    entries: Array<Pick<DeletionLogEntry, "path" | "size" | "status">>
+  ) => Promise<DeletionLogEntry[]>;
+  exportDeletionLog: () => Promise<{ saved: boolean }>;
   getCleanerRules: () => Promise<CleanerRules>;
   setCleanerRules: (rules: Partial<CleanerRules>) => Promise<CleanerRules>;
   getCustomScanRules: () => Promise<CustomScanRules>;
@@ -104,3 +109,4 @@ declare global {
 import type { ProjectInfo, DeveloperCategory } from "./developer-cleaner";
 import type { CleanerRules } from "../../main/cleanerRules";
 import type { CustomScanRules, CustomScanRulesUpdate } from "../../main/customScanRules";
+import type { DeletionLogEntry } from "../../main/deletionLog";

@@ -10,6 +10,11 @@
 
       <UpdateButton class="mr-2" />
 
+      <v-btn icon class="mr-2" @click="showDeletionLog = true">
+        <v-icon>mdi-history</v-icon>
+        <v-tooltip activator="parent" location="bottom">{{ t('common.deletion_log') }}</v-tooltip>
+      </v-btn>
+
       <v-btn icon class="mr-2" @click="showProtectedPaths = true">
         <v-icon>mdi-shield</v-icon>
         <v-tooltip activator="parent" location="bottom">{{ t('common.protected_paths') }}</v-tooltip>
@@ -79,6 +84,43 @@
 
     <NotificationSnackbar v-model="showSnackbar" :text="snackbarText" :color="snackbarColor" />
     <ProtectedPathsDialog v-model="showProtectedPaths" />
+
+    <v-dialog v-model="showDeletionLog" max-width="960">
+      <v-card>
+        <v-card-title>
+          <v-icon left>mdi-history</v-icon>
+          {{ t('common.deletion_log') }}
+        </v-card-title>
+        <v-card-text class="deletion-log-body">
+          <p v-if="deletionLog.length === 0" class="text-medium-emphasis mb-0">{{ t('common.log_empty') }}</p>
+          <v-table v-else density="compact">
+            <thead>
+              <tr>
+                <th>{{ t('common.last_updated') }}</th>
+                <th>{{ t('common.path') }}</th>
+                <th class="text-end">{{ t('common.size') }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(entry, index) in deletionLog" :key="`${entry.at}-${index}`">
+                <td class="text-no-wrap">{{ formatDate(entry.at) }}</td>
+                <td class="deletion-log-path" :title="entry.path">{{ entry.path }}</td>
+                <td class="text-end text-no-wrap">{{ formatSize(entry.size) }}</td>
+                <td class="text-no-wrap">{{ t('common.log_status_' + entry.status) }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="primary" variant="text" @click="exportDeletionLog">
+            {{ t('common.export_csv') }}
+          </v-btn>
+          <v-btn variant="text" @click="showDeletionLog = false">{{ t('common.close') }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
@@ -91,6 +133,8 @@ import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
 import ProtectedPathsDialog from './components/ProtectedPathsDialog.vue'
+import { formatDate, formatSize } from './utils/formatters'
+import type { DeletionLogEntry } from '../main/deletionLog'
 
 const { t, locale } = useI18n()
 
@@ -221,6 +265,8 @@ watch(themeMode, (newMode) => {
 // Reactive state
 const activeTab = ref<'appdata' | 'developer'>('appdata')
 const showProtectedPaths = ref(false)
+const showDeletionLog = ref(false)
+const deletionLog = ref<DeletionLogEntry[]>([])
 const showSnackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('info')
@@ -231,8 +277,37 @@ const showNotification = (text: string, color: string = 'info'): void => {
   snackbarColor.value = color
   showSnackbar.value = true
 }
+
+watch(showDeletionLog, (open) => {
+  if (!open) return
+  void refreshDeletionLog()
+})
+
+const refreshDeletionLog = async (): Promise<void> => {
+  try {
+    deletionLog.value = await window.electronAPI.getDeletionLog()
+  } catch (error) {
+    console.error('Failed to load deletion log:', error)
+    deletionLog.value = []
+  }
+}
+
+const exportDeletionLog = async (): Promise<void> => {
+  try {
+    await window.electronAPI.exportDeletionLog()
+  } catch (error) {
+    console.error('Failed to export deletion log:', error)
+  }
+}
 </script>
 
 <style scoped>
-/* keep component specific styles if needed */
+.deletion-log-body {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.deletion-log-path {
+  word-break: break-all;
+}
 </style>

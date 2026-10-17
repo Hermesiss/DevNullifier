@@ -690,6 +690,25 @@ const confirmDelete = (): void => {
     showDeleteDialog.value = true
 }
 
+const recordDeletionLog = async (
+    results: Array<{ path: string; success: boolean | 'partial' }>,
+    sizes: Map<string, number>
+): Promise<void> => {
+    if (results.length === 0) return
+    try {
+        await window.electronAPI.appendDeletionLog(results.map(result => {
+            const raw = sizes.get(result.path)
+            return {
+                path: result.path,
+                size: typeof raw === 'number' && Number.isFinite(raw) ? raw : 0,
+                status: result.success === true ? 'success' as const : result.success === 'partial' ? 'partial' as const : 'error' as const
+            }
+        }))
+    } catch (error) {
+        console.error('Failed to append deletion log:', error)
+    }
+}
+
 const deleteCaches = async (): Promise<void> => {
     showDeleteDialog.value = false
     isDeleting.value = true
@@ -715,7 +734,15 @@ const deleteCaches = async (): Promise<void> => {
         statusText.value = t('common.deleting_cache_folders', { count: selectedCachePaths.length })
 
         await whenRulesSaved()
+        const sizes = new Map<string, number>()
+        for (const item of toolCaches.value) sizes.set(item.path, item.size)
+        for (const project of projects.value) {
+            for (const cacheGroup of project.caches) {
+                for (const match of cacheGroup.matches) sizes.set(match.path, match.size)
+            }
+        }
         const results = await window.electronAPI.deleteFolders([...selectedCachePaths])
+        await recordDeletionLog(results, sizes)
         const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 
         const parts: string[] = []

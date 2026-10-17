@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.16]
+
+### Added
+
+- Deletions are recorded with time, path, size, and result. The list can be exported as CSV.
+
 ## [1.3.15]
 
 ### Added
