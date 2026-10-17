@@ -40,6 +40,10 @@
             <v-icon left>mdi-code-braces</v-icon>
             {{ t('app.tabs.developer') }}
           </v-tab>
+          <v-tab value="tools">
+            <v-icon left>mdi-toolbox-outline</v-icon>
+            {{ t('app.tabs.tools') }}
+          </v-tab>
         </v-tabs>
 
         <v-tabs-window v-model="activeTab">
@@ -49,6 +53,10 @@
 
           <v-tabs-window-item value="developer">
             <DeveloperCleaner @showNotification="showNotification" />
+          </v-tabs-window-item>
+
+          <v-tabs-window-item value="tools">
+            <ToolCachesCleaner @showNotification="showNotification" />
           </v-tabs-window-item>
         </v-tabs-window>
       </v-container>
@@ -108,6 +116,7 @@ import { useTheme } from 'vuetify'
 import { useI18n } from 'vue-i18n'
 import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
+import ToolCachesCleaner from './components/ToolCachesCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
@@ -222,7 +231,7 @@ watch(themeMode, (newMode) => {
 })
 
 // Reactive state
-const activeTab = ref<'appdata' | 'developer'>('appdata')
+const activeTab = ref<'appdata' | 'developer' | 'tools'>('appdata')
 const showSettings = ref(false)
 const showDeletionLog = ref(false)
 const deletionLog = ref<DeletionLogEntry[]>([])

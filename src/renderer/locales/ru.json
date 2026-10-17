@@ -3,7 +3,8 @@
     "title": "DevNullifier",
     "tabs": {
       "appdata": "Данные приложений",
-      "developer": "Кэш разработчика"
+      "developer": "Кэш разработчика",
+      "tools": "Кэши инструментов"
     }
   },
   "theme": {
@@ -73,6 +74,16 @@
     "scan_projects": "Сканировать проекты",
     "scan_tool_caches": "Сканировать кэши инструментов",
     "tool_caches": "Кэши инструментов",
+    "tool": "Инструмент",
+    "tool_parts": "Части",
+    "tool_parts_count": "{count} частей",
+    "found_tool_caches": "Найденные кэши инструментов",
+    "found_tool_caches_count": "Найдено кэшей инструментов: {count}",
+    "tool_cache_scan_progress": "Проверка {checked}/{total}: {path}",
+    "tool_discovers_children": "Версионные/дочерние папки находятся во время сканирования.",
+    "tool_caches_info": "О кэшах инструментов",
+    "tool_caches_info_title": "Известные кэши инструментов",
+    "tool_caches_info_hint": "Пути, которые проверяются на этом компьютере. После сканирования показываются только существующие папки.",
     "no_tool_caches": "Кэши инструментов не найдены",
     "add_base_path": "Добавить путь",
     "clear_all": "Очистить все",

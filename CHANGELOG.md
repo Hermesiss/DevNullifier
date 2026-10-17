@@ -2,6 +2,18 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.5.0]
+
+### Added
+
+- Tool caches are a separate tab with scan progress, folder browsing, and safety notes.
+- Each tool can expose selectable subfolders (parts) with descriptions — for example safer Docker logs vs the unsafe WSL/VM disk.
+- An info dialog lists the known tool-cache catalog grouped by category.
+
+### Changed
+
+- The mini tool-cache block was removed from the Developer Cache tab.
+
 ## [1.4.2]
 
 ### Changed
