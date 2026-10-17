@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.10]
+
+### Added
+
+- A running scan shows how many directories were opened and which path is current, together.
+
 ## [1.3.9]
 
 ### Added

@@ -53,6 +53,9 @@ const selectedFolderPath = ref('')
 const statusText = ref(t('common.ready'))
 const deleteProgress = ref(0)
 const scanProgress = ref(0)
+const scannedDirectoryCount = ref(0)
+const currentScanPath = ref('')
+const acceptScanDetail = ref(false)
 
 // Emit events to parent
 const emit = defineEmits<{
@@ -103,7 +106,22 @@ const openFolderTree = (folderPath: string): void => {
 }
 
 // Scan logic
+const publishScanDetail = (): void => {
+    if (!acceptScanDetail.value) return
+    statusText.value = t('common.scan_progress_detail', {
+        count: scannedDirectoryCount.value,
+        path: currentScanPath.value
+    })
+}
+
+const beginScanDetail = (): void => {
+    scannedDirectoryCount.value = 0
+    currentScanPath.value = ''
+    acceptScanDetail.value = true
+}
+
 const stopScan = async (): Promise<void> => {
+    acceptScanDetail.value = false
     statusText.value = t('common.stopping_scan')
 
     try {
@@ -136,6 +154,7 @@ const startScan = async (): Promise<void> => {
         }
 
         statusText.value = t('common.scanning_folders')
+        beginScanDetail()
         // Listen for real-time folder updates
         window.electronAPI.onScanFolderFound((folderss: FolderItem[]) => {
             for (const folder of folderss) {
@@ -151,6 +170,7 @@ const startScan = async (): Promise<void> => {
             }
         })
         await window.electronAPI.scanFolders(paths, scanDepth(), true)
+        acceptScanDetail.value = false
         // Only sort and show success if we weren't terminated
         if (isScanning.value) {
             // Sort at the end for display
@@ -176,6 +196,7 @@ const startScan = async (): Promise<void> => {
             emit('showNotification', `${t('common.error_scan')}: ${errorMessage}`, 'error')
         }
     } finally {
+        acceptScanDetail.value = false
         // Only update scanning state here if we haven't started stopping
         isScanning.value = false
     }
@@ -275,7 +296,9 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
         })
 
         // Rescan only the affected directories
+        beginScanDetail()
         await window.electronAPI.scanFolders(affectedPaths, scanDepth(), false)
+        acceptScanDetail.value = false
 
         // Re-sort the entire list
         folders.value.sort((a, b) => b.size - a.size)
@@ -283,6 +306,7 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
         statusText.value = t('common.updated_dirs_count', { count: affectedPaths.length })
 
     } catch (error) {
+        acceptScanDetail.value = false
         console.error('Rescan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         emit('showNotification', `${t('common.error_updating_dirs')}: ${errorMessage}`, 'error')
@@ -358,13 +382,16 @@ const setupEventListeners = (): void => {
     window.electronAPI.removeAllListeners('delete-progress')
     window.electronAPI.removeAllListeners('scan-folder-found')
 
-    // Attach listeners
+    // Attach listeners. Progress count is directories entered, not matches found.
     window.electronAPI.onScanProgress((count: number) => {
-        statusText.value = t('common.found_folders_count', { count: count })
+        scannedDirectoryCount.value = count
+        publishScanDetail()
     })
 
-    window.electronAPI.onScanCurrentPath((path: string) => {
-        statusText.value = t('common.scanning_path', { path: path })
+    window.electronAPI.onScanCurrentPath((path: string, visited?: number) => {
+        currentScanPath.value = path ?? ''
+        if (typeof visited === 'number') scannedDirectoryCount.value = visited
+        publishScanDetail()
     })
 
     window.electronAPI.onDeleteProgress((count: number) => {

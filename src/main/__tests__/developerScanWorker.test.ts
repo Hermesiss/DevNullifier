@@ -1,4 +1,5 @@
 import { promises as fs } from "fs";
+import { parentPort } from "worker_threads";
 import { Category } from "../../types/developer-cleaner";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
@@ -56,6 +57,16 @@ describe("developerScanWorker", () => {
     name,
     isDirectory: () => isDir
   });
+
+  const visitedCounts = (): number[] => {
+    if (!parentPort) return [];
+    return vi.mocked(parentPort.postMessage).mock.calls.flatMap(call => {
+      const message = call[0] as { type?: string; visited?: number };
+      return message?.type === "current-path" && typeof message.visited === "number"
+        ? [message.visited]
+        : [];
+    });
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -447,6 +458,19 @@ describe("developerScanWorker", () => {
 
       expect(result).toEqual([]);
       expect(fs.readdir).not.toHaveBeenCalled();
+      expect(visitedCounts()).toEqual([]);
+    });
+
+    it("counts each directory it reads", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") return [mockDirEntry("pkg", true)] as any;
+        if (dir === "/repo/pkg") return [] as any;
+        return [] as any;
+      });
+
+      await worker.scanDeveloperProjects(["/repo"], [mockCategory], 6);
+
+      expect(visitedCounts()).toEqual([1, 2]);
     });
 
     it("should handle scan errors gracefully", async () => {

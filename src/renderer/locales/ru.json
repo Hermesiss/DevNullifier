@@ -84,6 +84,7 @@
     "updated_dirs_count": "Обновлено директорий: {count}",
     "deleting_folders": "Удаление папок...",
     "scanning_path": "Сканирование: {path}",
+    "scan_progress_detail": "Просмотрено каталогов: {count}. {path}",
     "scanning_projects_count": "Сканирование проектов: {count}...",
     "scanning_paths_count": "Сканирование путей ({count}) на наличие проектов...",
     "found_projects_count": "Найдено проектов ({count}) в путях: {paths}",

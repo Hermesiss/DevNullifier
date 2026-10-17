@@ -64,14 +64,26 @@ const api: ElectronAPI = {
   getFolderContents: (folderPath: string) =>
     ipcRenderer.invoke("get-folder-contents", folderPath),
 
-  // Listen for scan progress
+  // Listen for directories entered during a scan
   onScanProgress: (callback: (count: number) => void) => {
     ipcRenderer.on("scan-progress", (_event, count) => callback(count));
   },
 
   // Listen for current path being scanned
-  onScanCurrentPath: (callback: (path: string) => void) => {
-    ipcRenderer.on("scan-current-path", (_event, path) => callback(path));
+  onScanCurrentPath: (callback: (path: string, visited?: number) => void) => {
+    ipcRenderer.on("scan-current-path", (_event, path: string, visited?: number) =>
+      callback(path, visited)
+    );
+  },
+
+  onDeveloperScanCurrentPath: (callback: (path: string, visited?: number) => void) => {
+    ipcRenderer.on("developer-scan-current-path", (_event, path: string, visited?: number) =>
+      callback(path, visited)
+    );
+  },
+
+  onDeveloperScanVisited: (callback: (count: number) => void) => {
+    ipcRenderer.on("developer-scan-visited", (_event, count: number) => callback(count));
   },
 
   // Listen for delete progress

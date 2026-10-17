@@ -60,7 +60,9 @@ export interface ElectronAPI {
   getUserHome: () => Promise<string>;
   getFolderContents: (folderPath: string) => Promise<FolderContents[]>;
   onScanProgress: (callback: (count: number) => void) => void;
-  onScanCurrentPath: (callback: (path: string) => void) => void;
+  onScanCurrentPath: (callback: (path: string, visited?: number) => void) => void;
+  onDeveloperScanCurrentPath: (callback: (path: string, visited?: number) => void) => void;
+  onDeveloperScanVisited: (callback: (count: number) => void) => void;
   onDeleteProgress: (callback: (count: number) => void) => void;
   onScanFolderFound: (callback: (folders: Folder[]) => void) => void;
   onDeveloperProjectFound: (callback: (project: ProjectInfo) => void) => void;

@@ -84,6 +84,7 @@
     "updated_dirs_count": "Updated {count} directories",
     "deleting_folders": "Deleting folders...",
     "scanning_path": "Scanning: {path}",
+    "scan_progress_detail": "Scanned {count}: {path}",
     "scanning_projects_count": "Scanning {count} projects...",
     "scanning_paths_count": "Scanning {count} paths for development projects...",
     "found_projects_count": "Found {count} development projects across {paths}",

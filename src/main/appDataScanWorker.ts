@@ -27,7 +27,7 @@ export interface WorkerMessage {
 
 export type WorkerResponse =
   | { type: "folder-found"; folders: Folder[] }
-  | { type: "current-path"; path: string }
+  | { type: "current-path"; path: string; visited?: number }
   | { type: "progress"; count: number }
   | { type: "done"; results: Folder[] }
   | { type: "error"; error: string }
@@ -40,6 +40,7 @@ export interface IMessagePort {
 
 export class FolderScanner {
   private foundCount = 0;
+  private visitedCount = 0;
   private isScanning = true;
   private foldersToSend: Folder[] = [];
   private userDataPath = "";
@@ -164,6 +165,12 @@ export class FolderScanner {
       const entries = await this.fsOps.readdir(normalizedPath, {
         withFileTypes: true
       });
+      this.visitedCount += 1;
+      this.messagePort.postMessage({
+        type: "current-path",
+        path: normalizedPath,
+        visited: this.visitedCount
+      });
       if (directoryExcludedByMarker(childFileNames(entries), this.excludeGlobs)) return results;
 
       for (const entry of entries) {
@@ -220,6 +227,7 @@ export class FolderScanner {
   ): Promise<Folder[]> {
     const allResults: Folder[] = [];
     this.foundCount = 0;
+    this.visitedCount = 0;
     this.isScanning = true;
     this.userDataPath = userDataPath;
     this.protectedPaths = protectedPaths;

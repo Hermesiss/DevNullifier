@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { failsThreshold } from '../../main/thresholds'
 import { summarizeDeleteResults } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
@@ -60,6 +60,9 @@ const showDeleteDialog = ref(false)
 const showFolderTree = ref(false)
 const selectedFolderPath = ref('')
 const statusText = ref(t('common.ready'))
+const scannedDirectoryCount = ref(0)
+const currentScanPath = ref('')
+const acceptScanDetail = ref(false)
 const categories = ref<DeveloperCategory[]>([])
 const hasEnabledCategories = ref(false)
 const scanProgress = ref(0)
@@ -264,6 +267,41 @@ const openFolderTree = (folderPath: string): void => {
     showFolderTree.value = true
 }
 
+const publishScanDetail = (): void => {
+    if (!acceptScanDetail.value) return
+    statusText.value = t('common.scan_progress_detail', {
+        count: scannedDirectoryCount.value,
+        path: currentScanPath.value
+    })
+}
+
+const beginScanDetail = (): void => {
+    scannedDirectoryCount.value = 0
+    currentScanPath.value = ''
+    acceptScanDetail.value = true
+}
+
+const setupScanStatusListeners = (): void => {
+    window.electronAPI.removeAllListeners?.('developer-scan-current-path')
+    window.electronAPI.removeAllListeners?.('developer-scan-visited')
+
+    window.electronAPI.onDeveloperScanCurrentPath?.((path: string, visited?: number) => {
+        currentScanPath.value = path ?? ''
+        if (typeof visited === 'number') scannedDirectoryCount.value = visited
+        publishScanDetail()
+    })
+
+    window.electronAPI.onDeveloperScanVisited?.((count: number) => {
+        scannedDirectoryCount.value = count
+        publishScanDetail()
+    })
+}
+
+const removeScanStatusListeners = (): void => {
+    window.electronAPI.removeAllListeners?.('developer-scan-current-path')
+    window.electronAPI.removeAllListeners?.('developer-scan-visited')
+}
+
 const startScan = async (basePaths: string[]): Promise<void> => {
     if (!window.electronAPI.scanDeveloperCaches) {
         showNotification(t('common.dev_scan_not_implemented'), 'warning')
@@ -284,6 +322,7 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         const pathCount = basePaths.length
         const pathText = pathCount === 1 ? `1 ${t('common.path')}` : `${pathCount} ${t('common.paths')}`
         statusText.value = t('common.scanning_paths_count', { count: pathCount })
+        beginScanDetail()
 
         // Create serializable data - convert Vue reactive arrays to plain arrays/objects
         const plainBasePaths = [...basePaths]
@@ -317,6 +356,7 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         }
 
         const result = await window.electronAPI.scanDeveloperCaches(plainBasePaths, enabledCategories, undefined, true)
+        acceptScanDetail.value = false
 
         // Process any remaining projects not caught by real-time updates
         result.forEach((project: any) => {
@@ -369,6 +409,7 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         showNotification(`${t('common.error_scan')}: ${errorMessage}`, 'error')
     } finally {
+        acceptScanDetail.value = false
         window.electronAPI.removeAllListeners?.('developer-project-found')
         isScanning.value = false
     }
@@ -401,6 +442,7 @@ const startQuickScan = async (): Promise<void> => {
             }))
 
         statusText.value = t('common.checking_saved_projects')
+        beginScanDetail()
         const validProjects: ProjectInfo[] = []
 
         for (let index = 0; index < savedProjects.length; index++) {
@@ -414,6 +456,7 @@ const startQuickScan = async (): Promise<void> => {
             }
         }
 
+        acceptScanDetail.value = false
         projects.value = validProjects.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
         statusText.value = t('common.found_projects', { count: projects.value.length })
 
@@ -427,6 +470,7 @@ const startQuickScan = async (): Promise<void> => {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         showNotification(`${t('common.error_quick_scan')}: ${errorMessage}`, 'error')
     } finally {
+        acceptScanDetail.value = false
         isScanning.value = false
     }
 }
@@ -454,7 +498,9 @@ const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => 
             }))
 
         // Scan only the specific project paths
+        beginScanDetail()
         const result = await window.electronAPI.scanDeveloperCaches(projectPaths, enabledCategories, 0, false)
+        acceptScanDetail.value = false
 
         // Update only the scanned projects in the existing list
         result.forEach((scannedProject: any) => {
@@ -472,6 +518,7 @@ const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => 
         statusText.value = t('common.updated_projects_count', { count: projectPaths.length })
 
     } catch (error) {
+        acceptScanDetail.value = false
         console.error('Rescan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         showNotification(`${t('common.error_project_update')}: ${errorMessage}`, 'error')
@@ -479,6 +526,7 @@ const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => 
 }
 
 const stopScan = async (): Promise<void> => {
+    acceptScanDetail.value = false
     statusText.value = t('common.stopping_scan')
     try {
         if (window.electronAPI.stopDeveloperScan) {
@@ -647,8 +695,12 @@ defineExpose({
     isDeleting: isDeleting
 })
 
+onMounted(setupScanStatusListeners)
+
 // Cleanup on unmount
 onUnmounted(() => {
+    acceptScanDetail.value = false
+    removeScanStatusListeners()
     if (window.electronAPI.removeAllListeners) {
         window.electronAPI.removeAllListeners('developer-project-found')
     }

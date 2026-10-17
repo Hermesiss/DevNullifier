@@ -81,9 +81,9 @@ function dropExcludedProject<T extends {
   return next;
 }
 
-function sendToRenderer(channel: string, payload: unknown) {
+function sendToRenderer(channel: string, ...payload: unknown[]) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send(channel, payload);
+  mainWindow.webContents.send(channel, ...payload);
 }
 
 const isDev =
@@ -178,10 +178,11 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
     };
 
     currentAppDataScanWorker.on("message", message => {
-      if (message.type === "progress") {
-        sendToRenderer("scan-progress", message.count);
-      } else if (message.type === "current-path") {
-        sendToRenderer("scan-current-path", message.path);
+      if (message.type === "current-path") {
+        sendToRenderer("scan-current-path", message.path, message.visited);
+        if (typeof message.visited === "number") {
+          sendToRenderer("scan-progress", message.visited);
+        }
       } else if (message.type === "folder-found") {
         const folders = (message.folders as { path: string }[]).filter(
           folder =>
@@ -383,7 +384,10 @@ ipcMain.handle(
 
       currentDeveloperScanWorker.on("message", (message: WorkerResponse) => {
         if (message.type === "current-path") {
-          sendToRenderer("developer-scan-current-path", message.path);
+          sendToRenderer("developer-scan-current-path", message.path, message.visited);
+          if (typeof message.visited === "number") {
+            sendToRenderer("developer-scan-visited", message.visited);
+          }
         } else if (message.type === "project-found") {
           if (isProtectedPath(message.project.path, protection)) return;
           const project = dropExcludedProject(message.project, excludeGlobsOf(protection));

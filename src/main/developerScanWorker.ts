@@ -7,6 +7,7 @@ import { isUnderUserPath } from "./deletionPolicy";
 import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
 
 let isScanning = true;
+let visitedDirectories = 0;
 
 // Helper function to check if directory contains detection files
 export async function checkProjectType(projectPath: string, categories: Category[]): Promise<Category[]> {
@@ -464,9 +465,13 @@ export async function scanDeveloperProjectsRecursive(
 
   try {
     if (!parentPort) throw new Error("Worker thread parent port not available");
-    parentPort.postMessage({ type: "current-path", path: dirPath } as WorkerResponse);
-
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    visitedDirectories += 1;
+    parentPort.postMessage({
+      type: "current-path",
+      path: dirPath,
+      visited: visitedDirectories
+    } as WorkerResponse);
     const fileNames = entries.filter(entry => !entry.isDirectory()).map(entry => entry.name);
     if (directoryExcludedByMarker(fileNames, excludeGlobs)) return;
 
@@ -543,6 +548,7 @@ export async function scanDeveloperProjects(
   const projects: Project[] = [];
 
   isScanning = true;
+  visitedDirectories = 0;
   for (const basePath of basePaths) {
     try {
       if (!isScanning) return projects;

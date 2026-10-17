@@ -203,6 +203,29 @@ describe("FolderScanner", () => {
 
       expect(results).toEqual([]);
       expect(mockFsOps.readdir).not.toHaveBeenCalled();
+      expect(messages.some(message => message.type === "current-path" && typeof message.visited === "number")).toBe(false);
+    });
+
+    it("counts each directory it reads", async () => {
+      const root = path.join(os.tmpdir(), "dn-visited-root");
+      const nested = path.join(root, "nested");
+      const keep = path.join(root, "keep");
+      const rootKey = root.replace(/\\/g, "/");
+      const nestedKey = nested.replace(/\\/g, "/");
+
+      vi.mocked(mockFsOps.readdir).mockImplementation(async (dir: any) => {
+        const key = String(dir).replace(/\\/g, "/");
+        if (key === rootKey) return [mockDirEntry("nested", true), mockDirEntry("keep", true)] as any;
+        if (key === nestedKey) return [] as any;
+        throw new Error(`should not read ${key}`);
+      });
+
+      await scanner.scanPaths([root], 3, ["cache"], mockUserDataPath, [keep]);
+
+      const visited = messages.flatMap(message =>
+        message.type === "current-path" && typeof message.visited === "number" ? [message.visited] : []
+      );
+      expect(visited).toEqual([1, 2]);
     });
 
     it("does not emit or descend into an excluded directory", async () => {
