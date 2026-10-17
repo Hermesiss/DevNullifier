@@ -13,8 +13,21 @@
 
                         <v-col cols="12" sm="4" md="3">
                             <v-select
+                                :model-value="launcherFilter"
+                                :items="launcherOptions"
+                                :label="t('common.games_launcher_filter')"
+                                density="compact"
+                                variant="outlined"
+                                hide-details
+                                :disabled="isScanning"
+                                @update:model-value="$emit('update:launcherFilter', $event)"
+                            />
+                        </v-col>
+
+                        <v-col cols="12" sm="4" md="3">
+                            <v-select
                                 :model-value="lastPlayedFilter"
-                                :items="filterOptions"
+                                :items="lastPlayedOptions"
                                 :label="t('common.games_last_played_filter')"
                                 density="compact"
                                 variant="outlined"
@@ -48,6 +61,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LastPlayedFilter } from '@/utils/gamesLastPlayedFilter'
+import type { LauncherFilter } from '@/utils/gamesLauncherFilter'
 
 const { t } = useI18n()
 
@@ -55,15 +69,23 @@ defineProps<{
     isScanning: boolean
     isUninstalling: boolean
     lastPlayedFilter: LastPlayedFilter
+    launcherFilter: LauncherFilter
 }>()
 
 defineEmits<{
     scan: []
     'show-info': []
     'update:lastPlayedFilter': [value: LastPlayedFilter]
+    'update:launcherFilter': [value: LauncherFilter]
 }>()
 
-const filterOptions = computed(() => [
+const launcherOptions = computed(() => [
+    { title: t('common.games_filter_all'), value: 'all' as const },
+    { title: t('common.games_launcher_steam'), value: 'steam' as const },
+    { title: t('common.games_launcher_epic'), value: 'epic' as const },
+])
+
+const lastPlayedOptions = computed(() => [
     { title: t('common.games_filter_all'), value: 'all' as const },
     { title: t('common.games_filter_never'), value: 'never' as const },
     { title: t('common.games_filter_30'), value: '30' as const },

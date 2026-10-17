@@ -1,4 +1,4 @@
-export type LauncherId = "steam";
+export type LauncherId = "steam" | "epic";
 
 export type GameAppKind = "game" | "app" | "tool" | "other";
 
@@ -12,8 +12,10 @@ export interface GameApp {
   size: number;
   kind: GameAppKind;
   lastPlayedAt: number | null;
-  /** Local Steam library-cache image as data URL, when available. */
+  /** Local launcher artwork as data URL, when available. */
   artworkDataUrl: string | null;
+  /** Remote artwork URL (e.g. Epic CDN), when no local data URL. */
+  artworkUrl: string | null;
 }
 
 export interface UninstallGameRequest {
@@ -24,6 +26,8 @@ export interface UninstallGameRequest {
 export interface UninstallGameResult {
   ok: boolean;
   error?: string;
+  /** Steam: protocol uninstall dialog. Epic: opens launcher only (no uninstall deep link). */
+  mode?: "protocol";
 }
 
 export interface LauncherProvider {

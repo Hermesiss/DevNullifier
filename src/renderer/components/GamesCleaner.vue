@@ -4,9 +4,11 @@
             :is-scanning="isScanning"
             :is-uninstalling="isUninstalling"
             :last-played-filter="lastPlayedFilter"
+            :launcher-filter="launcherFilter"
             @scan="startScan"
             @show-info="showInfo = true"
             @update:last-played-filter="lastPlayedFilter = $event"
+            @update:launcher-filter="launcherFilter = $event"
         />
 
         <ResultsTable
@@ -44,6 +46,10 @@ import {
     matchesLastPlayedFilter,
     type LastPlayedFilter
 } from '@/utils/gamesLastPlayedFilter'
+import {
+    matchesLauncherFilter,
+    type LauncherFilter
+} from '@/utils/gamesLauncherFilter'
 import ControlPanel from './GamesCleaner/ControlPanel.vue'
 import ResultsTable from './GamesCleaner/ResultsTable.vue'
 import GamesInfoDialog from './GamesCleaner/GamesInfoDialog.vue'
@@ -61,12 +67,17 @@ const isUninstalling = ref(false)
 const uninstallingId = ref<string | null>(null)
 const showInfo = ref(false)
 const lastPlayedFilter = ref<LastPlayedFilter>('all')
+const launcherFilter = ref<LauncherFilter>('all')
 const statusText = ref(t('common.ready'))
 const scanRoot = ref<string | null>(null)
 const previewSize = ref(0)
 
 const filteredItems = computed(() =>
-    items.value.filter(item => matchesLastPlayedFilter(item.lastPlayedAt, lastPlayedFilter.value))
+    items.value.filter(
+        item =>
+            matchesLauncherFilter(item.launcherId, launcherFilter.value) &&
+            matchesLastPlayedFilter(item.lastPlayedAt, lastPlayedFilter.value)
+    )
 )
 
 const foundSize = computed(() => items.value.reduce((sum, item) => sum + item.size, 0))
@@ -112,8 +123,12 @@ const uninstallItem = async (item: GameApp): Promise<void> => {
             appId: item.appId
         })
         if (result.ok) {
-            emit('showNotification', t('common.games_uninstall_opened', { name: item.name }), 'info')
-            statusText.value = t('common.games_uninstall_opened', { name: item.name })
+            const message =
+                item.launcherId === 'epic'
+                    ? t('common.games_uninstall_epic_manual', { name: item.name })
+                    : t('common.games_uninstall_opened', { name: item.name })
+            emit('showNotification', message, 'info')
+            statusText.value = message
         } else {
             const message = result.error || t('common.games_uninstall_failed')
             emit('showNotification', message, 'error')

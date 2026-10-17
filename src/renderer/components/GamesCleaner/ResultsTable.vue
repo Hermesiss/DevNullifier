@@ -16,10 +16,12 @@
 
         <v-data-table :headers="headers" :items="filteredItems" item-value="id" :loading="isScanning"
             :loading-text="t('common.loading')" :items-per-page="50"
-            :sort-by="[{ key: 'size', order: 'desc' }]" class="dn-results-table">
+            :sort-by="[{ key: 'size', order: 'desc' }]"
+            class="dn-results-table">
             <template #item.artwork="{ item }">
                 <div class="game-art">
-                    <img v-if="item.artworkDataUrl" :src="item.artworkDataUrl" :alt="item.name" class="game-art__img" />
+                    <img v-if="artworkSrc(item)" :src="artworkSrc(item)!" :alt="item.name" class="game-art__img"
+                        loading="lazy" referrerpolicy="no-referrer" />
                     <v-icon v-else size="28" class="game-art__placeholder">mdi-controller</v-icon>
                 </div>
             </template>
@@ -123,6 +125,9 @@ const filteredItems = computed(() =>
         matchesPathQuery(item.appId, pathQuery.value)
     )
 )
+
+const artworkSrc = (item: GameApp): string | null =>
+    item.artworkDataUrl || item.artworkUrl || null
 
 const kindLabel = (kind: GameAppKind): string => t(`common.games_kind_${kind}`)
 

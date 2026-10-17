@@ -185,7 +185,10 @@ describe("Steam uninstall + scan routing", () => {
   it("builds steam://uninstall URL and opens it", async () => {
     expect(steamUninstallUrl("570")).toBe("steam://uninstall/570");
     const openExternal = vi.fn(async () => undefined);
-    await expect(uninstallSteamApp("570", { openExternal })).resolves.toEqual({ ok: true });
+    await expect(uninstallSteamApp("570", { openExternal })).resolves.toEqual({
+      ok: true,
+      mode: "protocol"
+    });
     expect(openExternal).toHaveBeenCalledWith("steam://uninstall/570");
     await expect(uninstallSteamApp("nope", { openExternal })).resolves.toEqual({
       ok: false,

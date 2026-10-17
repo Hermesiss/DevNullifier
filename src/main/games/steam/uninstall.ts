@@ -23,7 +23,7 @@ export async function uninstallSteamApp(
 
   try {
     await openExternal(steamUninstallUrl(trimmed));
-    return { ok: true };
+    return { ok: true, mode: "protocol" };
   } catch (error) {
     return {
       ok: false,

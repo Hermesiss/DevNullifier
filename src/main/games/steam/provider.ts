@@ -47,7 +47,8 @@ export function createSteamProvider(deps: SteamProviderDeps = {}): LauncherProvi
             size: manifest.size,
             kind: manifest.kind,
             lastPlayedAt: lastPlayed.get(manifest.appId) ?? null,
-            artworkDataUrl: null
+            artworkDataUrl: null,
+            artworkUrl: null
           };
           const existing = byAppId.get(manifest.appId);
           if (!existing || app.size > existing.size) {
