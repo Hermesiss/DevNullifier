@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.4.0]
+
+### Added
+
+- The 1.3.3–1.3.21 changes ship together: safer delete options, scan filters, tool caches, a deletion log, and one settings screen.
+
 ## [1.3.21]
 
 ### Added
