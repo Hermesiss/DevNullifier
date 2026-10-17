@@ -8,6 +8,12 @@
 
       <v-spacer></v-spacer>
 
+      <v-btn v-if="showRelaunchElevated" class="mr-2" variant="text" @click="relaunchElevated">
+        <v-icon left>mdi-shield-account</v-icon>
+        {{ t('common.relaunch_elevated') }}
+        <v-tooltip activator="parent" location="bottom">{{ t('common.relaunch_elevated_hint') }}</v-tooltip>
+      </v-btn>
+
       <UpdateButton class="mr-2" />
 
       <v-btn icon class="mr-2" @click="showDeletionLog = true">
@@ -135,6 +141,7 @@ import UpdateButton from './components/UpdateButton.vue'
 import ProtectedPathsDialog from './components/ProtectedPathsDialog.vue'
 import { formatDate, formatSize } from './utils/formatters'
 import type { DeletionLogEntry } from '../main/deletionLog'
+import { accessDeniedOutsideProfile } from './composables/useElevationPrompt'
 
 const { t, locale } = useI18n()
 
@@ -216,6 +223,15 @@ const handleSystemThemeChange = (e: MediaQueryListEvent): void => {
   }
 }
 
+const platform = ref<NodeJS.Platform | ''>('')
+const showRelaunchElevated = computed(
+  () => accessDeniedOutsideProfile.value && platform.value === 'win32'
+)
+
+const relaunchElevated = async (): Promise<void> => {
+  await window.electronAPI.relaunchElevated()
+}
+
 // Load theme mode and language from localStorage on startup
 onMounted(async () => {
   const savedThemeMode = localStorage.getItem('devnullifier-theme-mode')
@@ -240,6 +256,12 @@ onMounted(async () => {
       console.error('Failed to get OS locale:', e)
       locale.value = 'en'
     }
+  }
+
+  try {
+    platform.value = await window.electronAPI.getPlatform()
+  } catch (error) {
+    console.error('Failed to read platform:', error)
   }
 
   // Apply initial theme

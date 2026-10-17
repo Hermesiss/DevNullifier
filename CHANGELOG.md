@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.19]
+
+### Added
+
+- If a scan cannot read a folder outside the profile, Windows can restart the app as administrator. The installer still does not ask for that on its own.
+
 ## [1.3.18]
 
 ### Added

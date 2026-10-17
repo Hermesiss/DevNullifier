@@ -93,9 +93,11 @@ import type { DeleteResult, DeveloperCategory, ProjectInfo, ToolCacheItem } from
 import { formatSize } from '../utils/formatters'
 import { compareScans, toScanSnapshot, type ScanComparison, type ScanSnapshotItem } from '../utils/scanCompare'
 import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
+import { useElevationPrompt } from '../composables/useElevationPrompt'
 
 const { t } = useI18n()
 const { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved } = useCleanerRules()
+useElevationPrompt()
 
 // Reactive state
 const projects = ref<ProjectInfo[]>([])

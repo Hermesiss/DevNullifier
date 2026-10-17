@@ -45,4 +45,5 @@ export type WorkerResponse =
   | { type: "current-path"; path: string; visited?: number }
   | { type: "project-found"; project: Project }
   | { type: "done"; projects: Project[] }
-  | { type: "error"; error: string };
+  | { type: "error"; error: string }
+  | { type: "access-denied"; path: string };

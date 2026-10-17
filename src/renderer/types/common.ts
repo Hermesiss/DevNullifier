@@ -83,6 +83,7 @@ export interface ElectronAPI {
   onScanFolderFound: (callback: (folders: Folder[]) => void) => void;
   onDeveloperProjectFound: (callback: (project: ProjectInfo) => void) => void;
   onUpdateStatus: (callback: (status: { message: string; data?: any }) => void) => void;
+  onScanAccessDenied: (callback: (deniedPath: string) => void) => void;
   checkForUpdates: () => Promise<void>;
   quitAndInstall: () => Promise<void>;
   removeAllListeners: (channel: string) => void;
@@ -98,7 +99,9 @@ export interface ElectronAPI {
   openPath: (target: string) => Promise<string>;
   copyText: (text: string) => Promise<void>;
   platform: string;
+  getPlatform: () => Promise<NodeJS.Platform>;
   lockingProcess: (target: string) => Promise<string | null>;
+  relaunchElevated: () => Promise<void>;
 }
 
 // Add global type augmentation for Window interface

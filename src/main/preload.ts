@@ -154,7 +154,14 @@ const api: ElectronAPI = {
   openPath: (target: string) => ipcRenderer.invoke("open-path", target),
   copyText: (text: string) => ipcRenderer.invoke("copy-text", text),
   platform: process.platform,
+  getPlatform: () => ipcRenderer.invoke("get-platform"),
   lockingProcess: (target: string) => ipcRenderer.invoke("locking-process", target),
+
+  onScanAccessDenied: (callback: (deniedPath: string) => void) => {
+    ipcRenderer.on("scan-access-denied", (_event, deniedPath: string) => callback(deniedPath));
+  },
+
+  relaunchElevated: () => ipcRenderer.invoke("relaunch-elevated"),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

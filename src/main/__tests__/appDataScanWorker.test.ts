@@ -117,6 +117,32 @@ describe("FolderScanner", () => {
       expect(messages).toContainEqual({ type: "current-path", path: "/test" });
       expect(messages).toContainEqual({ type: "progress", count: 0 });
       expect(messages).toContainEqual({ type: "done", results: [] });
+      expect(messages.some(message => message.type === "access-denied")).toBe(false);
+    });
+
+    it("posts access-denied when a directory outside the profile cannot be read", async () => {
+      const outside = path.join(path.parse(os.homedir()).root, "ProgramData", "X");
+      const denied = new Error("denied") as NodeJS.ErrnoException;
+      denied.code = "EACCES";
+      vi.mocked(mockFsOps.readdir).mockRejectedValue(denied);
+
+      await scanner.scanPaths([outside], 1, ["cache"], mockUserDataPath);
+
+      expect(messages).toContainEqual({
+        type: "access-denied",
+        path: path.normalize(outside).replace(/\\/g, "/")
+      });
+    });
+
+    it("does not post access-denied for a directory inside the profile", async () => {
+      const inside = path.join(os.homedir(), "AppData", "Local", "X");
+      const denied = new Error("denied") as NodeJS.ErrnoException;
+      denied.code = "EPERM";
+      vi.mocked(mockFsOps.readdir).mockRejectedValue(denied);
+
+      await scanner.scanPaths([inside], 1, ["cache"], mockUserDataPath);
+
+      expect(messages.some(message => message.type === "access-denied")).toBe(false);
     });
 
     it("records modifiedAt from the folder mtime", async () => {

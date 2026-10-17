@@ -1,10 +1,12 @@
 import { parentPort } from "worker_threads";
 import { promises as fs, Dirent } from "fs";
 import path from "path";
+import os from "os";
 import * as fileUtils from "./fileUtils";
 import { mapPool, SIZE_CONCURRENCY } from "./mapPool";
 import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 import { isUnderUserPath } from "./deletionPolicy";
+import { isDeniedOutsideHome } from "./elevation";
 import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
 
 let isScanning = true;
@@ -546,7 +548,17 @@ export async function scanDeveloperProjectsRecursive(
     }
   } catch (error) {
     console.warn("Error scanning directory:", error);
+    const code = errnoCode(error);
+    if (isDeniedOutsideHome(code, dirPath, os.homedir())) {
+      parentPort?.postMessage({ type: "access-denied", path: dirPath } as WorkerResponse);
+    }
   }
+}
+
+function errnoCode(err: unknown): string | undefined {
+  if (!err || typeof err !== "object" || !("code" in err)) return undefined;
+  const code = (err as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
 }
 
 // Main scan function

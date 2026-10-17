@@ -1,4 +1,5 @@
 import { promises as fs } from "fs";
+import os from "os";
 import { parentPort } from "worker_threads";
 import { Category } from "../../types/developer-cleaner";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -65,6 +66,14 @@ describe("developerScanWorker", () => {
       return message?.type === "current-path" && typeof message.visited === "number"
         ? [message.visited]
         : [];
+    });
+  };
+
+  const accessDeniedPaths = (): string[] => {
+    if (!parentPort) return [];
+    return vi.mocked(parentPort.postMessage).mock.calls.flatMap(call => {
+      const message = call[0] as { type?: string; path?: string };
+      return message?.type === "access-denied" && message.path ? [message.path] : [];
     });
   };
 
@@ -484,6 +493,27 @@ describe("developerScanWorker", () => {
 
       expect(Array.isArray(result)).toBe(true);
       expect(result).toEqual([]);
+      expect(accessDeniedPaths()).toEqual([]);
+    });
+
+    it("posts access-denied when a directory outside the profile cannot be read", async () => {
+      const outside = "C:/ProgramData/X";
+      const denied = Object.assign(new Error("denied"), { code: "EACCES" });
+      vi.mocked(fs.readdir).mockRejectedValue(denied);
+
+      await worker.scanDeveloperProjects([outside], [mockCategory]);
+
+      expect(accessDeniedPaths()).toEqual([outside]);
+    });
+
+    it("does not post access-denied for a directory inside the profile", async () => {
+      const inside = `${os.homedir().replace(/\\/g, "/")}/AppData/Local/X`;
+      const denied = Object.assign(new Error("denied"), { code: "EPERM" });
+      vi.mocked(fs.readdir).mockRejectedValue(denied);
+
+      await worker.scanDeveloperProjects([inside], [mockCategory]);
+
+      expect(accessDeniedPaths()).toEqual([]);
     });
 
     it("keeps scanning nested projects after the root already has cache", async () => {

@@ -168,6 +168,8 @@
     "log_status_success": "Deleted",
     "log_status_partial": "Partial",
     "log_status_error": "Failed",
+    "relaunch_elevated": "Restart as administrator",
+    "relaunch_elevated_hint": "A folder outside your profile could not be read.",
     "warnings": {
       "python": "venv/ and .venv/ are virtual environments. They can be recreated, but only if you can reinstall the dependencies.",
       "nodejs": "node_modules/ can be restored by the package manager. Nested packages in a monorepo are scanned separately.",

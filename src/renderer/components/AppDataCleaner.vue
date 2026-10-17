@@ -28,6 +28,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useElevationPrompt } from '../composables/useElevationPrompt'
 import { failsThreshold } from '../../main/thresholds'
 import { applyRetryResult, summarizeDeleteResults, unsuccessfulDeletes } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
@@ -44,6 +45,7 @@ import { cleanerThresholdsActive, useCleanerRules } from '../composables/useClea
 
 const { t } = useI18n()
 const { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved } = useCleanerRules()
+useElevationPrompt()
 
 // Reactive state
 const folders = ref<FolderItem[]>([])

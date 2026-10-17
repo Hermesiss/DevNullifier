@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from "electron";
+import { spawn } from "child_process";
 import type { OpenDialogOptions, OpenDialogReturnValue } from "electron";
 import path from "path";
 import type { Dirent } from "fs";
@@ -34,6 +35,7 @@ import {
 import { collectExistingToolCaches, type ToolCacheFound } from "./globalToolCaches";
 import { pathMatchesExclude } from "./excludeGlobs";
 import { queryLockingProcess } from "./lockingProcess";
+import { elevationCommandEnv } from "./elevation";
 
 // Set user data path early
 fileUtils.setUserDataPath(app.getPath('userData'));
@@ -215,6 +217,8 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
         );
         if (folders.length > 0) sendToRenderer("scan-folder-found", folders);
         allResults.push(...folders);
+      } else if (message.type === "access-denied") {
+        sendToRenderer("scan-access-denied", message.path);
       } else if (message.type === "done") {
         finish();
       }
@@ -480,6 +484,8 @@ ipcMain.handle(
           foundProjects.push(project);
           scanAllowlist.addDeveloper(collectDeveloperPaths([project]), protection);
           sendToRenderer("developer-project-found", project);
+        } else if (message.type === "access-denied") {
+          sendToRenderer("scan-access-denied", message.path);
         } else if (message.type === "done") {
           if (foundProjects.length === 0) {
             const projects = message.projects.flatMap(project => {
@@ -612,4 +618,29 @@ ipcMain.handle("open-path", (_event, target: string) => {
 ipcMain.handle("copy-text", (_event, text: string) => {
   if (!text) return;
   clipboard.writeText(text);
+});
+
+ipcMain.handle("get-platform", () => process.platform);
+
+ipcMain.handle("relaunch-elevated", () => {
+  if (process.platform !== "win32") return;
+
+  const env = elevationCommandEnv(process.execPath, process.argv.slice(1));
+  spawn(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "Start-Process -FilePath $env:DEVNULLIFIER_EXE -ArgumentList $env:DEVNULLIFIER_ARGS -Verb RunAs"
+    ],
+    {
+      detached: true,
+      shell: false,
+      stdio: "ignore",
+      windowsHide: true,
+      env: { ...process.env, ...env }
+    }
+  ).unref();
+  app.quit();
 }); 

@@ -2,9 +2,11 @@ import { parentPort } from "worker_threads";
 import path from "path";
 import fs from "fs/promises";
 import type { Dirent } from "fs";
+import os from "os";
 import * as fileUtils from "./fileUtils";
 import { matchedKeyword } from "./appDataCleaner";
 import { isUnderUserPath } from "./deletionPolicy";
+import { isDeniedOutsideHome } from "./elevation";
 import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
 import { mapPool, SIZE_CONCURRENCY } from "./mapPool";
 
@@ -32,6 +34,7 @@ export type WorkerResponse =
   | { type: "progress"; count: number }
   | { type: "done"; results: Folder[] }
   | { type: "error"; error: string }
+  | { type: "access-denied"; path: string }
   | { type: "stop" };
 
 export interface IMessagePort {
@@ -131,6 +134,7 @@ export class FolderScanner {
       }
     } catch (err) {
       console.warn(`Cannot access ${fullPath}:`, (err as Error).message);
+      this.reportAccessDenied(fullPath, err);
     }
 
     return results;
@@ -195,9 +199,16 @@ export class FolderScanner {
       }
     } catch (err) {
       console.warn(`Cannot access ${normalizedPath}:`, (err as Error).message);
+      this.reportAccessDenied(normalizedPath, err);
     }
 
     return results;
+  }
+
+  private reportAccessDenied(target: string, err: unknown): void {
+    const code = errnoCode(err);
+    if (!isDeniedOutsideHome(code, target, os.homedir())) return;
+    this.messagePort.postMessage({ type: "access-denied", path: target });
   }
 
   private isInsideUserData(fullPath: string): boolean {
@@ -297,6 +308,12 @@ export function initializeWorker(injectedPort: IMessagePort | null = null) {
     );
     scanner.sendFolders(true);
   });
+}
+
+function errnoCode(err: unknown): string | undefined {
+  if (!err || typeof err !== "object" || !("code" in err)) return undefined;
+  const code = (err as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
 }
 
 function childFileNames(entries: Array<{ name: string; isDirectory?: () => boolean }>): string[] {
