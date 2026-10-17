@@ -30,6 +30,8 @@
     "deselect_all": "Снять выделение",
     "depth": "Глубина",
     "all": "Все",
+    "app_group": "Приложение",
+    "grouped_folders": "{count} папок",
     "quick_scan": "Быстрое сканирование",
     "delete_selected": "Удалить выбранные",
     "found_folders": "Найденные папки",

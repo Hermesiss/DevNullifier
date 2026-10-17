@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.9]
+
+### Added
+
+- AppData results under Local, Roaming, or LocalLow collapse into one row per application. Selecting that row selects the scanned folders inside it.
+
 ## [1.3.8]
 
 ### Added

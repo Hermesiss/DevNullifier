@@ -30,6 +30,8 @@
     "deselect_all": "Deselect All",
     "depth": "Depth",
     "all": "All",
+    "app_group": "Application",
+    "grouped_folders": "{count} folders",
     "quick_scan": "Quick Scan",
     "delete_selected": "Delete Selected",
     "found_folders": "Found Folders",
