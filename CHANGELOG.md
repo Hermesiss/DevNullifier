@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.8]
+
+### Added
+
+- Both result tables can be searched by path and filtered by category. Dev Cleaner shows project type. A row can open its folder or copy its path.
+
 ## [1.3.7]
 
 ### Added

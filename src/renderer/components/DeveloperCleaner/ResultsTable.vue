@@ -26,13 +26,33 @@
                     </div>
                 </v-card-title>
                 <v-card-text>
-                    <v-data-table :headers="translatedHeaders" :items="projects" :items-per-page="50"
+                    <div class="d-flex flex-wrap ga-3 mb-4">
+                        <v-text-field v-model="pathQuery" class="filter-path" :label="t('common.search_path')"
+                            prepend-inner-icon="mdi-magnify" density="compact" variant="outlined" hide-details
+                            clearable autocomplete="off" />
+                        <v-select v-model="categoryFilter" class="filter-category" :items="typeOptions"
+                            :label="t('common.filter_category')" density="compact" variant="outlined" hide-details />
+                    </div>
+                    <v-data-table :headers="translatedHeaders" :items="filteredProjects" :items-per-page="50"
                         :loading="isScanning" item-value="path" class="elevation-1">
                         <template v-slot:item.path="{ item }">
                             <div class="d-flex align-center">
                                 <v-btn icon variant="text" size="small" @click="openFolderTree(item.path)"
                                     :disabled="isScanning || isDeleting" class="ml-2">
                                     <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                                </v-btn>
+                                <v-btn icon variant="text" size="small" :disabled="isScanning || isDeleting"
+                                    :aria-label="t('common.open_folder')" @click="openInFileManager(item.path)">
+                                    <v-icon size="small">mdi-open-in-new</v-icon>
+                                    <v-tooltip activator="parent" location="bottom">{{ t('common.open_folder') }}</v-tooltip>
+                                </v-btn>
+                                <v-btn icon variant="text" size="small" :disabled="isScanning || isDeleting"
+                                    :aria-label="copiedPath === item.path ? t('common.copied') : t('common.copy_path')"
+                                    @click="copyPath(item.path)">
+                                    <v-icon size="small">mdi-content-copy</v-icon>
+                                    <v-tooltip activator="parent" location="bottom">
+                                        {{ copiedPath === item.path ? t('common.copied') : t('common.copy_path') }}
+                                    </v-tooltip>
                                 </v-btn>
                                 <div class="flex-grow-1 text-truncate mr-2">
                                     {{ item.path }}
@@ -75,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { failsThreshold } from '../../../main/thresholds'
 import { minAgeDays, minSizeMb } from '../../composables/useCleanerRules'
@@ -83,6 +103,7 @@ import CacheGroup from './CacheGroup.vue'
 import type { ProjectInfo, CacheGroup as CacheGroupType, CacheCategory, CacheMatch } from '@/types'
 import { getTypeColor } from '@/utils/categoryColors'
 import { formatSize, formatDate } from '@/utils/formatters'
+import { matchesCategory, matchesPathQuery } from '@/utils/tableFilter'
 
 const { t } = useI18n()
 
@@ -106,8 +127,34 @@ const totalSelectedCacheSize = computed(() => {
     }, 0)
 })
 
+const pathQuery = ref<string | null>('')
+const categoryFilter = ref<string | null>('')
+
+const filteredProjects = computed(() => {
+    const query = pathQuery.value ?? ''
+    const category = categoryFilter.value ?? ''
+    return props.projects.filter(project =>
+        matchesPathQuery(project.path, query) && matchesCategory(project.type, category)
+    )
+})
+
+const typeOptions = computed(() => {
+    const types = new Set<string>()
+    for (const project of props.projects) {
+        for (const part of project.type.split(',')) {
+            const type = part.trim()
+            if (type) types.add(type)
+        }
+    }
+    return [
+        { title: t('common.all'), value: '' },
+        ...[...types].sort((a, b) => a.localeCompare(b)).map(type => ({ title: type, value: type })),
+    ]
+})
+
 const translatedHeaders = computed(() => [
     { title: t('common.project_path'), key: 'path', sortable: true },
+    { title: t('common.project_type'), key: 'type', sortable: true },
     { title: t('common.last_updated'), key: 'lastModified', sortable: true },
     { title: t('common.selected_size'), key: 'totalCacheSize', sortable: true },
     { title: t('common.cache_details'), key: 'cacheInfo', sortable: false },
@@ -128,6 +175,27 @@ const getRelativeTime = (dateString: string): string => {
 const openFolderTree = (folderPath: string): void => {
     emit('open-folder-tree', folderPath)
 }
+
+const copiedPath = ref<string | null>(null)
+let copiedTimer: ReturnType<typeof setTimeout> | undefined
+
+const openInFileManager = async (target: string): Promise<void> => {
+    if (!target || !window.electronAPI?.openPath) return
+    const error = await window.electronAPI.openPath(target)
+    if (error) console.error(error)
+}
+
+const copyPath = async (text: string): Promise<void> => {
+    if (!text || !window.electronAPI?.copyText) return
+    await window.electronAPI.copyText(text)
+    copiedPath.value = text
+    clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => {
+        if (copiedPath.value === text) copiedPath.value = null
+    }, 2000)
+}
+
+onUnmounted(() => clearTimeout(copiedTimer))
 
 const thresholdRules = () => ({
     minAgeDays: minAgeDays.value,
@@ -177,5 +245,13 @@ const updateCacheSelection = (project: ProjectInfo): void => {
 </script>
 
 <style scoped>
-/* Add any specific styles for the results table here */
+.filter-path {
+    flex: 1 1 240px;
+    min-width: 200px;
+}
+
+.filter-category {
+    flex: 0 1 220px;
+    min-width: 160px;
+}
 </style>

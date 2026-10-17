@@ -130,6 +130,9 @@ const api: ElectronAPI = {
   // New handler
   setUpdateChannel: (channel: 'latest' | 'latest-dev') => ipcRenderer.invoke('set-update-channel', channel),
   getLocale: () => ipcRenderer.invoke('get-locale'),
+
+  openPath: (target: string) => ipcRenderer.invoke("open-path", target),
+  copyText: (text: string) => ipcRenderer.invoke("copy-text", text),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

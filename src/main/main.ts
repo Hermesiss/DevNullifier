@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from "electron";
 import type { OpenDialogOptions, OpenDialogReturnValue } from "electron";
 import path from "path";
 import type { Dirent } from "fs";
@@ -513,4 +513,14 @@ ipcMain.handle('quit-and-install', () => {
 
 ipcMain.handle('get-locale', () => {
   return app.getLocale();
+});
+
+ipcMain.handle("open-path", (_event, target: string) => {
+  if (!target) return "";
+  return shell.openPath(target);
+});
+
+ipcMain.handle("copy-text", (_event, text: string) => {
+  if (!text) return;
+  clipboard.writeText(text);
 }); 

@@ -77,6 +77,8 @@ export interface ElectronAPI {
   getSavedDeveloperProjectsCount: () => Promise<number>;
   setUpdateChannel: (channel: 'latest' | 'latest-dev') => Promise<void>;
   getLocale: () => Promise<string>;
+  openPath: (target: string) => Promise<string>;
+  copyText: (text: string) => Promise<void>;
 }
 
 // Add global type augmentation for Window interface
