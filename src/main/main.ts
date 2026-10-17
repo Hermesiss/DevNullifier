@@ -574,20 +574,22 @@ ipcMain.handle("get-directory-size", async (event, targetPath: string) => {
   return appDataCleaner.getDirectorySize(targetPath);
 });
 
+function statfsBytes(bsize: number, blocks: number): number | null {
+  if (!Number.isFinite(bsize) || bsize <= 0) return null;
+  if (!Number.isFinite(blocks) || blocks < 0) return null;
+  return bsize * blocks;
+}
+
 ipcMain.handle("disk-free", async (_event, path: unknown) => {
   if (typeof path !== "string" || !path.trim()) {
     return null;
   }
   try {
     const stats = await fsPromises.statfs(path);
-    const { bsize, bfree, bavail } = stats;
-    if (typeof bsize === "number" && typeof bfree === "number") {
-      return { free: bsize * bfree };
-    }
-    if (typeof bsize === "number" && typeof bavail === "number") {
-      return { free: bsize * bavail };
-    }
-    return null;
+    const free = statfsBytes(stats.bsize, stats.bfree) ?? statfsBytes(stats.bsize, stats.bavail);
+    const total = statfsBytes(stats.bsize, stats.blocks);
+    if (free === null) return null;
+    return { free, total };
   } catch {
     return null;
   }

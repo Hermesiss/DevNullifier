@@ -19,7 +19,7 @@
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
-            <ActionsBar :status-text="statusText" :disk-status-text="diskStatusText"
+            <ActionsBar :status-text="statusText" :disk-status="diskStatus"
                 :delete-progress="deleteProgress" :selected-count="selectedFolders.length" :is-scanning="isScanning"
                 :is-deleting="isDeleting" @delete="confirmDelete" />
         </v-footer>
@@ -92,12 +92,14 @@ const selectedSize = computed(() => {
     }, 0)
 })
 
+const foundSize = computed(() => folders.value.reduce((sum, folder) => sum + folder.size, 0))
+
 const refreshScanRoot = async (): Promise<void> => {
     const paths = await window.electronAPI.getAppDataPaths()
     scanRoot.value = paths[0] ?? null
 }
 
-const { diskStatusText } = useDiskStatus(scanRoot, selectedSize)
+const { diskStatus } = useDiskStatus(scanRoot, selectedSize, foundSize)
 
 const thresholdRules = () => ({
     minAgeDays: minAgeDays.value,

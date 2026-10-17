@@ -2,6 +2,13 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.4.1]
+
+### Changed
+
+- The footer disk bar shows used space, found results, the selection inside found (next to free), then free space. The percent is how much of used space deletion would free.
+- Project type chips stack when a row has more than one cache group.
+
 ## [1.4.0]
 
 ### Added

@@ -76,7 +76,8 @@
                             </div>
                         </template>
                         <template v-slot:item.type="{ item }">
-                            <div class="d-flex flex-wrap ga-1">
+                            <div
+                                :class="item.project.caches.length > 1 ? 'd-flex flex-column align-start ga-1' : 'd-flex flex-wrap ga-1'">
                                 <v-chip v-for="type in item.project.type.split(', ')" :key="type" size="small"
                                     :color="getTypeColor(type.trim() as CacheCategory)">
                                     {{ type.trim() }}

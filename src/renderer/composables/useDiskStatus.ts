@@ -1,45 +1,66 @@
 import { computed, ref, watch, type MaybeRefOrGetter, toValue } from "vue";
-import { useI18n } from "vue-i18n";
 import { formatSize } from "../utils/formatters";
-import { selectedSharePercent } from "../utils/diskShare";
+import { diskUsage } from "../utils/diskShare";
+
+export interface DiskStatus {
+  usedBytes: number;
+  otherUsedBytes: number;
+  foundBytes: number;
+  freeBytes: number;
+  selectedBytes: number;
+  foundOfUsedPercent: number;
+  selectedOfFoundPercent: number;
+  selectedOfUsedPercent: number;
+  usedText: string;
+  foundText: string;
+  freeText: string;
+  selectedText: string;
+  percent: string;
+}
 
 export function useDiskStatus(
   scanRoot: MaybeRefOrGetter<string | null | undefined>,
-  selectedBytes: MaybeRefOrGetter<number>
+  selectedBytes: MaybeRefOrGetter<number>,
+  foundBytes: MaybeRefOrGetter<number>
 ) {
-  const { t } = useI18n();
   const freeBytes = ref<number | null>(null);
+  const totalBytes = ref<number | null>(null);
 
   async function refreshFreeBytes(): Promise<void> {
     const path = toValue(scanRoot);
     if (!path) {
       freeBytes.value = null;
+      totalBytes.value = null;
       return;
     }
     try {
       const result = await window.electronAPI.diskFree(path);
       freeBytes.value = result?.free ?? null;
+      totalBytes.value = result?.total ?? null;
     } catch {
       freeBytes.value = null;
+      totalBytes.value = null;
     }
   }
 
   watch(() => toValue(scanRoot), () => void refreshFreeBytes(), { immediate: true });
 
-  const diskStatusText = computed(() => {
+  const diskStatus = computed<DiskStatus | null>(() => {
     const free = freeBytes.value;
-    if (free === null || !Number.isFinite(free) || free <= 0) {
-      return null;
-    }
-    const selected = toValue(selectedBytes);
-    const share = selectedSharePercent(selected, free);
-    const percent = share === null ? "0" : String(Math.round(share * 10) / 10);
-    return t("common.disk_status", {
-      free: formatSize(free),
-      selected: formatSize(selected),
+    const total = totalBytes.value;
+    if (free === null || total === null) return null;
+    const usage = diskUsage(toValue(selectedBytes), toValue(foundBytes), free, total);
+    if (!usage) return null;
+    const percent = String(Math.round(usage.selectedOfUsedPercent * 10) / 10);
+    return {
+      ...usage,
+      usedText: formatSize(usage.usedBytes),
+      foundText: formatSize(usage.foundBytes),
+      freeText: formatSize(usage.freeBytes),
+      selectedText: formatSize(usage.selectedBytes),
       percent
-    });
+    };
   });
 
-  return { diskStatusText };
+  return { diskStatus };
 }

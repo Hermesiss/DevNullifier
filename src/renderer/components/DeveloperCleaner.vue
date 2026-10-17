@@ -69,7 +69,7 @@
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
-            <ActionsBar :status-text="statusText" :disk-status-text="diskStatusText" :delete-progress="0"
+            <ActionsBar :status-text="statusText" :disk-status="diskStatus" :delete-progress="0"
                 :selected-count="selectedCacheCount" :is-scanning="isScanning" :is-deleting="isDeleting"
                 @delete="confirmDelete" />
         </v-footer>
@@ -293,8 +293,16 @@ const selectedCacheSize = computed(() => {
     return projectSize + toolSize
 })
 
+const foundCacheSize = computed(() => {
+    const projectSize = projects.value.reduce((total, project) => {
+        return total + (project.totalCacheSize || 0)
+    }, 0)
+    const toolSize = toolCaches.value.reduce((total, item) => total + item.size, 0)
+    return projectSize + toolSize
+})
+
 const devScanRoot = computed(() => controlPanel.value?.firstBasePath ?? null)
-const { diskStatusText } = useDiskStatus(devScanRoot, selectedCacheSize)
+const { diskStatus } = useDiskStatus(devScanRoot, selectedCacheSize, foundCacheSize)
 
 // Methods
 const showNotification = (message: string, type: string = 'info'): void => {
