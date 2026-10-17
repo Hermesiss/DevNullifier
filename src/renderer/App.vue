@@ -240,7 +240,7 @@ watch(themeMode, (newMode) => {
 })
 
 // Reactive state
-const activeTab = ref<'appdata' | 'developer' | 'tools'>('appdata')
+const activeTab = ref<'appdata' | 'developer' | 'tools' | 'games'>('appdata')
 const showSettings = ref(false)
 const showDeletionLog = ref(false)
 const deletionLog = ref<DeletionLogEntry[]>([])
