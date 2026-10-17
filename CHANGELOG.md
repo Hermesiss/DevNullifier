@@ -2,6 +2,13 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.6.0]
+
+### Added
+
+- Games tab lists installed Steam and Epic apps, with filters for platform, type, and last played.
+- Uninstall opens the launcher dialog. Game folders are not deleted. Epic has no uninstall deep link, so the launcher opens for a manual removal.
+
 ## [1.5.0]
 
 ### Added

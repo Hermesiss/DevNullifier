@@ -180,9 +180,9 @@ jobs:
           TAG="${{ needs.build-windows.outputs.version }}"
           TITLE="${{ github.ref_name == 'develop' && 'DevNullifier [Pre-release]' || 'DevNullifier' }} $TAG"
           if [ "${{ needs.build-windows.outputs.prerelease }}" = "true" ]; then
-            gh release create "$TAG" --title "$TITLE" --notes "$TITLE" --prerelease
+            gh release create "$TAG" --title "$TITLE" --notes "$TITLE" --prerelease --target "${{ github.sha }}"
           else
-            gh release create "$TAG" --title "$TITLE" --notes "$TITLE"
+            gh release create "$TAG" --title "$TITLE" --notes "$TITLE" --target "${{ github.sha }}"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
