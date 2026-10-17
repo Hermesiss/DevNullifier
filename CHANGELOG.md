@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.12]
+
+### Added
+
+- Dev Cleaner can switch to regenerable caches only, or enable every current category. A manual selection is still saved.
+
 ## [1.3.11]
 
 ### Changed

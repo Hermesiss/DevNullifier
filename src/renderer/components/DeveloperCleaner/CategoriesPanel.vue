@@ -30,6 +30,26 @@
                                     {{ t('common.disable_all') }}
                                 </v-btn>
                             </v-col>
+                            <v-col cols="auto">
+                                <v-tooltip :text="t('common.preset_regenerable_hint')" location="top">
+                                    <template #activator="{ props: tooltipProps }">
+                                        <v-btn v-bind="tooltipProps" variant="outlined" size="small"
+                                            @click="applyPreset('regenerable')">
+                                            {{ t('common.preset_regenerable') }}
+                                        </v-btn>
+                                    </template>
+                                </v-tooltip>
+                            </v-col>
+                            <v-col cols="auto">
+                                <v-tooltip :text="t('common.preset_aggressive_hint')" location="top">
+                                    <template #activator="{ props: tooltipProps }">
+                                        <v-btn v-bind="tooltipProps" variant="outlined" size="small"
+                                            @click="applyPreset('aggressive')">
+                                            {{ t('common.preset_aggressive') }}
+                                        </v-btn>
+                                    </template>
+                                </v-tooltip>
+                            </v-col>
                         </v-row>
 
                         <v-row dense>
@@ -64,9 +84,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { applyCategoryPreset, type CategoryPreset } from '@/utils/categoryPresets'
+import type { DeveloperCategory } from '@/types'
 
 const { t } = useI18n()
-import type { DeveloperCategory } from '@/types'
 
 // Props
 const props = defineProps<{
@@ -131,6 +152,11 @@ const enableAll = (): void => {
 
 const disableAll = (): void => {
     categories.value.forEach(cat => cat.enabled = false)
+    saveCategoryStates()
+}
+
+const applyPreset = (preset: CategoryPreset): void => {
+    categories.value = applyCategoryPreset(categories.value, preset)
     saveCategoryStates()
 }
 
