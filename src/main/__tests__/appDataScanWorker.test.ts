@@ -144,6 +144,50 @@ describe("FolderScanner", () => {
       expect(mockFsOps.getDirSize).toHaveBeenCalledWith("/test/cache", expect.any(Function));
     });
 
+    it("does not emit or descend into a protected directory", async () => {
+      const root = path.join(os.tmpdir(), "dn-scan-root");
+      const keep = path.join(root, "keep");
+      const rootKey = root.replace(/\\/g, "/");
+      const keepKey = keep.replace(/\\/g, "/");
+
+      vi.mocked(mockFsOps.readdir).mockImplementation(async (dir: any) => {
+        const key = String(dir).replace(/\\/g, "/");
+        if (key === rootKey) {
+          return [mockDirEntry("keep", true), mockDirEntry("cache", true)] as any;
+        }
+        if (key === keepKey) {
+          throw new Error(`should not read ${key}`);
+        }
+        return [] as any;
+      });
+
+      const results = await scanner.scanPaths(
+        [root],
+        3,
+        ["cache", "keep"],
+        mockUserDataPath,
+        [keep]
+      );
+
+      expect(results.map(folder => folder.name)).toEqual(["cache"]);
+      expect(mockFsOps.getDirSize).toHaveBeenCalledTimes(1);
+    });
+
+    it("skips a protected scan root", async () => {
+      const keep = path.join(os.tmpdir(), "dn-protected-root");
+
+      const results = await scanner.scanPaths(
+        [keep],
+        3,
+        ["cache"],
+        mockUserDataPath,
+        [keep]
+      );
+
+      expect(results).toEqual([]);
+      expect(mockFsOps.readdir).not.toHaveBeenCalled();
+    });
+
     it("skips the application userData directory", async () => {
       vi.mocked(mockFsOps.readdir).mockResolvedValue([
         mockDirEntry("Cache", true)

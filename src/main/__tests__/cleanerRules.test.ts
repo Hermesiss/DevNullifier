@@ -1,4 +1,5 @@
 import { promises as fs } from "fs";
+import path from "path";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { setUserDataPath } from "../fileUtils";
 import { loadCleanerRules, saveCleanerRules, permanentRemove } from "../cleanerRules";
@@ -67,6 +68,31 @@ describe("cleanerRules", () => {
     expect(String(filePath)).toContain("cleaner-rules.json");
     expect(encoding).toBe("utf-8");
     expect(contents).toBe(JSON.stringify(saved, null, 2));
+  });
+
+  it("keeps other fields and drops a duplicate or drive root from protected paths", async () => {
+    let stored: string | undefined;
+    vi.mocked(fs.readFile).mockImplementation(async () => {
+      if (stored === undefined) {
+        throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+      }
+      return stored;
+    });
+    vi.mocked(fs.writeFile).mockImplementation(async (_file, data) => {
+      stored = String(data);
+    });
+
+    await saveCleanerRules({ permanentDelete: true, excludeGlobs: ["**/.git/**"] });
+    const keep = path.join("/data", "keep");
+    const saved = await saveCleanerRules({
+      protectedPaths: [keep, `${keep}${path.sep}`, path.parse(keep).root]
+    });
+
+    expect(saved.permanentDelete).toBe(true);
+    expect(saved.excludeGlobs).toEqual(["**/.git/**"]);
+    expect(saved.protectedPaths).toEqual([keep]);
+    expect(saved.minAgeDays).toBeNull();
+    expect(saved.minSizeMb).toBeNull();
   });
 
   it("falls back to defaults when the rules file is corrupt", async () => {

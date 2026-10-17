@@ -8,7 +8,9 @@ import {
   collectDeveloperPaths,
   isDriveRoot,
   isProtectedPath,
-  normalizePathKey
+  isUnderUserPath,
+  normalizePathKey,
+  sanitizeProtectedPaths
 } from "../deletionPolicy";
 
 const home = path.join(os.tmpdir(), "dn-home");
@@ -63,6 +65,75 @@ describe("deletionPolicy", () => {
     list.beginAppDataScan();
     expect(canDelete(appPath, list.keys(), ctx)).toBe(false);
     expect(canDelete(devPath, list.keys(), ctx)).toBe(true);
+  });
+
+  it("protects a path inside a user-listed directory even when it is allowlisted", () => {
+    const keep = path.join(home, "keep");
+    const child = path.join(keep, "cache");
+    const withUser = { ...ctx, protectedPaths: [keep] };
+    const allowed = new Set([normalizePathKey(child), normalizePathKey(keep)]);
+
+    expect(isUnderUserPath(child, [keep])).toBe(true);
+    expect(isProtectedPath(child, withUser)).toBe(true);
+    expect(isProtectedPath(keep, withUser)).toBe(true);
+    expect(canDelete(child, allowed, withUser)).toBe(false);
+    expect(canDelete(keep, allowed, withUser)).toBe(false);
+    expect(canRead(child, allowed, withUser)).toBe(false);
+  });
+
+  it("does not protect the parent of a user-listed directory", () => {
+    const keep = path.join(home, "projects", "keep");
+    const parent = path.dirname(keep);
+    const withUser = { ...ctx, protectedPaths: [keep] };
+
+    expect(parent).not.toBe(home);
+    expect(isUnderUserPath(parent, [keep])).toBe(false);
+    expect(isProtectedPath(parent, withUser)).toBe(false);
+    expect(canDelete(parent, new Set([normalizePathKey(parent)]), withUser)).toBe(true);
+  });
+
+  it("does not protect a sibling of a user-listed directory", () => {
+    const keep = path.join(home, "keep");
+    const sibling = path.join(home, "keep-extra");
+    const withUser = { ...ctx, protectedPaths: [keep] };
+
+    expect(isUnderUserPath(sibling, [keep])).toBe(false);
+    expect(isProtectedPath(sibling, withUser)).toBe(false);
+    expect(canDelete(sibling, new Set([normalizePathKey(sibling)]), withUser)).toBe(true);
+  });
+
+  it("keeps built-in home and userData protection when protectedPaths is omitted", () => {
+    const cache = path.join(home, "AppData", "Local", "App", "Cache");
+
+    expect(isProtectedPath(home, ctx)).toBe(true);
+    expect(isProtectedPath(userData, ctx)).toBe(true);
+    expect(isProtectedPath(path.join(userData, "Cache"), ctx)).toBe(true);
+    expect(isProtectedPath(path.dirname(userData), ctx)).toBe(true);
+    expect(isProtectedPath(cache, ctx)).toBe(false);
+    expect(canDelete(cache, new Set([normalizePathKey(cache)]), ctx)).toBe(true);
+    expect(isUnderUserPath(cache, [])).toBe(false);
+  });
+
+  it("does not allowlist a path rejected by user protection", () => {
+    const list = new ScanAllowlist();
+    const keep = path.join(home, "keep");
+    const child = path.join(keep, "cache");
+    const sibling = path.join(home, "other");
+    const withUser = { ...ctx, protectedPaths: [keep] };
+
+    list.addAppData([child, sibling], withUser);
+    list.addDeveloper([keep], withUser);
+
+    expect(list.keys().has(normalizePathKey(child))).toBe(false);
+    expect(list.keys().has(normalizePathKey(keep))).toBe(false);
+    expect(canDelete(sibling, list.keys(), withUser)).toBe(true);
+  });
+
+  it("stores the raw protected path and drops a normalized duplicate and a drive root", () => {
+    const keep = path.join(home, "keep");
+    const root = path.parse(keep).root;
+
+    expect(sanitizeProtectedPaths([keep, `${keep}${path.sep}`, root, ""])).toEqual([keep]);
   });
 
   it("collects project and cache paths", () => {

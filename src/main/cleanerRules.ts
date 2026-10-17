@@ -1,5 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { sanitizeProtectedPaths } from "./deletionPolicy";
 import { getUserDataPath } from "./fileUtils";
 
 export interface CleanerRules {
@@ -69,7 +70,11 @@ export async function loadCleanerRules(): Promise<CleanerRules> {
 }
 
 export async function saveCleanerRules(partial: Partial<CleanerRules> = {}): Promise<CleanerRules> {
-  const next = mergeRules(await loadCleanerRules(), partial);
+  const merged = mergeRules(await loadCleanerRules(), partial);
+  const next = {
+    ...merged,
+    protectedPaths: sanitizeProtectedPaths(merged.protectedPaths)
+  };
   await fs.writeFile(rulesPath(), JSON.stringify(next, null, 2), "utf-8");
   return next;
 }

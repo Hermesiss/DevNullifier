@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.4]
+
+### Added
+
+- Extra protected folders are skipped by scans and cannot be deleted.
+
 ## [1.3.3]
 
 ### Added

@@ -3,6 +3,7 @@ import { promises as fs, Dirent } from "fs";
 import path from "path";
 import * as fileUtils from "./fileUtils";
 import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
+import { isUnderUserPath } from "./deletionPolicy";
 
 let isScanning = true;
 
@@ -403,15 +404,49 @@ export async function calculateCacheSizes(projectPath: string, categories: Categ
   return { caches, totalSize };
 }
 
+function cachesOutsideProtectedPaths(
+  caches: PatternGroup[],
+  totalSize: number,
+  protectedPaths: readonly string[]
+): { caches: PatternGroup[]; totalSize: number } {
+  if (protectedPaths.length === 0) return { caches, totalSize };
+
+  const visible: PatternGroup[] = [];
+  for (const group of caches) {
+    const matches = group.matches.filter(match => !isUnderUserPath(match.path, protectedPaths));
+    if (matches.length === 0) continue;
+    const groupSize = matches.reduce((sum, match) => sum + match.size, 0);
+    const selectedSize = matches.reduce(
+      (sum, match) => sum + (match.selected ? match.size : 0),
+      0
+    );
+    visible.push({ ...group, matches, totalSize: groupSize, selectedSize });
+  }
+
+  const seen = new Set<string>();
+  let visibleSize = 0;
+  for (const group of visible) {
+    for (const match of group.matches) {
+      if (seen.has(match.path)) continue;
+      seen.add(match.path);
+      visibleSize += match.size;
+    }
+  }
+
+  return { caches: visible, totalSize: visibleSize };
+}
+
 // Recursive function to scan for developer projects
 export async function scanDeveloperProjectsRecursive(
   dirPath: string,
   enabledCategories: Category[],
   projects: Project[],
   currentDepth: number,
-  maxDepth: number
+  maxDepth: number,
+  protectedPaths: readonly string[] = []
 ): Promise<void> {
   if (currentDepth > maxDepth) return;
+  if (isUnderUserPath(dirPath, protectedPaths)) return;
 
   try {
     if (!parentPort) throw new Error("Worker thread parent port not available");
@@ -424,9 +459,11 @@ export async function scanDeveloperProjectsRecursive(
 
     if (foundCategories.length > 0) {
       // This is a development project
-      const { caches, totalSize } = await calculateCacheSizes(
-        dirPath,
-        foundCategories
+      const sized = await calculateCacheSizes(dirPath, foundCategories);
+      const { caches, totalSize } = cachesOutsideProtectedPaths(
+        sized.caches,
+        sized.totalSize,
+        protectedPaths
       );
 
       if (totalSize > 0) {
@@ -467,7 +504,8 @@ export async function scanDeveloperProjectsRecursive(
           enabledCategories,
           projects,
           currentDepth + 1,
-          maxDepth
+          maxDepth,
+          protectedPaths
         );
       }
     }
@@ -480,7 +518,8 @@ export async function scanDeveloperProjectsRecursive(
 export async function scanDeveloperProjects(
   basePaths: string[],
   enabledCategories: Category[],
-  maxDepth = DEFAULT_DEV_SCAN_DEPTH
+  maxDepth = DEFAULT_DEV_SCAN_DEPTH,
+  protectedPaths: readonly string[] = []
 ): Promise<Project[]> {
   const projects: Project[] = [];
 
@@ -493,7 +532,8 @@ export async function scanDeveloperProjects(
         enabledCategories,
         projects,
         0,
-        maxDepth
+        maxDepth,
+        protectedPaths
       );
     } catch (error) {
       console.error(`Error scanning ${basePath}:`, error);
@@ -524,7 +564,8 @@ if (parentPort) {
       const projects = await scanDeveloperProjects(
         message.basePaths,
         message.enabledCategories,
-        maxDepth
+        maxDepth,
+        message.protectedPaths ?? []
       );
 
       console.log(`Developer scan completed. Found ${projects.length} projects`);

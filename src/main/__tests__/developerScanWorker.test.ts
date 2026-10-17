@@ -331,6 +331,55 @@ describe("developerScanWorker", () => {
       expect(result[0].totalCacheSize).toBe(2000);
     });
 
+    it("does not record a cache inside a protected directory", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") return [mockDirEntry("package.json", false)] as any;
+        return [] as any;
+      });
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+        mtime: new Date(),
+        size: 1000
+      } as any);
+
+      const result = await worker.scanDeveloperProjects(
+        ["/repo"],
+        [mockCategory],
+        6,
+        ["/repo/node_modules"]
+      );
+
+      const matchPaths = result.flatMap(project =>
+        project.caches.flatMap(group => group.matches.map(match => match.path))
+      );
+      expect(matchPaths.some(matchPath => matchPath.includes("node_modules"))).toBe(false);
+      expect(matchPaths.some(matchPath => matchPath.includes("dist"))).toBe(true);
+    });
+
+    it("does not record a project inside a protected path", async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        mockDirEntry("package.json", false),
+        mockDirEntry("node_modules", true)
+      ] as any);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+        mtime: new Date(),
+        size: 1000
+      } as any);
+
+      const result = await worker.scanDeveloperProjects(
+        ["/keep/app"],
+        [mockCategory],
+        6,
+        ["/keep"]
+      );
+
+      expect(result).toEqual([]);
+      expect(fs.readdir).not.toHaveBeenCalled();
+    });
+
     it("should handle scan errors gracefully", async () => {
       // Mock fs.readdir to throw error
       vi.mocked(fs.readdir).mockRejectedValue(new Error("Test error"));

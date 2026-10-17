@@ -10,6 +10,11 @@
 
       <UpdateButton class="mr-2" />
 
+      <v-btn icon class="mr-2" @click="showProtectedPaths = true">
+        <v-icon>mdi-shield</v-icon>
+        <v-tooltip activator="parent" location="bottom">{{ t('common.protected_paths') }}</v-tooltip>
+      </v-btn>
+
       <v-menu>
         <template v-slot:activator="{ props }">
           <v-btn icon v-bind="props">
@@ -73,6 +78,7 @@
     </v-main>
 
     <NotificationSnackbar v-model="showSnackbar" :text="snackbarText" :color="snackbarColor" />
+    <ProtectedPathsDialog v-model="showProtectedPaths" />
   </v-app>
 </template>
 
@@ -84,6 +90,7 @@ import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
+import ProtectedPathsDialog from './components/ProtectedPathsDialog.vue'
 
 const { t, locale } = useI18n()
 
@@ -213,6 +220,7 @@ watch(themeMode, (newMode) => {
 
 // Reactive state
 const activeTab = ref<'appdata' | 'developer'>('appdata')
+const showProtectedPaths = ref(false)
 const showSnackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('info')

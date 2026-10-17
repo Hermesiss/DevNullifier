@@ -3,6 +3,7 @@ import path from "path";
 export interface ProtectionContext {
   home: string;
   userData: string;
+  protectedPaths?: string[];
 }
 
 export function normalizePathKey(input: string): string {
@@ -24,6 +25,31 @@ function isAncestorOf(ancestor: string, descendant: string): boolean {
   return descendant.startsWith(`${ancestor}/`);
 }
 
+export function isUnderUserPath(target: string, protectedPaths: readonly string[]): boolean {
+  if (!target || protectedPaths.length === 0) return false;
+
+  const key = normalizePathKey(target);
+  for (const entry of protectedPaths) {
+    if (!entry) continue;
+    const root = normalizePathKey(entry);
+    if (key === root || key.startsWith(`${root}/`)) return true;
+  }
+  return false;
+}
+
+export function sanitizeProtectedPaths(paths: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const entry of paths) {
+    if (!entry || isDriveRoot(entry)) continue;
+    const key = normalizePathKey(entry);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(entry);
+  }
+  return result;
+}
+
 export function isProtectedPath(target: string, ctx: ProtectionContext): boolean {
   if (isDriveRoot(target)) return true;
 
@@ -34,6 +60,7 @@ export function isProtectedPath(target: string, ctx: ProtectionContext): boolean
   if (key === home || key === userData) return true;
   if (isSameOrInside(key, userData)) return true;
   if (isAncestorOf(key, home) || isAncestorOf(key, userData)) return true;
+  if (isUnderUserPath(target, ctx.protectedPaths ?? [])) return true;
   return false;
 }
 
@@ -72,15 +99,17 @@ export class ScanAllowlist {
     this.developer.clear();
   }
 
-  addAppData(paths: string[]): void {
+  addAppData(paths: string[], ctx?: ProtectionContext): void {
     for (const entry of paths) {
-      if (entry) this.appData.add(normalizePathKey(entry));
+      if (!entry || (ctx && isProtectedPath(entry, ctx))) continue;
+      this.appData.add(normalizePathKey(entry));
     }
   }
 
-  addDeveloper(paths: string[]): void {
+  addDeveloper(paths: string[], ctx?: ProtectionContext): void {
     for (const entry of paths) {
-      if (entry) this.developer.add(normalizePathKey(entry));
+      if (!entry || (ctx && isProtectedPath(entry, ctx))) continue;
+      this.developer.add(normalizePathKey(entry));
     }
   }
 

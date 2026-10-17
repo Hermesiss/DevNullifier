@@ -14,7 +14,9 @@ import {
   ScanAllowlist,
   canDelete,
   canRead,
-  collectDeveloperPaths
+  collectDeveloperPaths,
+  isProtectedPath,
+  type ProtectionContext
 } from "./deletionPolicy";
 
 // Set user data path early
@@ -26,10 +28,12 @@ let currentDeveloperScanWorker: Worker | null = null;
 let updateService: UpdateService | null = null;
 const scanAllowlist = new ScanAllowlist();
 
-function protectionContext() {
+async function protectionContext(protectedPaths?: string[]): Promise<ProtectionContext> {
+  const paths = protectedPaths ?? (await loadCleanerRules()).protectedPaths;
   return {
     home: os.homedir(),
-    userData: app.getPath("userData")
+    userData: app.getPath("userData"),
+    protectedPaths: paths
   };
 }
 
@@ -110,6 +114,7 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
   }
 
   if (resetAllowlist) scanAllowlist.beginAppDataScan();
+  const protection = await protectionContext();
 
   return new Promise((resolve, reject) => {
     const workerPath = path.join(__dirname, "appDataScanWorker.js");
@@ -134,9 +139,15 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
       } else if (message.type === "current-path") {
         sendToRenderer("scan-current-path", message.path);
       } else if (message.type === "folder-found") {
-        scanAllowlist.addAppData(message.folders.map((folder: { path: string }) => folder.path));
-        sendToRenderer("scan-folder-found", message.folders);
-        allResults.push(...message.folders);
+        const folders = (message.folders as { path: string }[]).filter(
+          folder => folder?.path && !isProtectedPath(folder.path, protection)
+        );
+        scanAllowlist.addAppData(
+          folders.map(folder => folder.path),
+          protection
+        );
+        if (folders.length > 0) sendToRenderer("scan-folder-found", folders);
+        allResults.push(...folders);
       } else if (message.type === "done") {
         finish();
       }
@@ -164,11 +175,12 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
       return originalTerminate();
     };
 
-    currentAppDataScanWorker.postMessage({ 
-      paths, 
-      maxDepth, 
+    currentAppDataScanWorker.postMessage({
+      paths,
+      maxDepth,
       keywords: appDataCleaner.KEYWORDS,
-      userDataPath: app.getPath('userData')  // Pass userDataPath to worker
+      userDataPath: app.getPath("userData"),
+      protectedPaths: protection.protectedPaths
     });
   });
 });
@@ -182,8 +194,8 @@ ipcMain.handle("set-cleaner-rules", (_event, partial: Partial<CleanerRules>) => 
 ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {
   const results = [];
   const allowed = scanAllowlist.keys();
-  const protection = protectionContext();
   const rules = await loadCleanerRules();
+  const protection = await protectionContext(rules.protectedPaths);
   const remove = rules.permanentDelete
     ? permanentRemove
     : (target: string) => shell.trashItem(target);
@@ -272,7 +284,7 @@ function sortFolderContents(contents: FolderContents[]): FolderContents[] {
 
 // Get folder contents
 ipcMain.handle("get-folder-contents", async (event, folderPath: string): Promise<FolderContents[]> => {
-  if (!canRead(folderPath, scanAllowlist.keys(), protectionContext())) {
+  if (!canRead(folderPath, scanAllowlist.keys(), await protectionContext())) {
     throw new Error("Folder is outside the current scan results");
   }
 
@@ -302,6 +314,7 @@ ipcMain.handle(
     }
 
     if (resetAllowlist) scanAllowlist.beginDeveloperScan();
+    const protection = await protectionContext();
 
     return new Promise((resolve, reject) => {
       const workerPath = path.join(__dirname, "developerScanWorker.js");
@@ -324,13 +337,17 @@ ipcMain.handle(
         if (message.type === "current-path") {
           sendToRenderer("developer-scan-current-path", message.path);
         } else if (message.type === "project-found") {
+          if (isProtectedPath(message.project.path, protection)) return;
           foundProjects.push(message.project);
-          scanAllowlist.addDeveloper(collectDeveloperPaths([message.project]));
+          scanAllowlist.addDeveloper(collectDeveloperPaths([message.project]), protection);
           sendToRenderer("developer-project-found", message.project);
         } else if (message.type === "done") {
           if (foundProjects.length === 0) {
-            foundProjects.push(...message.projects);
-            scanAllowlist.addDeveloper(collectDeveloperPaths(message.projects));
+            const projects = message.projects.filter(
+              project => project?.path && !isProtectedPath(project.path, protection)
+            );
+            foundProjects.push(...projects);
+            scanAllowlist.addDeveloper(collectDeveloperPaths(projects), protection);
           }
           finish();
         } else if (message.type === "error") {
@@ -360,11 +377,12 @@ ipcMain.handle(
         return originalTerminate();
       };
 
-      currentDeveloperScanWorker.postMessage({ 
-        basePaths, 
+      currentDeveloperScanWorker.postMessage({
+        basePaths,
         enabledCategories,
         userDataPath: app.getPath("userData"),
-        maxDepth: maxDepth
+        maxDepth: maxDepth,
+        protectedPaths: protection.protectedPaths
       } as WorkerMessage);
     });
   }
@@ -387,7 +405,11 @@ ipcMain.handle("save-folders", async (event, folders) => {
 
 ipcMain.handle("load-saved-folders", async () => {
   const folders = await fileUtils.loadSavedFolders();
-  scanAllowlist.addAppData(folders.map(folder => folder.path));
+  const protection = await protectionContext();
+  scanAllowlist.addAppData(
+    folders.map(folder => folder.path),
+    protection
+  );
   return folders;
 });
 
@@ -396,7 +418,7 @@ ipcMain.handle("get-saved-folders-count", async () => {
 });
 
 ipcMain.handle("get-directory-size", async (event, targetPath: string) => {
-  if (!canRead(targetPath, scanAllowlist.keys(), protectionContext())) {
+  if (!canRead(targetPath, scanAllowlist.keys(), await protectionContext())) {
     throw new Error("Path is outside the current scan results");
   }
   return appDataCleaner.getDirectorySize(targetPath);
@@ -409,7 +431,8 @@ ipcMain.handle("save-developer-projects", async (event, projects) => {
 
 ipcMain.handle("load-saved-developer-projects", async () => {
   const projects = await fileUtils.loadSavedDeveloperProjects();
-  scanAllowlist.addDeveloper(collectDeveloperPaths(projects));
+  const protection = await protectionContext();
+  scanAllowlist.addDeveloper(collectDeveloperPaths(projects), protection);
   return projects;
 });
 

@@ -1,0 +1,92 @@
+<template>
+  <v-dialog v-model="open" max-width="640">
+    <v-card>
+      <v-card-title class="text-h5">
+        <v-icon left>mdi-shield</v-icon>
+        {{ t("common.protected_paths") }}
+      </v-card-title>
+
+      <v-card-text>
+        <p class="mb-4">{{ t("common.protected_paths_hint") }}</p>
+
+        <v-list v-if="paths.length" density="compact">
+          <v-list-item v-for="item in paths" :key="item">
+            <v-list-item-title class="protected-path">{{ item }}</v-list-item-title>
+            <template v-slot:append>
+              <v-btn
+                icon
+                variant="text"
+                :aria-label="t('common.remove_protected_path')"
+                @click="removePath(item)"
+              >
+                <v-icon>mdi-close</v-icon>
+                <v-tooltip activator="parent" location="bottom">
+                  {{ t("common.remove_protected_path") }}
+                </v-tooltip>
+              </v-btn>
+            </template>
+          </v-list-item>
+        </v-list>
+        <p v-else class="text-medium-emphasis">{{ t("common.no_protected_paths") }}</p>
+      </v-card-text>
+
+      <v-card-actions>
+        <v-btn color="primary" variant="text" prepend-icon="mdi-folder-plus" @click="addPath">
+          {{ t("common.add_protected_path") }}
+        </v-btn>
+        <v-spacer />
+        <v-btn @click="open = false">{{ t("common.close") }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
+<script setup lang="ts">
+import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { enqueueCleanerRulesSave } from "../composables/useCleanerRules";
+
+const { t } = useI18n();
+const open = defineModel<boolean>({ default: false });
+const paths = ref<string[]>([]);
+
+function isDriveRootPath(value: string): boolean {
+  const trimmed = value.trim().replace(/[\\/]+$/, "");
+  return trimmed === "" || /^[a-zA-Z]:$/.test(trimmed);
+}
+
+watch(open, async isOpen => {
+  if (!isOpen || !window.electronAPI?.getCleanerRules) return;
+  try {
+    const rules = await window.electronAPI.getCleanerRules();
+    paths.value = [...rules.protectedPaths];
+  } catch (error) {
+    console.error("Failed to load protected paths:", error);
+  }
+});
+
+async function persist(next: string[]): Promise<void> {
+  paths.value = next;
+  const saved = await enqueueCleanerRulesSave({ protectedPaths: next });
+  if (saved) paths.value = [...saved.protectedPaths];
+}
+
+async function addPath(): Promise<void> {
+  if (!window.electronAPI?.selectDirectory) return;
+  const selected = await window.electronAPI.selectDirectory();
+  if (!selected || isDriveRootPath(selected)) return;
+  if (paths.value.includes(selected)) return;
+  await persist([...paths.value, selected]);
+}
+
+async function removePath(target: string): Promise<void> {
+  await persist(paths.value.filter(item => item !== target));
+}
+</script>
+
+<style scoped>
+.protected-path {
+  white-space: normal;
+  word-break: break-all;
+}
+</style>

@@ -1,20 +1,28 @@
 import { onMounted, ref, watch } from "vue";
+import type { CleanerRules } from "../../main/cleanerRules";
 
 const permanentDelete = ref(false);
 let applyingRemote = false;
 let localChange = false;
-let persist: Promise<void> = Promise.resolve();
+let persist: Promise<unknown> = Promise.resolve();
+
+export function enqueueCleanerRulesSave(
+  partial: Partial<CleanerRules>
+): Promise<CleanerRules | undefined> {
+  let saved: CleanerRules | undefined;
+  persist = persist.catch(() => undefined).then(async () => {
+    if (!window.electronAPI?.setCleanerRules) return;
+    saved = await window.electronAPI.setCleanerRules(partial);
+  });
+  return persist.then(() => saved);
+}
 
 watch(
   permanentDelete,
   value => {
     if (applyingRemote) return;
     localChange = true;
-    if (!window.electronAPI?.setCleanerRules) return;
-
-    persist = persist.catch(() => undefined).then(async () => {
-      await window.electronAPI.setCleanerRules({ permanentDelete: value });
-    });
+    void enqueueCleanerRulesSave({ permanentDelete: value });
   },
   { flush: "sync" }
 );

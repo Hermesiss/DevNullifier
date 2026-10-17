@@ -487,8 +487,12 @@ const refreshSavedProject = async (project: ProjectInfo, enabledCategories: Deve
     for (const group of project.caches) {
         const matches = []
         for (const match of group.matches) {
-            const size = await window.electronAPI.getDirectorySize(match.path)
-            if (size > 0) matches.push({ ...match, size, selected: false })
+            try {
+                const size = await window.electronAPI.getDirectorySize(match.path)
+                if (size > 0) matches.push({ ...match, size, selected: false })
+            } catch {
+                console.warn(`Cache no longer accessible: ${match.path}`)
+            }
         }
         if (matches.length === 0) continue
         caches.push({

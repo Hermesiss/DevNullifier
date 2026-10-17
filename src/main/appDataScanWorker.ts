@@ -4,6 +4,7 @@ import fs from "fs/promises";
 import type { Dirent } from "fs";
 import * as fileUtils from "./fileUtils";
 import { folderNameMatchesKeyword } from "./appDataCleaner";
+import { isUnderUserPath } from "./deletionPolicy";
 
 export interface Folder {
   path: string;
@@ -17,6 +18,7 @@ export interface WorkerMessage {
   maxDepth: number;
   keywords: string[];
   userDataPath: string;
+  protectedPaths?: string[];
 }
 
 export type WorkerResponse =
@@ -37,6 +39,7 @@ export class FolderScanner {
   private isScanning = true;
   private foldersToSend: Folder[] = [];
   private userDataPath = "";
+  private protectedPaths: readonly string[] = [];
   private readonly maxFoldersPerMessage = 20;
 
   constructor(
@@ -69,7 +72,7 @@ export class FolderScanner {
     }
 
     const fullPath = this.normalizePath(path.join(dirPath, entry.name));
-    if (this.isInsideUserData(fullPath)) return results;
+    if (this.isInsideUserData(fullPath) || this.isUserProtected(fullPath)) return results;
 
     try {
       if (folderNameMatchesKeyword(entry.name, keywords)) {
@@ -122,7 +125,11 @@ export class FolderScanner {
   ): Promise<Folder[]> {
     const results: Folder[] = [];
     const normalizedPath = this.normalizePath(dirPath);
-    if (!this.isScanning || this.isInsideUserData(normalizedPath)) {
+    if (
+      !this.isScanning ||
+      this.isInsideUserData(normalizedPath) ||
+      this.isUserProtected(normalizedPath)
+    ) {
       return results;
     }
 
@@ -161,16 +168,22 @@ export class FolderScanner {
     return norm === user || norm.startsWith(`${user}/`);
   }
 
+  private isUserProtected(fullPath: string): boolean {
+    return isUnderUserPath(fullPath, this.protectedPaths);
+  }
+
   async scanPaths(
     paths: string[],
     maxDepth: number,
     keywords: string[],
-    userDataPath: string
+    userDataPath: string,
+    protectedPaths: readonly string[] = []
   ): Promise<Folder[]> {
     const allResults: Folder[] = [];
     this.foundCount = 0;
     this.isScanning = true;
     this.userDataPath = userDataPath;
+    this.protectedPaths = protectedPaths;
 
     try {
       // Set the userDataPath for fileUtils
@@ -226,7 +239,8 @@ export function initializeWorker(injectedPort: IMessagePort | null = null) {
       message.paths,
       message.maxDepth,
       message.keywords,
-      message.userDataPath
+      message.userDataPath,
+      message.protectedPaths ?? []
     );
     scanner.sendFolders(true);
   });
