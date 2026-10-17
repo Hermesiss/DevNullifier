@@ -43,6 +43,8 @@ import {
 import { pathMatchesExclude } from "./excludeGlobs";
 import { queryLockingProcess } from "./lockingProcess";
 import { elevationCommandEnv } from "./elevation";
+import { scanGames, uninstallGame } from "./games/scanGames";
+import type { UninstallGameRequest } from "./games/types";
 
 // Set user data path early
 fileUtils.setUserDataPath(app.getPath('userData'));
@@ -469,6 +471,17 @@ ipcMain.handle("scan-global-caches", async (_event, locale?: ToolCacheLocale) =>
 ipcMain.handle("get-tool-cache-catalog", async (_event, locale?: ToolCacheLocale) => {
   const resolved: ToolCacheLocale = locale === "ru" ? "ru" : "en";
   return toolCacheCatalog(os.homedir(), process.platform, resolved);
+});
+
+ipcMain.handle("scan-games", async () => {
+  return scanGames();
+});
+
+ipcMain.handle("uninstall-game", async (_event, request: UninstallGameRequest) => {
+  if (!request || typeof request !== "object") {
+    return { ok: false, error: "Invalid uninstall request" };
+  }
+  return uninstallGame(request);
 });
 
 // Scan for developer caches
