@@ -20,7 +20,7 @@
     <title>DevNullifier - Удобный инструмент для очистки кэша разработки</title>
     <meta
       name="description"
-      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и ненужных данных."
+      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и установленных игр Steam и Epic Games."
     />
     <meta property="og:type" content="website" />
     <meta
@@ -33,7 +33,7 @@
     />
     <meta
       property="og:description"
-      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и ненужных данных."
+      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и установленных игр Steam и Epic Games."
     />
     <meta
       property="og:image"
@@ -51,7 +51,7 @@
     />
     <meta
       name="twitter:description"
-      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и ненужных данных."
+      content="Кроссплатформенное приложение для очистки кэша разработки, временных файлов и установленных игр Steam и Epic Games."
     />
     <meta
       name="twitter:image"
@@ -103,9 +103,10 @@
         </p>
         <br />
         <p>
-          DevNullifier - приложение для очистки кэша разработки, временных
-          файлов и ненужный данных. Оно поможет вам освободить дисковое
-          пространство и поддержать среду разработки в порядке.
+          DevNullifier — приложение для очистки кэша разработки, временных
+          файлов и ненужных данных, а также для просмотра установленных игр
+          Steam и Epic Games с запуском uninstall из лаунчера. Поможет
+          освободить диск и навести порядок.
         </p>
       </div>
     </header>
@@ -383,6 +384,15 @@
               </p>
             </div>
             <div class="feature-card">
+              <div class="feature-icon">🎮</div>
+              <h3>Steam и Epic Games</h3>
+              <p>
+                Список установленных игр и приложений из Steam и Epic Games
+                Store — размер, последний запуск, обложки — и запуск удаления
+                через лаунчер, когда игра больше не нужна.
+              </p>
+            </div>
+            <div class="feature-card">
               <div class="feature-icon">📊</div>
               <h3>Обзор диска</h3>
               <p>
@@ -448,7 +458,17 @@
               >
                 <img
                   src="img/img-dev-filters.png"
-                  alt="Developer Cache Cleaning"
+                  alt="Очистка кэша разработчика"
+                  onerror="this.style.display='none'"
+                />
+              </div>
+              <div
+                class="screenshot"
+                onclick="openModal('img/img-games.png', 'Игры и лаунчеры')"
+              >
+                <img
+                  src="img/img-games.png"
+                  alt="Вкладка игр и лаунчеров"
                   onerror="this.style.display='none'"
                 />
               </div>

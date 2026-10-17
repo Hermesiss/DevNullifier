@@ -20,7 +20,7 @@
     <title>DevNullifier - Clean Your Development Environment</title>
     <meta
       name="description"
-      content="Clean AppData, development caches, temporary files, and junk data with DevNullifier - a cross-platform desktop application for developers."
+      content="Clean AppData, development caches, Steam and Epic Games installs, temporary files, and junk data with DevNullifier — a cross-platform desktop app for developers."
     />
     <meta property="og:type" content="website" />
     <meta
@@ -33,7 +33,7 @@
     />
     <meta
       property="og:description"
-      content="Clean AppData, development caches, temporary files, and junk data with DevNullifier - a cross-platform desktop application for developers."
+      content="Clean AppData, development caches, Steam and Epic Games installs, temporary files, and junk data with DevNullifier — a cross-platform desktop app for developers."
     />
     <meta
       property="og:image"
@@ -51,7 +51,7 @@
     />
     <meta
       name="twitter:description"
-      content="Clean AppData, development caches, temporary files, and junk data with DevNullifier - a cross-platform desktop application for developers."
+      content="Clean AppData, development caches, Steam and Epic Games installs, temporary files, and junk data with DevNullifier — a cross-platform desktop app for developers."
     />
     <meta
       name="twitter:image"
@@ -104,8 +104,9 @@
         <br />
         <p>
           DevNullifier is a tool for cleaning development caches, temporary
-          files, and junk data. It can help you free up disk space and keep your
-          development environment tidy.
+          files, and junk data — and for listing Steam and Epic Games installs
+          so you can uninstall what you no longer need. Free up disk space and
+          keep your machine tidy.
         </p>
       </div>
     </header>
@@ -386,6 +387,15 @@
               </p>
             </div>
             <div class="feature-card">
+              <div class="feature-icon">🎮</div>
+              <h3>Steam &amp; Epic Games</h3>
+              <p>
+                See installed games and apps from Steam and the Epic Games
+                Store — size, last played, covers — and start uninstall from the
+                launcher when you want them gone.
+              </p>
+            </div>
+            <div class="feature-card">
               <div class="feature-icon">📊</div>
               <h3>Disk Overview</h3>
               <p>
@@ -452,6 +462,16 @@
                 <img
                   src="img/img-dev-filters.png"
                   alt="Developer Cache Cleaning"
+                  onerror="this.style.display='none'"
+                />
+              </div>
+              <div
+                class="screenshot"
+                onclick="openModal('img/img-games.png', 'Games &amp; Launchers')"
+              >
+                <img
+                  src="img/img-games.png"
+                  alt="Games and launchers cleaning interface"
                   onerror="this.style.display='none'"
                 />
               </div>
