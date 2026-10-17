@@ -6,6 +6,7 @@ import { loadSteamLastPlayed, parseLastPlayedMap } from "../games/steam/lastPlay
 import { steamUninstallUrl, uninstallSteamApp } from "../games/steam/uninstall";
 import { createSteamProvider } from "../games/steam/provider";
 import { scanGames, uninstallGame } from "../games/scanGames";
+import { resolveSteamArtworkPath, steamArtworkCandidates } from "../games/steam/artwork";
 import type { GameApp, LauncherProvider } from "../games/types";
 
 const steamRoot = path.join("C:", "Steam");
@@ -83,13 +84,13 @@ describe("Steam library + manifests", () => {
 });
 
 describe("Steam last played", () => {
-  it("parses LastPlayed seconds into ms", () => {
+  it("parses LastPlayed seconds into ms (lowercase valve key)", () => {
     const text = `
 "UserLocalConfigStore"
 {
 	"Software"
 	{
-		"Valve"
+		"valve"
 		{
 			"Steam"
 			{
@@ -129,7 +130,7 @@ describe("Steam last played", () => {
 {
 	"Software"
 	{
-		"Valve"
+		"valve"
 		{
 			"Steam"
 			{
@@ -148,7 +149,7 @@ describe("Steam last played", () => {
 {
 	"Software"
 	{
-		"Valve"
+		"valve"
 		{
 			"Steam"
 			{
@@ -164,6 +165,19 @@ describe("Steam last played", () => {
       }
     });
     expect(map.get("570")).toBe(200000);
+  });
+});
+
+describe("Steam artwork", () => {
+  it("prefers library_600x900 then header then logo", async () => {
+    const candidates = steamArtworkCandidates(steamRoot, "440");
+    expect(candidates[0]).toBe(
+      path.join(steamRoot, "appcache", "librarycache", "440", "library_600x900.jpg")
+    );
+    const hit = await resolveSteamArtworkPath(steamRoot, "440", {
+      pathExists: async target => target.endsWith(path.join("440", "header.jpg"))
+    });
+    expect(hit).toBe(path.join(steamRoot, "appcache", "librarycache", "440", "header.jpg"));
   });
 });
 
@@ -188,7 +202,7 @@ describe("Steam uninstall + scan routing", () => {
     expect(await scanGames([provider])).toEqual([]);
   });
 
-  it("lists installed apps with lastPlayed from provider", async () => {
+  it("lists installed apps with lastPlayed and artwork from provider", async () => {
     const provider = createSteamProvider({
       resolveSteamPath: async () => steamRoot,
       readFile: async filePath => {
@@ -217,7 +231,7 @@ describe("Steam uninstall + scan routing", () => {
 {
 	"Software"
 	{
-		"Valve"
+		"valve"
 		{
 			"Steam"
 			{
@@ -233,12 +247,15 @@ describe("Steam uninstall + scan routing", () => {
         }
         throw new Error(`unexpected read ${filePath}`);
       },
+      readArtworkFile: async () => Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
       readdir: async dir => {
         if (dir.endsWith("steamapps")) return ["appmanifest_570.acf"];
         if (dir.endsWith("userdata")) return ["42"];
         return [];
       },
-      pathExists: async () => true
+      pathExists: async target =>
+        !String(target).includes(path.join("appcache", "librarycache")) ||
+        String(target).endsWith(path.join("570", "logo.png"))
     });
 
     const apps = await provider.listInstalled();
@@ -251,6 +268,7 @@ describe("Steam uninstall + scan routing", () => {
       size: 50,
       lastPlayedAt: 1700000000 * 1000
     });
+    expect(apps[0].artworkDataUrl).toMatch(/^data:image\/png;base64,/);
   });
 
   it("routes uninstall-game through provider registry", async () => {

@@ -1,4 +1,5 @@
 import type { GameApp, LauncherProvider, UninstallGameResult } from "../types";
+import { loadSteamArtworkDataUrl, type ArtworkDeps } from "./artwork";
 import { detectSteamPath, type SteamDetectDeps } from "./detect";
 import { listSteamLibraryPaths, type LibraryDeps } from "./library";
 import { loadSteamLastPlayed, type LastPlayedDeps } from "./lastPlayed";
@@ -9,6 +10,7 @@ export type SteamProviderDeps = SteamDetectDeps &
   LibraryDeps &
   ManifestDeps &
   LastPlayedDeps &
+  ArtworkDeps &
   UninstallDeps & {
     resolveSteamPath?: () => Promise<string | null>;
   };
@@ -44,7 +46,8 @@ export function createSteamProvider(deps: SteamProviderDeps = {}): LauncherProvi
             installPath: manifest.installPath,
             size: manifest.size,
             kind: manifest.kind,
-            lastPlayedAt: lastPlayed.get(manifest.appId) ?? null
+            lastPlayedAt: lastPlayed.get(manifest.appId) ?? null,
+            artworkDataUrl: null
           };
           const existing = byAppId.get(manifest.appId);
           if (!existing || app.size > existing.size) {
@@ -53,7 +56,13 @@ export function createSteamProvider(deps: SteamProviderDeps = {}): LauncherProvi
         }
       }
 
-      return [...byAppId.values()].sort((a, b) => b.size - a.size);
+      const apps = [...byAppId.values()].sort((a, b) => b.size - a.size);
+      await Promise.all(
+        apps.map(async app => {
+          app.artworkDataUrl = await loadSteamArtworkDataUrl(steamRoot, app.appId, deps);
+        })
+      );
+      return apps;
     },
 
     uninstall(appId: string): Promise<UninstallGameResult> {

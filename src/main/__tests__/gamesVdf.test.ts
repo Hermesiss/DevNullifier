@@ -37,4 +37,32 @@ describe("parseVdf", () => {
     expect(vdfString(state, "name")).toBe("Dota 2");
     expect(vdfString(state, "SizeOnDisk")).toBe("42000000000");
   });
+
+  it("resolves Steam Software/valve path case-insensitively", () => {
+    const text = `
+"UserLocalConfigStore"
+{
+	"Software"
+	{
+		"valve"
+		{
+			"Steam"
+			{
+				"apps"
+				{
+					"220"
+					{
+						"LastPlayed"		"1700000000"
+					}
+				}
+			}
+		}
+	}
+}
+`;
+    const root = parseVdf(text);
+    const store = vdfObject(root, "UserLocalConfigStore");
+    const apps = vdfObject(store, "Software", "Valve", "Steam", "apps");
+    expect(vdfString(apps, "220", "LastPlayed")).toBe("1700000000");
+  });
 });

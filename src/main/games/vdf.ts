@@ -117,11 +117,21 @@ function tokenize(text: string): string[] {
   return tokens;
 }
 
+/** Case-insensitive child lookup — Steam VDFs mix `Valve` / `valve`. */
+export function vdfChild(obj: VdfObject, key: string): VdfValue | undefined {
+  if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+  const lower = key.toLowerCase();
+  for (const [k, v] of Object.entries(obj)) {
+    if (k.toLowerCase() === lower) return v;
+  }
+  return undefined;
+}
+
 export function vdfString(obj: VdfObject | undefined, ...pathKeys: string[]): string | undefined {
   let current: VdfValue | undefined = obj;
   for (const key of pathKeys) {
     if (!current || typeof current === "string") return undefined;
-    current = current[key];
+    current = vdfChild(current, key);
   }
   return typeof current === "string" ? current : undefined;
 }
@@ -130,7 +140,7 @@ export function vdfObject(obj: VdfObject | undefined, ...pathKeys: string[]): Vd
   let current: VdfValue | undefined = obj;
   for (const key of pathKeys) {
     if (!current || typeof current === "string") return undefined;
-    current = current[key];
+    current = vdfChild(current, key);
   }
   return current && typeof current === "object" ? current : undefined;
 }

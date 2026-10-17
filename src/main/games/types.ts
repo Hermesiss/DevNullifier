@@ -12,6 +12,8 @@ export interface GameApp {
   size: number;
   kind: GameAppKind;
   lastPlayedAt: number | null;
+  /** Local Steam library-cache image as data URL, when available. */
+  artworkDataUrl: string | null;
 }
 
 export interface UninstallGameRequest {

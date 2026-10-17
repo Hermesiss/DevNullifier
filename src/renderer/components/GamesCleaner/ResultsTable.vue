@@ -17,6 +17,13 @@
         <v-data-table :headers="headers" :items="filteredItems" item-value="id" :loading="isScanning"
             :loading-text="t('common.loading')" :items-per-page="50"
             :sort-by="[{ key: 'size', order: 'desc' }]" class="dn-results-table">
+            <template #item.artwork="{ item }">
+                <div class="game-art">
+                    <img v-if="item.artworkDataUrl" :src="item.artworkDataUrl" :alt="item.name" class="game-art__img" />
+                    <v-icon v-else size="28" class="game-art__placeholder">mdi-controller</v-icon>
+                </div>
+            </template>
+
             <template #item.launcherLabel="{ item }">
                 <v-chip size="x-small" variant="tonal" color="info">{{ item.launcherLabel }}</v-chip>
             </template>
@@ -60,6 +67,8 @@
                 <v-btn color="error" variant="tonal" size="small"
                     :loading="uninstallingId === item.id"
                     :disabled="isScanning || (isUninstalling && uninstallingId !== item.id)"
+                    @mouseenter="$emit('preview-uninstall', item)"
+                    @mouseleave="$emit('preview-uninstall', null)"
                     @click="$emit('uninstall', item)">
                     <v-icon start size="small">mdi-delete-outline</v-icon>
                     {{ t('common.games_uninstall') }}
@@ -87,6 +96,7 @@ const props = defineProps<{
 
 defineEmits<{
     uninstall: [item: GameApp]
+    'preview-uninstall': [item: GameApp | null]
 }>()
 
 const pathQuery = ref('')
@@ -94,6 +104,7 @@ const copiedPath = ref<string | null>(null)
 let copiedTimer: ReturnType<typeof setTimeout> | undefined
 
 const headers = computed(() => [
+    { title: '', key: 'artwork', sortable: false, width: '56px' },
     { title: t('common.games_launcher'), key: 'launcherLabel', sortable: true },
     { title: t('common.games_name'), key: 'name', sortable: true },
     { title: t('common.games_kind'), key: 'kind', sortable: true },
@@ -155,5 +166,32 @@ onUnmounted(() => {
     min-width: 220px;
     max-width: 420px;
     flex: 1 1 220px;
+}
+
+.game-art {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 56px;
+}
+
+.game-art__img {
+    width: 40px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: rgba(var(--v-theme-on-surface), 0.06);
+    image-rendering: auto;
+    image-rendering: smooth;
+    image-rendering: high-quality;
+    -ms-interpolation-mode: bicubic;
+    /* Soften downscale aliasing / JPEG blockiness at tiny thumb size */
+    filter: blur(0.35px);
+    transform: translateZ(0);
+}
+
+.game-art__placeholder {
+    opacity: 0.35;
 }
 </style>

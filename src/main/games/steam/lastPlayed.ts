@@ -46,10 +46,8 @@ export function parseLastPlayedMap(text: string): Map<string, number> {
     vdfObject(parsed, "userlocalconfigstore") ??
     parsed;
 
-  const apps =
-    vdfObject(store, "Software", "Valve", "Steam", "apps") ??
-    vdfObject(store, "software", "valve", "Steam", "apps") ??
-    vdfObject(store, "Software", "Valve", "Steam", "Apps");
+  // Real Steam files use Software/valve/Steam/apps (lowercase valve).
+  const apps = vdfObject(store, "Software", "Valve", "Steam", "apps");
 
   collectLastPlayedFromApps(apps, map);
   return map;
