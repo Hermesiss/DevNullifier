@@ -16,6 +16,47 @@
             :has-enabled-categories="hasEnabledCategories" :scan-progress="scanProgress" @start-scan="startScan"
             @quick-scan="startQuickScan" @stop-scan="stopScan" @show-notification="showNotification" />
 
+        <v-row class="mb-4">
+            <v-col cols="12">
+                <v-card>
+                    <v-card-title class="d-flex align-center">
+                        <v-icon start>mdi-toolbox-outline</v-icon>
+                        {{ t('common.tool_caches') }}
+                        <v-spacer />
+                        <v-btn color="primary" variant="outlined" size="small" :loading="isScanningToolCaches"
+                            :disabled="isScanning || isDeleting" @click="scanToolCaches">
+                            <v-icon start>mdi-database-search</v-icon>
+                            {{ t('common.scan_tool_caches') }}
+                        </v-btn>
+                    </v-card-title>
+                    <v-card-text v-if="toolCachesScanned">
+                        <p v-if="toolCaches.length === 0" class="mb-0">{{ t('common.no_tool_caches') }}</p>
+                        <v-table v-else density="compact">
+                            <thead>
+                                <tr>
+                                    <th class="tool-cache-check"></th>
+                                    <th>{{ t('common.tool_caches') }}</th>
+                                    <th>{{ t('common.path') }}</th>
+                                    <th class="text-end">{{ t('common.size') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="item in toolCaches" :key="item.path">
+                                    <td>
+                                        <v-checkbox-btn v-model="item.selected" :aria-label="item.label"
+                                            :disabled="isScanning || isDeleting || isScanningToolCaches" />
+                                    </td>
+                                    <td>{{ item.label }}</td>
+                                    <td class="text-truncate tool-cache-path" :title="item.path">{{ item.path }}</td>
+                                    <td class="text-end">{{ formatSize(item.size) }}</td>
+                                </tr>
+                            </tbody>
+                        </v-table>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
+
         <!-- Results Table -->
         <ResultsTable :projects="projects" :is-scanning="isScanning" :is-deleting="isDeleting"
             @open-folder-tree="openFolderTree" @cache-selection-changed="onCacheSelectionChanged" />
@@ -44,7 +85,8 @@ import CategoriesPanel from './DeveloperCleaner/CategoriesPanel.vue'
 import ControlPanel from './DeveloperCleaner/ControlPanel.vue'
 import ResultsTable from './DeveloperCleaner/ResultsTable.vue'
 import CategoryInfoDialog from './DeveloperCleaner/CategoryInfoDialog.vue'
-import type { DeveloperCategory, ProjectInfo } from '@/types'
+import type { DeveloperCategory, ProjectInfo, ToolCacheItem } from '@/types'
+import { formatSize } from '../utils/formatters'
 import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
 
 const { t } = useI18n()
@@ -66,6 +108,9 @@ const acceptScanDetail = ref(false)
 const categories = ref<DeveloperCategory[]>([])
 const hasEnabledCategories = ref(false)
 const scanProgress = ref(0)
+const toolCaches = ref<Array<ToolCacheItem & { selected: boolean }>>([])
+const toolCachesScanned = ref(false)
+const isScanningToolCaches = ref(false)
 
 // Component refs
 const categoriesPanel = ref<InstanceType<typeof CategoriesPanel> | null>(null)
@@ -209,18 +254,23 @@ const initialCategories: DeveloperCategory[] = [
 ]
 
 // Computed properties
+const selectedToolCaches = computed(() => toolCaches.value.filter(item => item.selected))
+
 const selectedCacheCount = computed(() => {
-    return projects.value.reduce((total, project) => {
+    const projectCount = projects.value.reduce((total, project) => {
         return total + project.caches.reduce((groupTotal, group) => {
             return groupTotal + group.matches.filter(match => match.selected).length
         }, 0)
     }, 0)
+    return projectCount + selectedToolCaches.value.length
 })
 
 const selectedCacheSize = computed(() => {
-    return projects.value.reduce((total, project) => {
+    const projectSize = projects.value.reduce((total, project) => {
         return total + (project.selectedCacheSize || 0)
     }, 0)
+    const toolSize = selectedToolCaches.value.reduce((total, item) => total + item.size, 0)
+    return projectSize + toolSize
 })
 
 // Methods
@@ -608,6 +658,29 @@ const processProject = (project: any): ProjectInfo => {
     }
 }
 
+const scanToolCaches = async (): Promise<void> => {
+    if (!window.electronAPI.scanGlobalCaches) {
+        showNotification(t('common.error'), 'error')
+        return
+    }
+
+    isScanningToolCaches.value = true
+    statusText.value = t('common.loading')
+    try {
+        const found = await window.electronAPI.scanGlobalCaches()
+        toolCaches.value = found.map(item => ({ ...item, selected: false }))
+        toolCachesScanned.value = true
+        statusText.value = t('common.ready')
+    } catch (error) {
+        console.error('Tool cache scan error:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        showNotification(`${t('common.error')}: ${errorMessage}`, 'error')
+        statusText.value = t('common.ready')
+    } finally {
+        isScanningToolCaches.value = false
+    }
+}
+
 // Delete functionality
 const confirmDelete = (): void => {
     if (selectedCacheCount.value === 0) {
@@ -623,8 +696,7 @@ const deleteCaches = async (): Promise<void> => {
     statusText.value = t('common.preparing_delete')
 
     try {
-        // Collect all selected cache paths from all projects
-        const selectedCachePaths: string[] = []
+        const selectedCachePaths: string[] = selectedToolCaches.value.map(item => item.path)
         projects.value.forEach(project => {
             project.caches.forEach(cacheGroup => {
                 cacheGroup.matches.forEach(match => {
@@ -660,6 +732,11 @@ const deleteCaches = async (): Promise<void> => {
         statusText.value = `${t('common.deletion_complete')}: ${parts.join(', ')}`
 
         if (successCount + partialCount > 0) {
+            const deletedPaths = new Set(
+                results.filter(result => result.success === true).map(result => result.path)
+            )
+            toolCaches.value = toolCaches.value.filter(item => !deletedPaths.has(item.path))
+
             // Get unique project paths that had caches deleted
             const affectedProjectPaths = new Set<string>()
             projects.value.forEach(project => {
@@ -708,5 +785,11 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Main component styles */
+.tool-cache-check {
+    width: 48px;
+}
+
+.tool-cache-path {
+    max-width: 480px;
+}
 </style>

@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.14]
+
+### Added
+
+- Dev Cleaner can list known tool caches in the home directory without walking projects. Missing paths are skipped.
+
 ## [1.3.13]
 
 ### Added

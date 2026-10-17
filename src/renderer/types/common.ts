@@ -42,6 +42,13 @@ export interface Folder {
   keyword?: string;
 }
 
+export interface ToolCacheItem {
+  id: string;
+  label: string;
+  path: string;
+  size: number;
+}
+
 export interface ElectronAPI {
   getAppDataPaths: () => Promise<string[]>;
   scanFolders: (paths: string[], maxDepth: number, resetAllowlist?: boolean) => Promise<FolderItem[]>;
@@ -51,6 +58,7 @@ export interface ElectronAPI {
     maxDepth?: number,
     resetAllowlist?: boolean
   ) => Promise<ProjectInfo[]>;
+  scanGlobalCaches: () => Promise<ToolCacheItem[]>;
   stopAppDataScan: () => Promise<void>;
   stopDeveloperScan: () => Promise<void>;
   deleteFolders: (folderPaths: string[]) => Promise<DeleteResult[]>;

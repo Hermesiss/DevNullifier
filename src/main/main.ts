@@ -22,8 +22,10 @@ import {
   canRead,
   collectDeveloperPaths,
   isProtectedPath,
+  normalizePathKey,
   type ProtectionContext
 } from "./deletionPolicy";
+import { collectExistingToolCaches, type ToolCacheFound } from "./globalToolCaches";
 import { pathMatchesExclude } from "./excludeGlobs";
 
 // Set user data path early
@@ -34,6 +36,7 @@ let currentAppDataScanWorker: Worker | null = null;
 let currentDeveloperScanWorker: Worker | null = null;
 let updateService: UpdateService | null = null;
 const scanAllowlist = new ScanAllowlist();
+let acceptedToolCaches: string[] = [];
 
 async function protectionContext(
   rules?: Pick<CleanerRules, "protectedPaths" | "excludeGlobs">
@@ -368,6 +371,26 @@ ipcMain.handle("get-folder-contents", async (event, folderPath: string): Promise
   }
 });
 
+ipcMain.handle("scan-global-caches", async () => {
+  const home = os.homedir();
+  const protection = await protectionContext();
+  const found = await collectExistingToolCaches(home, process.platform, {
+    stat: target => fsPromises.lstat(target),
+    getDirSize: target => fileUtils.getDirSize(target)
+  });
+
+  const visible: ToolCacheFound[] = [];
+  const accepted: string[] = [];
+  for (const item of found) {
+    if (!canDelete(item.path, new Set([normalizePathKey(item.path)]), protection)) continue;
+    accepted.push(item.path);
+    visible.push({ id: item.id, label: item.label, path: item.path, size: item.size });
+  }
+  acceptedToolCaches = accepted;
+  scanAllowlist.addDeveloper(accepted, protection);
+  return visible;
+});
+
 // Scan for developer caches
 ipcMain.handle(
   "scan-developer-caches",
@@ -377,8 +400,11 @@ ipcMain.handle(
       currentDeveloperScanWorker.terminate();
     }
 
-    if (resetAllowlist) scanAllowlist.beginDeveloperScan();
     const protection = await protectionContext();
+    if (resetAllowlist) {
+      scanAllowlist.beginDeveloperScan();
+      scanAllowlist.addDeveloper(acceptedToolCaches, protection);
+    }
 
     return new Promise((resolve, reject) => {
       const workerPath = path.join(__dirname, "developerScanWorker.js");

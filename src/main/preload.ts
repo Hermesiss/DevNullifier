@@ -41,6 +41,8 @@ const api: ElectronAPI = {
       resetAllowlist
     } as ScanDeveloperOptions),
 
+  scanGlobalCaches: () => ipcRenderer.invoke("scan-global-caches"),
+
   // Stop scanning
   stopAppDataScan: () => ipcRenderer.invoke("stop-appdata-scan"),
 
