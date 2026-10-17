@@ -76,6 +76,34 @@ describe("fileUtils", () => {
       expect(size).toBe(600); // 100 + 200 + 300 bytes
     });
 
+    it("does not follow a symlink", async () => {
+      const outside = path.join(os.tmpdir(), `dn-outside-${Date.now()}`);
+      await fs.writeFile(outside, "x".repeat(40));
+      const link = path.join(tempDir, "link");
+      try {
+        await fs.symlink(outside, link);
+      } catch {
+        await fs.rm(outside, { force: true });
+        return;
+      }
+
+      const size = await getDirSize(tempDir);
+      expect(size).toBe(0);
+      await fs.rm(outside, { force: true });
+    });
+
+    it("stops when the caller cancels", async () => {
+      await fs.writeFile(path.join(tempDir, "file.txt"), "abcde");
+      const size = await getDirSize(tempDir, () => false);
+      expect(size).toBe(0);
+    });
+
+    it("returns the size of a file", async () => {
+      const file = path.join(tempDir, "alone.txt");
+      await fs.writeFile(file, "abcd");
+      await expect(getDirSize(file)).resolves.toBe(4);
+    });
+
     it("should handle errors gracefully", async () => {
       // Try to get size of non-existent directory
       const nonExistentDir = path.join(tempDir, "does-not-exist");

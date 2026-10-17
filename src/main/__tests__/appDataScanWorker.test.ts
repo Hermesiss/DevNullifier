@@ -141,7 +141,45 @@ describe("FolderScanner", () => {
       
       // Should only process the directory, not the file
       expect(mockFsOps.getDirSize).toHaveBeenCalledTimes(1);
-      expect(mockFsOps.getDirSize).toHaveBeenCalledWith("/test/cache");
+      expect(mockFsOps.getDirSize).toHaveBeenCalledWith("/test/cache", expect.any(Function));
+    });
+
+    it("skips the application userData directory", async () => {
+      vi.mocked(mockFsOps.readdir).mockResolvedValue([
+        mockDirEntry("Cache", true)
+      ] as any);
+
+      const results = await scanner.scanPaths(
+        [mockUserDataPath],
+        3,
+        ["cache"],
+        mockUserDataPath
+      );
+
+      expect(results).toEqual([]);
+      expect(mockFsOps.readdir).not.toHaveBeenCalled();
+    });
+
+    it("does not treat Templates as a temp folder", async () => {
+      vi.mocked(mockFsOps.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/test") {
+          return [
+            mockDirEntry("Templates", true),
+            mockDirEntry("shadercache", true),
+            mockDirEntry("myreportfiles", true)
+          ] as any;
+        }
+        return [] as any;
+      });
+
+      const results = await scanner.scanPaths(
+        ["/test"],
+        1,
+        ["cache", "temp", "report"],
+        mockUserDataPath
+      );
+
+      expect(results.map(folder => folder.name)).toEqual(["shadercache"]);
     });
 
     it("should match keywords case-insensitively", async () => {

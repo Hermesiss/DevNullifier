@@ -35,6 +35,7 @@ export interface WorkerMessage {
   basePaths: string[];
   enabledCategories: Category[];
   userDataPath?: string;
+  maxDepth?: number;
 }
 
 export type WorkerResponse =

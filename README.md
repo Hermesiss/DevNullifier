@@ -98,7 +98,7 @@ Cleans development-related temporary folders that consume significant disk space
 
 ### Prerequisites
 
-- Node.js 18 or higher
+- Node.js 22 or higher
 - npm or yarn
 
 ### Installation

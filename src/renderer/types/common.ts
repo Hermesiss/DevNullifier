@@ -24,6 +24,14 @@ export interface DeleteResult {
   success: boolean | "partial";
 }
 
+export interface FolderContents {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  itemCount: number;
+}
+
 export interface Folder {
   path: string;
   size: number;
@@ -32,15 +40,19 @@ export interface Folder {
 
 export interface ElectronAPI {
   getAppDataPaths: () => Promise<string[]>;
-  scanFolders: (paths: string[], maxDepth: number) => Promise<FolderItem[]>;
-  scanDeveloperCaches: (basePaths: string[], enabledCategories: DeveloperCategory[]) => Promise<ProjectInfo[]>;
+  scanFolders: (paths: string[], maxDepth: number, resetAllowlist?: boolean) => Promise<FolderItem[]>;
+  scanDeveloperCaches: (
+    basePaths: string[],
+    enabledCategories: DeveloperCategory[],
+    maxDepth?: number,
+    resetAllowlist?: boolean
+  ) => Promise<ProjectInfo[]>;
   stopAppDataScan: () => Promise<void>;
   stopDeveloperScan: () => Promise<void>;
   deleteFolders: (folderPaths: string[]) => Promise<DeleteResult[]>;
-  checkAdmin: () => Promise<boolean>;
   selectDirectory: () => Promise<string | null>;
   getUserHome: () => Promise<string>;
-  getFolderContents: (folderPath: string) => Promise<string[]>;
+  getFolderContents: (folderPath: string) => Promise<FolderContents[]>;
   onScanProgress: (callback: (count: number) => void) => void;
   onScanCurrentPath: (callback: (path: string) => void) => void;
   onDeleteProgress: (callback: (count: number) => void) => void;

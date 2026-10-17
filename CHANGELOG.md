@@ -2,6 +2,46 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.2]
+
+### Changed
+
+- Selected files and folders go to the trash. Only paths from the current scan can be deleted. Drive roots, the user profile, and the app data directory are refused.
+- Symlinks and Windows junctions are not followed. Cache files such as `.eslintcache` can be removed.
+- Dev Cleaner leaves experiment results, editor settings, and project configuration in place. `vendor/` is removed only when `composer.lock` is present. Nested monorepo packages are scanned.
+- AppData depth "All" scans without a limit. Folder names match a keyword at the start or end, so `Templates` is not treated as temp.
+- The update check uses the GitHub release feed. The Windows installer no longer requests administrator rights.
+
+## [1.3.1]
+
+### Added
+
+- Dev Cleaner warnings, match counts, and relative dates in English and Russian
+
+### Fixed
+
+- Directory size keeps going when a single file or folder cannot be read
+
+## [1.3.0]
+
+### Added
+
+- Russian interface. The language follows the OS locale when none is saved
+- Project site in `docs/`, published with GitHub Pages
+
+## [1.2.6]
+
+### Fixed
+
+- Scan workers receive the app data path from the main process, so saving scan results no longer depends on Electron inside the worker
+
+## [1.2.5]
+
+### Added
+
+- Beta channel switch in the update menu
+- Release assets include blockmaps and a `latest-dev` feed
+
 ## [1.2.4] - Update Service
 
 ### Added

@@ -9,28 +9,51 @@ export function setUserDataPath(path: string) {
   userDataPath = path;
 }
 
-// Calculate directory size recursively
-export async function getDirSize(dirPath: string): Promise<number> {
-  let size = 0;
+// Size of a file, or of a directory without following symlinks or junctions.
+export async function getDirSize(
+  targetPath: string,
+  shouldContinue: () => boolean = () => true
+): Promise<number> {
+  if (!shouldContinue()) return 0;
+
+  let stats;
   try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
-
-      if (entry.isDirectory()) {
-        size += await getDirSize(fullPath);
-      } else {
-        try {
-          const stats = await fs.stat(fullPath);
-          size += stats.size;
-        } catch (err) {
-          console.warn("Error getting file size:", err);
-        }
-      }
-    }
+    stats = await fs.lstat(targetPath);
   } catch (err) {
     console.warn("Error getting directory size:", err);
+    return 0;
+  }
+
+  if (stats.isSymbolicLink()) return 0;
+  if (stats.isFile()) return stats.size;
+  if (!stats.isDirectory()) return 0;
+
+  let size = 0;
+  let entries;
+  try {
+    entries = await fs.readdir(targetPath, { withFileTypes: true });
+  } catch (err) {
+    console.warn("Error getting directory size:", err);
+    return 0;
+  }
+
+  for (const entry of entries) {
+    if (!shouldContinue()) return size;
+    const fullPath = path.join(targetPath, entry.name);
+    if (entry.isSymbolicLink()) continue;
+
+    try {
+      if (entry.isDirectory()) {
+        const child = await fs.lstat(fullPath);
+        if (child.isSymbolicLink()) continue;
+        size += await getDirSize(fullPath, shouldContinue);
+      } else {
+        const fileStats = await fs.lstat(fullPath);
+        if (!fileStats.isSymbolicLink()) size += fileStats.size;
+      }
+    } catch (err) {
+      console.warn("Error getting file size:", err);
+    }
   }
 
   return size;

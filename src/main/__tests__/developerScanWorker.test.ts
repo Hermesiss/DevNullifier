@@ -295,51 +295,39 @@ describe("developerScanWorker", () => {
 
     it("should continue scanning subdirectories when project has no caches", async () => {
       // Mock initial directory read
-      vi
-        .mocked(fs.readdir)
-        .mockResolvedValueOnce(
-          [
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/test/path") {
+          return [
             mockDirEntry("package.json", false),
             mockDirEntry("subproject", true)
-          ] as any
-        ) // Root dir
-        .mockResolvedValueOnce([mockDirEntry("package.json", false)] as any); // Subproject dir
+          ] as any;
+        }
+        if (dir === "/test/path/subproject") {
+          return [mockDirEntry("package.json", false)] as any;
+        }
+        return [] as any;
+      });
 
-      // Mock calculateCacheSizes to return no caches for root project but some for subproject
-      const mockCalculateCacheSizes = vi.spyOn(worker, "calculateCacheSizes");
-      mockCalculateCacheSizes
-        .mockResolvedValueOnce({ caches: [], totalSize: 0 }) // Root project
-        .mockResolvedValueOnce({
-          caches: [
-            {
-              pattern: "node_modules",
-              category: "TestProject",
-              matches: [],
-              totalSize: 1000,
-              selectedSize: 0,
-              expanded: false
-            }
-          ],
-          totalSize: 1000
-        }); // Subproject
-
-      // Mock fs.stat
-      vi.mocked(fs.stat).mockResolvedValue(
-        {
-          isDirectory: () => true,
-          mtime: new Date(),
-          size: 1000
-        } as any
-      );
+      vi.mocked(fs.stat).mockImplementation(async (target: any) => {
+        const value = String(target);
+        if (value.includes("/subproject") || value === "/test/path") {
+          return {
+            isDirectory: () => true,
+            isFile: () => false,
+            mtime: new Date(),
+            size: 1000
+          } as any;
+        }
+        throw new Error("ENOENT");
+      });
 
       const result = await worker.scanDeveloperProjects(
         ["/test/path"],
         [mockCategory]
       );
 
-      // Should find one project (the subproject)
       expect(result).toHaveLength(1);
-      expect(result[0].path).toContain("/test/path");
+      expect(result[0].path).toContain("/test/path/subproject");
       expect(result[0].totalCacheSize).toBe(2000);
     });
 
@@ -354,6 +342,96 @@ describe("developerScanWorker", () => {
 
       expect(Array.isArray(result)).toBe(true);
       expect(result).toEqual([]);
+    });
+
+    it("keeps scanning nested projects after the root already has cache", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") {
+          return [
+            mockDirEntry("package.json", false),
+            mockDirEntry("node_modules", true),
+            mockDirEntry("packages", true)
+          ] as any;
+        }
+        if (dir === "/repo/packages") return [mockDirEntry("pkg", true)] as any;
+        if (dir === "/repo/packages/pkg") return [mockDirEntry("package.json", false)] as any;
+        return [] as any;
+      });
+      const cacheSpy = vi.spyOn(worker, "calculateCacheSizes").mockResolvedValue({
+        caches: [],
+        totalSize: 10
+      });
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        mtime: new Date(),
+        size: 1
+      } as any);
+
+      try {
+        const result = await worker.scanDeveloperProjects(["/repo"], [mockCategory]);
+        const paths = result.map(project => project.path);
+
+        expect(paths).toContain("/repo");
+        expect(paths).toContain("/repo/packages/pkg");
+        expect(paths).not.toContain("/repo/node_modules");
+      } finally {
+        cacheSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("detection globs", () => {
+    it("does not let a dot in the pattern match any character", async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([mockDirEntry("gameXuproject", false)] as any);
+      const category: Category = {
+        name: "Unreal",
+        detectionFiles: ["*.uproject"],
+        cachePatterns: []
+      };
+
+      await expect(worker.checkProjectType("/game", [category])).resolves.toEqual([]);
+
+      vi.mocked(fs.readdir).mockResolvedValue([mockDirEntry("game.uproject", false)] as any);
+      await expect(worker.checkProjectType("/game", [category])).resolves.toEqual([category]);
+    });
+
+    it("matches a csproj by extension", async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([mockDirEntry("App.csproj", false)] as any);
+      const category: Category = {
+        name: ".NET",
+        detectionFiles: ["*.csproj"],
+        cachePatterns: []
+      };
+
+      await expect(worker.checkProjectType("/app", [category])).resolves.toEqual([category]);
+    });
+  });
+
+  describe("calculateCacheSizes", () => {
+    it("counts a path shared by two patterns once", async () => {
+      vi.mocked(fs.stat).mockImplementation(async (target: any) => {
+        if (String(target).endsWith("composer.lock")) {
+          return { isFile: () => true, isDirectory: () => false, size: 8, mtime: new Date() } as any;
+        }
+        return { isFile: () => false, isDirectory: () => true, size: 1000, mtime: new Date() } as any;
+      });
+
+      const result = await worker.calculateCacheSizes("/proj", [
+        { name: "PHP", detectionFiles: [], cachePatterns: ["vendor/"] },
+        { name: "Symfony", detectionFiles: [], cachePatterns: ["vendor/"] }
+      ]);
+
+      expect(result.totalSize).toBe(1000);
+    });
+
+    it("skips vendor when composer.lock is missing", async () => {
+      vi.mocked(fs.stat).mockRejectedValue(new Error("ENOENT"));
+
+      const result = await worker.calculateCacheSizes("/proj", [
+        { name: "PHP", detectionFiles: [], cachePatterns: ["vendor/"] }
+      ]);
+
+      expect(result.totalSize).toBe(0);
     });
   });
 });

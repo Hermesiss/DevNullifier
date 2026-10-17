@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue'
+import { summarizeDeleteResults } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
 import DeleteDialog from './DeleteDialog.vue'
 
@@ -74,10 +75,9 @@ const initialCategories: DeveloperCategory[] = [
         id: 'python',
         name: 'Python',
         enabled: true,
-        detectionFiles: ['main.py', 'requirements.txt', 'pyproject.toml', '.venv/', '*.py'],
-        cachePatterns: ['__pycache__/', '.pytest_cache/', '.mypy_cache/', '.tox/', '.hypothesis/', '.coverage', 'build/', 'dist/'],
-        warning: true,
-        warningText: ''
+        detectionFiles: ['main.py', 'requirements.txt', 'pyproject.toml', '.venv/'],
+        cachePatterns: ['__pycache__/', '.pytest_cache/', '.mypy_cache/', '.tox/', '.hypothesis/', '.coverage', 'build/', 'dist/', 'venv/', '.venv/'],
+        warning: true
     },
     {
         id: 'nodejs',
@@ -85,26 +85,23 @@ const initialCategories: DeveloperCategory[] = [
         enabled: true,
         detectionFiles: ['package.json', 'yarn.lock', 'vite.config.js', 'next.config.js', 'tsconfig.json'],
         cachePatterns: ['node_modules/', 'dist/', 'build/', '.next/', '.nuxt/', '.angular/', '.vite/', '.turbo/', '.expo/', '.parcel-cache/', '.eslintcache', '.cache/'],
-        warning: true,
-        warningText: ''
+        warning: true
     },
     {
         id: 'unity',
         name: 'Unity',
         enabled: true,
         detectionFiles: ['Assets/', 'ProjectSettings/', 'Packages/', '*.unity'],
-        cachePatterns: ['Library/', 'Temp/', 'Obj/', 'Build/', 'Builds/', '.vs/', 'Logs/', 'MemoryCaptures/', 'UserSettings/'],
-        warning: true,
-        warningText: ''
+        cachePatterns: ['Library/', 'Temp/', 'Obj/', 'Build/', 'Builds/', '.vs/', 'Logs/', 'MemoryCaptures/'],
+        warning: true
     },
     {
         id: 'unreal',
         name: 'Unreal Engine',
         enabled: true,
         detectionFiles: ['*.uproject', 'Source/', 'Content/'],
-        cachePatterns: ['Binaries/', 'Build/', 'Intermediate/', 'Saved/', 'DerivedDataCache/', 'Plugins/**/Intermediate/', 'Plugins/**/Binaries/'],
-        warning: true,
-        warningText: ''
+        cachePatterns: ['Binaries/', 'Build/', 'Intermediate/', 'Saved/Logs/', 'DerivedDataCache/', 'Plugins/**/Intermediate/', 'Plugins/**/Binaries/'],
+        warning: true
     },
     {
         id: 'rust',
@@ -112,33 +109,31 @@ const initialCategories: DeveloperCategory[] = [
         enabled: true,
         detectionFiles: ['Cargo.toml', 'Cargo.lock'],
         cachePatterns: ['target/', '.cargo/.package-cache/'],
-        warning: false
+        warning: true
     },
     {
         id: 'java',
         name: 'Java / Kotlin / Android',
         enabled: true,
         detectionFiles: ['build.gradle', 'pom.xml', 'AndroidManifest.xml', 'src/main/java/'],
-        cachePatterns: ['build/', 'out/', '.gradle/', '.idea/', 'target/', '.settings/'],
-        warning: true,
-        warningText: ''
+        cachePatterns: ['build/', 'out/', '.gradle/', '.idea/caches/', 'target/', '.settings/'],
+        warning: true
     },
     {
         id: 'dotnet',
         name: '.NET / C#',
         enabled: true,
-        detectionFiles: ['.csproj', '*.sln', 'Program.cs'],
+        detectionFiles: ['*.csproj', '*.sln', 'Program.cs'],
         cachePatterns: ['bin/', 'obj/', 'TestResults/'],
-        warning: false
+        warning: true
     },
     {
         id: 'cpp',
         name: 'C/C++',
         enabled: true,
-        detectionFiles: ['CMakeLists.txt', 'Makefile', '.vscode/launch.json', '*.cpp', '*.h'],
-        cachePatterns: ['build/', 'CMakeFiles/', 'cmake-build-debug/', 'cmake-build-release/', 'Debug/', 'Release/'],
-        warning: true,
-        warningText: ''
+        detectionFiles: ['CMakeLists.txt', 'compile_commands.json', '.vscode/launch.json'],
+        cachePatterns: ['build/', 'CMakeFiles/', 'cmake-build-debug/', 'cmake-build-release/'],
+        warning: true
     },
     {
         id: 'xcode',
@@ -146,17 +141,15 @@ const initialCategories: DeveloperCategory[] = [
         enabled: true,
         detectionFiles: ['*.xcodeproj', 'Info.plist', 'Podfile', '*.swift'],
         cachePatterns: ['DerivedData/', 'build/', '*.xcuserdata/', '*.xcuserdatad/'],
-        warning: true,
-        warningText: ''
+        warning: true
     },
     {
         id: 'php',
         name: 'PHP / Laravel',
         enabled: true,
-        detectionFiles: ['artisan', 'composer.json', 'routes/web.php', 'app/'],
+        detectionFiles: ['artisan', 'composer.json', 'routes/web.php'],
         cachePatterns: ['vendor/', 'bootstrap/cache/', 'storage/framework/cache/', '.phpunit.result.cache'],
-        warning: true,
-        warningText: ''
+        warning: true
     },
     {
         id: 'symfony',
@@ -164,32 +157,31 @@ const initialCategories: DeveloperCategory[] = [
         enabled: true,
         detectionFiles: ['bin/console', 'config/', 'composer.json', 'symfony.lock'],
         cachePatterns: ['var/cache/', 'var/logs/', 'vendor/'],
-        warning: false
+        warning: true
     },
     {
         id: 'ml',
         name: 'ML / Data Science',
         enabled: true,
-        detectionFiles: ['.ipynb', 'notebooks/', 'train.py', 'requirements.txt', 'wandb/'],
-        cachePatterns: ['checkpoints/', 'runs/', 'logs/', '.ipynb_checkpoints/', '.cache/', 'wandb/', 'mlruns/'],
-        warning: true,
-        warningText: ''
+        detectionFiles: ['.ipynb', 'notebooks/', 'train.py', 'requirements.txt'],
+        cachePatterns: ['logs/', '.ipynb_checkpoints/', '.cache/'],
+        warning: true
     },
     {
         id: 'docker',
         name: 'Docker / DevOps',
         enabled: true,
-        detectionFiles: ['Dockerfile', 'docker-compose.yml', '.env', '.docker/'],
-        cachePatterns: ['tmp/', '.cache/', 'coverage/', 'report/'],
-        warning: false
+        detectionFiles: ['Dockerfile', 'docker-compose.yml', '.docker/'],
+        cachePatterns: ['.cache/', 'coverage/', 'report/'],
+        warning: true
     },
     {
         id: 'static',
         name: 'Static Site Generators',
         enabled: true,
-        detectionFiles: ['gatsby-config.js', 'config.toml', '_config.yml', 'content/'],
-        cachePatterns: ['public/', '.cache/', 'dist/'],
-        warning: false
+        detectionFiles: ['gatsby-config.js', 'config.toml', '_config.yml'],
+        cachePatterns: ['.cache/', 'dist/'],
+        warning: true
     },
     {
         id: 'testing',
@@ -197,16 +189,15 @@ const initialCategories: DeveloperCategory[] = [
         enabled: true,
         detectionFiles: ['jest.config.js', 'pytest.ini', '.coveragerc', 'tests/'],
         cachePatterns: ['.coverage/', 'coverage/', 'reports/', '.nyc_output/', '.jest/', '.test_cache/'],
-        warning: false
+        warning: true
     },
     {
         id: 'ides',
         name: 'IDEs / Editors',
         enabled: true,
-        detectionFiles: ['.idea/', '.vscode/', '.history/', '*.sublime-*', '.DS_Store'],
+        detectionFiles: ['.idea/', '.history/', '*.sublime-*'],
         cachePatterns: ['.idea/workspace.xml', '.idea/caches/', '.vscode/ipch/', '.DS_Store', 'Thumbs.db'],
-        warning: true,
-        warningText: ''
+        warning: true
     }
 ]
 
@@ -284,8 +275,7 @@ const startScan = async (basePaths: string[]): Promise<void> => {
                 enabled: cat.enabled,
                 detectionFiles: [...cat.detectionFiles],
                 cachePatterns: [...cat.cachePatterns],
-                warning: cat.warning,
-                warningText: cat.warningText
+                warning: cat.warning
             }))
 
         // Listen for real-time project updates
@@ -306,7 +296,7 @@ const startScan = async (basePaths: string[]): Promise<void> => {
             window.electronAPI.onDeveloperProjectFound(handleProjectFound)
         }
 
-        const result = await window.electronAPI.scanDeveloperCaches(plainBasePaths, enabledCategories)
+        const result = await window.electronAPI.scanDeveloperCaches(plainBasePaths, enabledCategories, undefined, true)
 
         // Process any remaining projects not caught by real-time updates
         result.forEach((project: any) => {
@@ -326,9 +316,23 @@ const startScan = async (basePaths: string[]): Promise<void> => {
             path: project.path,
             lastModified: project.lastModified,
             type: project.type,
-            selectedCacheSize: project.selectedCacheSize,
+            selectedCacheSize: 0,
             totalCacheSize: project.totalCacheSize,
-            caches: []
+            caches: project.caches.map(group => ({
+                pattern: group.pattern,
+                category: group.category,
+                totalSize: group.totalSize,
+                selectedSize: 0,
+                expanded: false,
+                matches: group.matches.map(match => ({
+                    path: match.path,
+                    relativePath: match.relativePath,
+                    size: match.size,
+                    selected: false,
+                    categories: match.categories,
+                    patterns: match.patterns
+                }))
+            }))
         }))
         await window.electronAPI.saveDeveloperProjects(plainProjects)
 
@@ -344,12 +348,14 @@ const startScan = async (basePaths: string[]): Promise<void> => {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         showNotification(`${t('common.error_scan')}: ${errorMessage}`, 'error')
     } finally {
+        window.electronAPI.removeAllListeners?.('developer-project-found')
         isScanning.value = false
     }
 }
 
 const startQuickScan = async (): Promise<void> => {
     try {
+        window.electronAPI.removeAllListeners?.('developer-project-found')
         isScanning.value = true
         statusText.value = t('common.loading_saved_projects')
         projects.value = []
@@ -370,8 +376,7 @@ const startQuickScan = async (): Promise<void> => {
                 enabled: cat.enabled,
                 detectionFiles: [...cat.detectionFiles],
                 cachePatterns: [...cat.cachePatterns],
-                warning: cat.warning,
-                warningText: cat.warningText
+                warning: cat.warning
             }))
 
         statusText.value = t('common.checking_saved_projects')
@@ -381,11 +386,8 @@ const startQuickScan = async (): Promise<void> => {
             scanProgress.value = (index + 1) / savedProjects.length * 100
             const project = savedProjects[index]
             try {
-                // Rescan the project to get updated cache information
-                const [rescannedProject] = await window.electronAPI.scanDeveloperCaches([project.path], enabledCategories)
-                if (rescannedProject) {
-                    validProjects.push(processProject(rescannedProject))
-                }
+                const refreshed = await refreshSavedProject(project, enabledCategories)
+                if (refreshed) validProjects.push(refreshed)
             } catch {
                 console.warn(`Project no longer accessible: ${project.path}`)
             }
@@ -415,6 +417,7 @@ const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => 
     }
 
     try {
+        window.electronAPI.removeAllListeners?.('developer-project-found')
         statusText.value = t('common.updating_projects_count', { count: projectPaths.length })
 
         // Create serializable data - convert Vue reactive arrays to plain arrays/objects
@@ -426,12 +429,11 @@ const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => 
                 enabled: cat.enabled,
                 detectionFiles: [...cat.detectionFiles],
                 cachePatterns: [...cat.cachePatterns],
-                warning: cat.warning,
-                warningText: cat.warningText
+                warning: cat.warning
             }))
 
         // Scan only the specific project paths
-        const result = await window.electronAPI.scanDeveloperCaches(projectPaths, enabledCategories)
+        const result = await window.electronAPI.scanDeveloperCaches(projectPaths, enabledCategories, 0, false)
 
         // Update only the scanned projects in the existing list
         result.forEach((scannedProject: any) => {
@@ -470,6 +472,37 @@ const stopScan = async (): Promise<void> => {
     } finally {
         isScanning.value = false
     }
+}
+
+const refreshSavedProject = async (project: ProjectInfo, enabledCategories: DeveloperCategory[]): Promise<ProjectInfo | null> => {
+    if (!project.caches?.length) {
+        const [rescannedProject] = await window.electronAPI.scanDeveloperCaches([project.path], enabledCategories, 0, false)
+        return rescannedProject ? processProject(rescannedProject) : null
+    }
+
+    const caches = []
+    for (const group of project.caches) {
+        const matches = []
+        for (const match of group.matches) {
+            const size = await window.electronAPI.getDirectorySize(match.path)
+            if (size > 0) matches.push({ ...match, size, selected: false })
+        }
+        if (matches.length === 0) continue
+        caches.push({
+            ...group,
+            matches,
+            totalSize: matches.reduce((sum, match) => sum + match.size, 0),
+            selectedSize: 0,
+            expanded: false
+        })
+    }
+
+    if (caches.length === 0) return null
+    return processProject({
+        ...project,
+        caches,
+        totalCacheSize: caches.reduce((sum, group) => sum + group.totalSize, 0)
+    })
 }
 
 // Helper function to process projects
@@ -537,28 +570,22 @@ const deleteCaches = async (): Promise<void> => {
         statusText.value = t('common.deleting_cache_folders', { count: selectedCachePaths.length })
 
         const results = await window.electronAPI.deleteFolders([...selectedCachePaths])
-
-        const successCount = results.filter((r: any) => r.success).length
-        const failCount = results.length - successCount
+        const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 
         const parts: string[] = []
         if (successCount > 0) parts.push(`${successCount} ${t('common.deleted')}`)
+        if (partialCount > 0) parts.push(`${partialCount} ${t('common.partial')}`)
         if (failCount > 0) parts.push(`${failCount} ${t('common.failed')}`)
 
-        let message = ''
-        if (failCount === 0) {
-            message = t('common.success_deleted_cache', { count: successCount })
-        } else if (successCount === 0) {
-            message = t('common.fail_deleted_cache', { count: failCount })
-        } else {
-            message = t('common.deleted_cache_failed', { success: successCount, fail: failCount })
-        }
+        const fullyDeleted = failCount === 0 && partialCount === 0
+        const message = fullyDeleted
+            ? t('common.success_deleted_cache', { count: successCount })
+            : parts.join(', ')
 
-        showNotification(message, failCount === 0 ? 'success' : 'warning')
+        showNotification(message, fullyDeleted ? 'success' : 'warning')
         statusText.value = `${t('common.deletion_complete')}: ${parts.join(', ')}`
 
-        // Refresh only the projects that had caches deleted
-        if (successCount > 0) {
+        if (successCount + partialCount > 0) {
             // Get unique project paths that had caches deleted
             const affectedProjectPaths = new Set<string>()
             projects.value.forEach(project => {

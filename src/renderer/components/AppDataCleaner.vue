@@ -26,13 +26,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { summarizeDeleteResults } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
 import ControlPanel from './AppDataCleaner/ControlPanel.vue'
 import ResultsTable from './AppDataCleaner/ResultsTable.vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
-import type { DeleteResult, FolderItem } from '@/types'
+import type { FolderItem } from '@/types'
 
 const { t } = useI18n()
 
@@ -40,6 +41,7 @@ const { t } = useI18n()
 const folders = ref<FolderItem[]>([])
 const selectedFolders = ref<string[]>([])
 const maxDepth = ref(3)
+const scanDepth = () => maxDepth.value === 0 ? -1 : maxDepth.value
 const isScanning = ref(false)
 const isDeleting = ref(false)
 const showDeleteDialog = ref(false)
@@ -125,7 +127,7 @@ const startScan = async (): Promise<void> => {
                 }
             }
         })
-        await window.electronAPI.scanFolders(paths, maxDepth.value)
+        await window.electronAPI.scanFolders(paths, scanDepth(), true)
         // Only sort and show success if we weren't terminated
         if (isScanning.value) {
             // Sort at the end for display
@@ -248,7 +250,7 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
         })
 
         // Rescan only the affected directories
-        await window.electronAPI.scanFolders(affectedPaths, maxDepth.value)
+        await window.electronAPI.scanFolders(affectedPaths, scanDepth(), false)
 
         // Re-sort the entire list
         folders.value.sort((a, b) => b.size - a.size)
@@ -303,10 +305,7 @@ const deleteFolders = async (): Promise<void> => {
         statusText.value = t('common.deleting_folders')
 
         const results = await window.electronAPI.deleteFolders([...selectedFolders.value])
-
-        const successCount = results.filter((r: DeleteResult) => r.success === true).length
-        const partialCount = results.filter((r: DeleteResult) => r.success === 'partial').length
-        const failCount = results.filter((r: DeleteResult) => r.success === false).length
+        const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 
         const { message, color } = buildDeleteResultMessage(successCount, partialCount, failCount)
         emit('showNotification', message, color)
@@ -351,6 +350,7 @@ const removeEventListeners = (): void => {
     window.electronAPI.removeAllListeners('scan-progress')
     window.electronAPI.removeAllListeners('scan-current-path')
     window.electronAPI.removeAllListeners('delete-progress')
+    window.electronAPI.removeAllListeners('scan-folder-found')
 }
 
 onMounted(setupEventListeners)

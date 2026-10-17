@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs/promises";
 import type { Dirent } from "fs";
 import * as fileUtils from "./fileUtils";
+import { folderNameMatchesKeyword } from "./appDataCleaner";
 
 export interface Folder {
   path: string;
@@ -35,6 +36,7 @@ export class FolderScanner {
   private foundCount = 0;
   private isScanning = true;
   private foldersToSend: Folder[] = [];
+  private userDataPath = "";
   private readonly maxFoldersPerMessage = 20;
 
   constructor(
@@ -62,13 +64,16 @@ export class FolderScanner {
     currentDepth: number
   ): Promise<Folder[]> {
     const results: Folder[] = [];
+    if (typeof entry.isSymbolicLink === "function" && entry.isSymbolicLink()) {
+      return results;
+    }
+
     const fullPath = this.normalizePath(path.join(dirPath, entry.name));
-    const folderName = entry.name.toLowerCase();
+    if (this.isInsideUserData(fullPath)) return results;
 
     try {
-      // Check if folder name contains any keywords
-      if (keywords.some(keyword => folderName.includes(keyword))) {
-        const size = await this.fsOps.getDirSize(fullPath);
+      if (folderNameMatchesKeyword(entry.name, keywords)) {
+        const size = await this.fsOps.getDirSize(fullPath, () => this.isScanning);
         if (size > 0) {
           const folder: Folder = {
             path: fullPath,
@@ -117,7 +122,7 @@ export class FolderScanner {
   ): Promise<Folder[]> {
     const results: Folder[] = [];
     const normalizedPath = this.normalizePath(dirPath);
-    if (!this.isScanning) {
+    if (!this.isScanning || this.isInsideUserData(normalizedPath)) {
       return results;
     }
 
@@ -149,6 +154,13 @@ export class FolderScanner {
     return results;
   }
 
+  private isInsideUserData(fullPath: string): boolean {
+    if (!this.userDataPath) return false;
+    const norm = this.normalizePath(fullPath).toLowerCase();
+    const user = this.normalizePath(this.userDataPath).toLowerCase();
+    return norm === user || norm.startsWith(`${user}/`);
+  }
+
   async scanPaths(
     paths: string[],
     maxDepth: number,
@@ -158,6 +170,7 @@ export class FolderScanner {
     const allResults: Folder[] = [];
     this.foundCount = 0;
     this.isScanning = true;
+    this.userDataPath = userDataPath;
 
     try {
       // Set the userDataPath for fileUtils

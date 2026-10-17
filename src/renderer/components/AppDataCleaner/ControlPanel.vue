@@ -78,7 +78,7 @@ const emit = defineEmits<{
 const savedFoldersCount = ref(0)
 
 const depthLabel = computed(() => {
-    return props.maxDepth === 0 ? 'All' : props.maxDepth
+    return props.maxDepth === 0 ? t('common.all') : props.maxDepth
 })
 
 

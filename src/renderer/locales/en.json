@@ -37,8 +37,8 @@
     "size": "Size",
     "cancel": "Cancel",
     "confirm_deletion": "Confirm Deletion",
-    "delete_warning": "This action cannot be undone!",
-    "delete_folders_count": "This will permanently delete {count} folders.",
+    "delete_warning": "Items are moved to the trash. You can restore them until the trash is emptied.",
+    "delete_folders_count": "This will move {count} folders to the trash.",
     "total_size_deleted": "Total size to be deleted: {size}",
     "dev_categories": "Development Categories",
     "enabled": "enabled",
@@ -117,16 +117,22 @@
     "today": "Today",
     "days_ago": "days ago",
     "warnings": {
-      "python": "venv/ might be the main virtual environment – be careful if no lockfile exists",
-      "nodejs": "node_modules/ may exist in subfolders if using monorepos",
-      "unity": "Library/ is only temporal at the Unity project root — could be important elsewhere",
-      "unreal": "Saved/Config/ might contain useful settings — review before deleting",
-      "java": ".idea/ may contain custom settings — remove only cache/temp files inside",
-      "cpp": "build/ might be used manually — check first",
+      "python": "venv/ and .venv/ are virtual environments. They can be recreated, but only if you can reinstall the dependencies.",
+      "nodejs": "node_modules/ can be restored by the package manager. Nested packages in a monorepo are scanned separately.",
+      "unity": "Library/ is regenerable and can be very large. UserSettings/ is editor configuration and is not deleted.",
+      "unreal": "Saved/ holds SaveGames, Config, and logs. Only Saved/Logs/ is deleted.",
+      "java": "Only .idea/caches/ is deleted. The rest of .idea/ is project configuration.",
+      "cpp": "CMake build directories are deleted. Debug/ and Release/ are left alone because they may be a build you still need.",
       "xcode": "Global DerivedData/ lives in ~/Library/Developer/Xcode/DerivedData",
-      "php": "Only delete vendor/ if composer.lock is present",
-      "ml": "Don't delete checkpoints unless you're sure they're not needed",
-      "ides": "Don't remove .idea/modules.xml or .vscode/settings.json if project-specific"
+      "php": "vendor/ is deleted only when composer.lock is present.",
+      "ml": "checkpoints/, wandb/, mlruns/, and runs/ are experiment results and are not deleted.",
+      "ides": "Only editor caches and workspace.xml are deleted, not project settings.",
+      "rust": "target/ is build output. cargo build recreates it.",
+      "dotnet": "bin/ and obj/ are build output. A rebuild recreates them.",
+      "symfony": "vendor/ is deleted only when composer.lock is present. var/cache/ is regenerable.",
+      "docker": ".env does not mark a project, and tmp/ is not deleted.",
+      "static": "public/ can be site source. Only .cache/ and dist/ are deleted.",
+      "testing": "Coverage and test caches are recreated the next time the tests run."
     },
     "category_names": {
       "python": "Python",
@@ -146,5 +152,21 @@
       "testing": "Testing Tools",
       "ides": "IDEs / Editors"
     }
+  },
+  "update": {
+    "title": "Software Update",
+    "beta": "Use Beta Channel",
+    "checking": "Checking for updates...",
+    "available": "A new version is available!",
+    "version": "Version {version}",
+    "size": "Size: {size}",
+    "transferred": "{done} of {total}",
+    "speed": "Speed: {speed}/s",
+    "up_to_date": "Your software is up to date.",
+    "install": "Install Update",
+    "check": "Check for Updates",
+    "failed_check": "Failed to check for updates",
+    "failed_install": "Failed to install update",
+    "error": "Update error occurred"
   }
 }

@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { UpdateService } from "../updateService";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import { autoUpdater, UpdateInfo, ProgressInfo } from "electron-updater";
 import log from "electron-log";
 
@@ -70,9 +70,12 @@ describe("UpdateService", () => {
     it("should configure logging and update source correctly", () => {
       expect(log.transports.file.level).toBe("info");
       expect(autoUpdater.logger).toBe(log);
-      expect(autoUpdater.setFeedURL).toHaveBeenCalledWith(
-        "https://github.com/Hermesiss/DevNullifier/releases/latest/download/"
-      );
+      expect(autoUpdater.setFeedURL).toHaveBeenCalledWith({
+        provider: "github",
+        owner: "Hermesiss",
+        repo: "DevNullifier"
+      });
+      expect(autoUpdater.allowPrerelease).toBe(false);
     });
 
     it("should set up all required event listeners", () => {
@@ -174,6 +177,23 @@ describe("UpdateService", () => {
     it("should call quitAndInstall on autoUpdater", () => {
       updateService.quitAndInstall();
       expect(autoUpdater.quitAndInstall).toHaveBeenCalled();
+    });
+
+    it("registers set-update-channel once and keeps the GitHub feed for beta", () => {
+      const registrations = () =>
+        vi.mocked(ipcMain.handle).mock.calls.filter(call => call[0] === "set-update-channel").length;
+
+      const before = registrations();
+      new UpdateService(mockMainWindow as BrowserWindow);
+      expect(registrations()).toBe(before);
+
+      updateService.setUpdateChannel("latest-dev");
+      expect(autoUpdater.allowPrerelease).toBe(true);
+      expect(autoUpdater.setFeedURL).toHaveBeenLastCalledWith({
+        provider: "github",
+        owner: "Hermesiss",
+        repo: "DevNullifier"
+      });
     });
   });
 }); 

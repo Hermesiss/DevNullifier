@@ -10,6 +10,8 @@ interface ScanFoldersOptions {
 interface ScanDeveloperOptions {
   basePaths: string[];
   enabledCategories: Category[];
+  maxDepth?: number;
+  resetAllowlist?: boolean;
 }
 
 // Export the API type for use in other files
@@ -22,14 +24,21 @@ const api: ElectronAPI = {
   getAppDataPaths: () => ipcRenderer.invoke("get-appdata-paths"),
 
   // Scan for folders
-  scanFolders: (paths: string[], maxDepth: number) =>
-    ipcRenderer.invoke("scan-folders", { paths, maxDepth } as ScanFoldersOptions),
+  scanFolders: (paths: string[], maxDepth: number, resetAllowlist = false) =>
+    ipcRenderer.invoke("scan-folders", { paths, maxDepth, resetAllowlist } as ScanFoldersOptions & { resetAllowlist: boolean }),
 
   // Scan for developer caches
-  scanDeveloperCaches: (basePaths: string[], enabledCategories: Category[]) =>
+  scanDeveloperCaches: (
+    basePaths: string[],
+    enabledCategories: Category[],
+    maxDepth?: number,
+    resetAllowlist = false
+  ) =>
     ipcRenderer.invoke("scan-developer-caches", {
       basePaths,
-      enabledCategories
+      enabledCategories,
+      maxDepth,
+      resetAllowlist
     } as ScanDeveloperOptions),
 
   // Stop scanning
@@ -41,9 +50,6 @@ const api: ElectronAPI = {
   // Delete folders
   deleteFolders: (folderPaths: string[]) =>
     ipcRenderer.invoke("delete-folders", folderPaths),
-
-  // Check admin privileges
-  checkAdmin: () => ipcRenderer.invoke("check-admin"),
 
   // Select directory
   selectDirectory: () => ipcRenderer.invoke("select-directory"),
