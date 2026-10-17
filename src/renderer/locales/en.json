@@ -170,6 +170,10 @@
     "log_status_error": "Failed",
     "relaunch_elevated": "Restart as administrator",
     "relaunch_elevated_hint": "A folder outside your profile could not be read.",
+    "settings": "Settings",
+    "update_channel": "Update channel",
+    "update_channel_stable": "Stable",
+    "update_channel_dev": "Development",
     "warnings": {
       "python": "venv/ and .venv/ are virtual environments. They can be recreated, but only if you can reinstall the dependencies.",
       "nodejs": "node_modules/ can be restored by the package manager. Nested packages in a monorepo are scanned separately.",

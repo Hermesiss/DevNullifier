@@ -13,11 +13,6 @@
             </v-card-title>
 
             <v-card-text>
-                <div class="mb-4">
-                    <v-switch v-model="useBetaChannel" :label="t('update.beta')" color="warning" hide-details
-                        @change="handleBetaChannelChange" />
-                </div>
-
                 <div v-if="checking" class="d-flex align-center">
                     <v-progress-circular indeterminate size="24" class="mr-2" />
                     {{ t('update.checking') }}
@@ -75,7 +70,6 @@ const error = ref<string | null>(null);
 const updateAvailable = ref(false);
 const updateInfo = ref<any>(null);
 const downloadProgress = ref<any>(null);
-const useBetaChannel = ref(localStorage.getItem('useBetaChannel') === 'true');
 
 // Format bytes to human readable format
 function formatBytes(bytes: number): string {
@@ -131,16 +125,8 @@ function handleUpdateStatus(status: { message: string; data?: any }) {
     }
 }
 
-async function handleBetaChannelChange() {
-    localStorage.setItem('useBetaChannel', useBetaChannel.value.toString());
-    await window.electronAPI.setUpdateChannel(useBetaChannel.value ? 'latest-dev' : 'latest');
-    checkForUpdates();
-}
-
-onMounted(async () => {
+onMounted(() => {
     window.electronAPI.onUpdateStatus(handleUpdateStatus);
-    // Set initial update channel
-    await window.electronAPI.setUpdateChannel(useBetaChannel.value ? 'latest-dev' : 'latest');
 });
 
 onUnmounted(() => {

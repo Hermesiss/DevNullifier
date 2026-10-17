@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.20]
+
+### Changed
+
+- Language, theme, update channel, permanent delete, thresholds, protected paths, and exclusions are in one Settings screen.
+
 ## [1.3.19]
 
 ### Added

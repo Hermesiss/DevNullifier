@@ -69,7 +69,7 @@
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
-            <ActionsBar v-model:permanent-delete="permanentDelete" :status-text="statusText" :delete-progress="0"
+            <ActionsBar :status-text="statusText" :delete-progress="0"
                 :selected-count="selectedCacheCount" :is-scanning="isScanning" :is-deleting="isDeleting"
                 @delete="confirmDelete" />
         </v-footer>

@@ -13,13 +13,6 @@
                         style="width: 200px" class="mx-4" />
                 </v-col>
 
-                <v-col cols="auto" class="mr-4">
-                    <v-switch v-model="permanentDelete" class="permanent-delete-switch" density="compact"
-                        hide-details="auto" persistent-hint :color="permanentDelete ? 'error' : undefined"
-                        :disabled="isScanning || isDeleting" :label="t('common.delete_permanently')"
-                        :hint="t('common.delete_permanently_hint')" />
-                </v-col>
-
                 <v-col cols="auto" class="mr-2">
                     <v-btn color="error" :disabled="selectedCount === 0 || isScanning || isDeleting"
                         :loading="isDeleting" @click="$emit('delete')">
@@ -37,7 +30,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-const props = defineProps<{
+defineProps<{
     statusText: string
     deleteProgress: number
     selectedCount: number
@@ -45,15 +38,7 @@ const props = defineProps<{
     isDeleting: boolean
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
     delete: []
 }>()
-
-const permanentDelete = defineModel<boolean>("permanentDelete", { default: false })
 </script>
-
-<style scoped>
-.permanent-delete-switch {
-    max-width: 280px;
-}
-</style>

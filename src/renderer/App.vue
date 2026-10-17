@@ -21,46 +21,10 @@
         <v-tooltip activator="parent" location="bottom">{{ t('common.deletion_log') }}</v-tooltip>
       </v-btn>
 
-      <v-btn icon class="mr-2" @click="showProtectedPaths = true">
-        <v-icon>mdi-shield</v-icon>
-        <v-tooltip activator="parent" location="bottom">{{ t('common.protected_paths') }}</v-tooltip>
+      <v-btn icon @click="showSettings = true">
+        <v-icon>mdi-cog</v-icon>
+        <v-tooltip activator="parent" location="bottom">{{ t('common.settings') }}</v-tooltip>
       </v-btn>
-
-      <v-menu>
-        <template v-slot:activator="{ props }">
-          <v-btn icon v-bind="props">
-            <v-icon>{{ getThemeIcon() }}</v-icon>
-            <v-tooltip activator="parent" location="bottom">{{ t('theme.' + themeMode) }}</v-tooltip>
-          </v-btn>
-        </template>
-        <v-list>
-          <v-list-item v-for="mode in themeModes" :key="mode.value" @click="setThemeMode(mode.value)"
-            :class="{ 'v-list-item--active': themeMode === mode.value }">
-            <template v-slot:prepend>
-              <v-icon>{{ mode.icon }}</v-icon>
-            </template>
-            <v-list-item-title>{{ t('theme.' + mode.value) }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
-
-      <v-menu>
-        <template v-slot:activator="{ props }">
-          <v-btn icon v-bind="props">
-            <span class="text-h6">{{ currentLanguage.icon }}</span>
-            <v-tooltip activator="parent" location="bottom">{{ currentLanguage.title }}</v-tooltip>
-          </v-btn>
-        </template>
-        <v-list>
-          <v-list-item v-for="lang in languages" :key="lang.value" @click="setLanguage(lang.value)"
-            :class="{ 'v-list-item--active': locale === lang.value }">
-            <template v-slot:prepend>
-              <span class="mr-2">{{ lang.icon }}</span>
-            </template>
-            <v-list-item-title>{{ lang.title }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
     </v-app-bar>
 
     <v-main>
@@ -89,7 +53,13 @@
     </v-main>
 
     <NotificationSnackbar v-model="showSnackbar" :text="snackbarText" :color="snackbarColor" />
-    <ProtectedPathsDialog v-model="showProtectedPaths" />
+    <SettingsDialog
+      v-model="showSettings"
+      :language="locale"
+      :theme-mode="themeMode"
+      @update:language="setLanguage"
+      @update:theme-mode="setThemeMode"
+    />
 
     <v-dialog v-model="showDeletionLog" max-width="960">
       <v-card>
@@ -138,7 +108,7 @@ import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
-import ProtectedPathsDialog from './components/ProtectedPathsDialog.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
 import { formatDate, formatSize } from './utils/formatters'
 import type { DeletionLogEntry } from '../main/deletionLog'
 import { accessDeniedOutsideProfile } from './composables/useElevationPrompt'
@@ -148,21 +118,6 @@ const { t, locale } = useI18n()
 // Language functionality
 type LanguageCode = 'en' | 'ru'
 
-interface LanguageOption {
-  value: LanguageCode
-  title: string
-  icon: string
-}
-
-const languages: LanguageOption[] = [
-  { value: 'en', title: 'English', icon: '🇺🇸' },
-  { value: 'ru', title: 'Русский', icon: '🇷🇺' }
-]
-
-const currentLanguage = computed(() => {
-  return languages.find(l => l.value === locale.value) || languages[0]
-})
-
 const setLanguage = (lang: LanguageCode) => {
   locale.value = lang
   localStorage.setItem('devnullifier-language', lang)
@@ -170,23 +125,10 @@ const setLanguage = (lang: LanguageCode) => {
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
-interface ThemeModeOption {
-  value: ThemeMode
-  title: string
-  icon: string
-}
-
 // Theme functionality
 const theme = useTheme()
 const themeMode = ref<ThemeMode>('system')
 let mediaQuery: MediaQueryList | null = null
-
-// Theme mode options
-const themeModes: ThemeModeOption[] = [
-  { value: 'light', title: 'Light', icon: 'mdi-brightness-7' },
-  { value: 'dark', title: 'Dark', icon: 'mdi-brightness-4' },
-  { value: 'system', title: 'System', icon: 'mdi-brightness-auto' }
-]
 
 // Get system theme preference
 const getSystemTheme = (): ThemeMode => {
@@ -200,14 +142,6 @@ const applyTheme = (): void => {
   } else {
     theme.global.name.value = themeMode.value
   }
-}
-
-// Get appropriate icon for current theme
-const getThemeIcon = (): string => {
-  if (themeMode.value === 'system') {
-    return 'mdi-brightness-auto'
-  }
-  return theme.global.name.value === 'dark' ? 'mdi-brightness-4' : 'mdi-brightness-7'
 }
 
 // Set theme mode
@@ -286,7 +220,7 @@ watch(themeMode, (newMode) => {
 
 // Reactive state
 const activeTab = ref<'appdata' | 'developer'>('appdata')
-const showProtectedPaths = ref(false)
+const showSettings = ref(false)
 const showDeletionLog = ref(false)
 const deletionLog = ref<DeletionLogEntry[]>([])
 const showSnackbar = ref(false)
