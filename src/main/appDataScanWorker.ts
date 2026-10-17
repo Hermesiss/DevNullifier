@@ -6,6 +6,7 @@ import * as fileUtils from "./fileUtils";
 import { matchedKeyword } from "./appDataCleaner";
 import { isUnderUserPath } from "./deletionPolicy";
 import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
+import { mapPool, SIZE_CONCURRENCY } from "./mapPool";
 
 export interface Folder {
   path: string;
@@ -173,20 +174,23 @@ export class FolderScanner {
       });
       if (directoryExcludedByMarker(childFileNames(entries), this.excludeGlobs)) return results;
 
-      for (const entry of entries) {
-        if (!this.isScanning) {
-          return results;
-        }
-        if (!entry.isDirectory()) continue;
+      const directoryEntries = entries.filter(entry => entry.isDirectory());
+      const pooled = await mapPool(
+        directoryEntries,
+        SIZE_CONCURRENCY,
+        entry =>
+          this.processDirectoryEntry(
+            entry,
+            normalizedPath,
+            maxDepth,
+            keywords,
+            currentDepth
+          ),
+        () => this.isScanning
+      );
 
-        const entryResults = await this.processDirectoryEntry(
-          entry,
-          normalizedPath,
-          maxDepth,
-          keywords,
-          currentDepth
-        );
-
+      for (const entryResults of pooled) {
+        if (!entryResults) continue;
         results.push(...entryResults);
       }
     } catch (err) {

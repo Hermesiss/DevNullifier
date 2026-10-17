@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.11]
+
+### Changed
+
+- Directory sizes run up to four at a time. One folder is still measured the same way, and a stopped scan still stops the walk.
+
 ## [1.3.10]
 
 ### Added

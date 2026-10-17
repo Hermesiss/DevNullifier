@@ -2,6 +2,7 @@ import { parentPort } from "worker_threads";
 import { promises as fs, Dirent } from "fs";
 import path from "path";
 import * as fileUtils from "./fileUtils";
+import { mapPool, SIZE_CONCURRENCY } from "./mapPool";
 import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 import { isUnderUserPath } from "./deletionPolicy";
 import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
@@ -248,6 +249,25 @@ export async function searchGlobPattern(
   }
 }
 
+type CacheMeasurement = {
+  size: number;
+  modifiedAt: string | null;
+};
+
+async function measureCachePath(cachePath: string): Promise<CacheMeasurement | null> {
+  try {
+    const stats = await fs.stat(cachePath);
+    const modifiedAt = stats.mtime instanceof Date ? stats.mtime.toISOString() : null;
+    if (!stats.isDirectory()) {
+      return { size: stats.size, modifiedAt };
+    }
+    const size = await fileUtils.getDirSize(cachePath, () => isScanning);
+    return { size, modifiedAt };
+  } catch {
+    return null;
+  }
+}
+
 // Helper function to process a single matching path
 export async function processMatchingPath(
   cachePath: string,
@@ -256,42 +276,22 @@ export async function processMatchingPath(
   pattern: string,
   allMatches: Map<string, CacheMatch>
 ): Promise<number> {
-  let exists = false;
-  let isDirectory = false;
-  let modifiedAt: string | null = null;
+  const measured = await measureCachePath(cachePath);
+  if (!measured) return 0;
 
-  try {
-    const stats = await fs.stat(cachePath);
-    exists = true;
-    isDirectory = stats.isDirectory();
-    modifiedAt = stats.mtime instanceof Date ? stats.mtime.toISOString() : null;
-  } catch {
-    return 0; // Path doesn't exist, return 0 size
-  }
-
-  if (!exists) return 0;
-
-  let size = 0;
-  if (isDirectory) {
-    size = await fileUtils.getDirSize(cachePath, () => isScanning);
-  } else {
-    const stats = await fs.stat(cachePath);
-    size = stats.size;
-  }
-
-  if (size > 0) {
+  if (measured.size > 0) {
     addMatchToCollection(
       cachePath,
       projectPath,
-      size,
+      measured.size,
       category,
       pattern,
       allMatches,
-      modifiedAt
+      measured.modifiedAt
     );
   }
 
-  return size;
+  return measured.size;
 }
 
 // Helper function to add a match to the collection
@@ -349,16 +349,28 @@ export async function processCachePattern(
 
   try {
     const matchingPaths = await expandGlobPattern(projectPath, pattern);
+    const measured = await mapPool(
+      matchingPaths,
+      SIZE_CONCURRENCY,
+      cachePath => measureCachePath(cachePath),
+      () => isScanning
+    );
 
-    for (const cachePath of matchingPaths) {
-      const size = await processMatchingPath(
-        cachePath,
+    // Record matches only after the pool so one path cannot be inserted twice.
+    for (let index = 0; index < measured.length; index++) {
+      const item = measured[index];
+      if (!item || typeof item.size !== "number") continue;
+      patternSize += item.size;
+      if (item.size <= 0) continue;
+      addMatchToCollection(
+        matchingPaths[index],
         projectPath,
+        item.size,
         category,
         pattern,
-        allMatches
+        allMatches,
+        item.modifiedAt
       );
-      patternSize += size;
     }
   } catch {  }
 
@@ -566,7 +578,6 @@ export async function scanDeveloperProjects(
     }
   }
 
-  isScanning = false;
   return projects;
 }
 
