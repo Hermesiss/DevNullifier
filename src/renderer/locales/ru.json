@@ -125,6 +125,11 @@
     "add_protected_path": "Добавить защищённый путь",
     "remove_protected_path": "Удалить защищённый путь",
     "no_protected_paths": "Нет защищённых путей",
+    "exclude_globs": "Исключения",
+    "exclude_globs_hint": "Пропускать пути по шаблону, например */Saved/SaveGames. Шаблон без слэша, например .gitkeep, пропускает папки, в которых есть такой файл.",
+    "add_exclude_glob": "Добавить исключение",
+    "remove_exclude_glob": "Удалить исключение",
+    "exclude_glob_placeholder": "*/Saved/SaveGames",
     "warnings": {
       "python": "venv/ и .venv/ — виртуальные окружения. Их можно создать заново, если зависимости ставятся повторно.",
       "nodejs": "node_modules/ восстанавливается пакетным менеджером. Вложенные пакеты монорепы сканируются отдельно.",

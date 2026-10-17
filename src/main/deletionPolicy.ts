@@ -1,9 +1,11 @@
 import path from "path";
+import { pathMatchesExclude } from "./excludeGlobs";
 
 export interface ProtectionContext {
   home: string;
   userData: string;
   protectedPaths?: string[];
+  excludeGlobs?: string[];
 }
 
 export function normalizePathKey(input: string): string {
@@ -70,6 +72,7 @@ export function canDelete(
   ctx: ProtectionContext
 ): boolean {
   if (!target || isProtectedPath(target, ctx)) return false;
+  if (pathMatchesExclude(target, ctx.excludeGlobs ?? [])) return false;
   return allowed.has(normalizePathKey(target));
 }
 
@@ -101,16 +104,20 @@ export class ScanAllowlist {
 
   addAppData(paths: string[], ctx?: ProtectionContext): void {
     for (const entry of paths) {
-      if (!entry || (ctx && isProtectedPath(entry, ctx))) continue;
+      if (!entry || (ctx && this.rejected(entry, ctx))) continue;
       this.appData.add(normalizePathKey(entry));
     }
   }
 
   addDeveloper(paths: string[], ctx?: ProtectionContext): void {
     for (const entry of paths) {
-      if (!entry || (ctx && isProtectedPath(entry, ctx))) continue;
+      if (!entry || (ctx && this.rejected(entry, ctx))) continue;
       this.developer.add(normalizePathKey(entry));
     }
+  }
+
+  private rejected(entry: string, ctx: ProtectionContext): boolean {
+    return isProtectedPath(entry, ctx) || pathMatchesExclude(entry, ctx.excludeGlobs ?? []);
   }
 
   keys(): Set<string> {

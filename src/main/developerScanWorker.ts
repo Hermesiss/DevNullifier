@@ -4,6 +4,7 @@ import path from "path";
 import * as fileUtils from "./fileUtils";
 import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 import { isUnderUserPath } from "./deletionPolicy";
+import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
 
 let isScanning = true;
 
@@ -407,13 +408,17 @@ export async function calculateCacheSizes(projectPath: string, categories: Categ
 function cachesOutsideProtectedPaths(
   caches: PatternGroup[],
   totalSize: number,
-  protectedPaths: readonly string[]
+  protectedPaths: readonly string[],
+  excludeGlobs: readonly string[] = []
 ): { caches: PatternGroup[]; totalSize: number } {
-  if (protectedPaths.length === 0) return { caches, totalSize };
+  if (protectedPaths.length === 0 && excludeGlobs.length === 0) return { caches, totalSize };
+
+  const hidden = (matchPath: string) =>
+    isUnderUserPath(matchPath, protectedPaths) || pathMatchesExclude(matchPath, excludeGlobs);
 
   const visible: PatternGroup[] = [];
   for (const group of caches) {
-    const matches = group.matches.filter(match => !isUnderUserPath(match.path, protectedPaths));
+    const matches = group.matches.filter(match => !hidden(match.path));
     if (matches.length === 0) continue;
     const groupSize = matches.reduce((sum, match) => sum + match.size, 0);
     const selectedSize = matches.reduce(
@@ -443,16 +448,19 @@ export async function scanDeveloperProjectsRecursive(
   projects: Project[],
   currentDepth: number,
   maxDepth: number,
-  protectedPaths: readonly string[] = []
+  protectedPaths: readonly string[] = [],
+  excludeGlobs: readonly string[] = []
 ): Promise<void> {
   if (currentDepth > maxDepth) return;
-  if (isUnderUserPath(dirPath, protectedPaths)) return;
+  if (isUnderUserPath(dirPath, protectedPaths) || pathMatchesExclude(dirPath, excludeGlobs)) return;
 
   try {
     if (!parentPort) throw new Error("Worker thread parent port not available");
     parentPort.postMessage({ type: "current-path", path: dirPath } as WorkerResponse);
 
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    const fileNames = entries.filter(entry => !entry.isDirectory()).map(entry => entry.name);
+    if (directoryExcludedByMarker(fileNames, excludeGlobs)) return;
 
     // Check if current directory is a project
     const foundCategories = await checkProjectType(dirPath, enabledCategories);
@@ -463,7 +471,8 @@ export async function scanDeveloperProjectsRecursive(
       const { caches, totalSize } = cachesOutsideProtectedPaths(
         sized.caches,
         sized.totalSize,
-        protectedPaths
+        protectedPaths,
+        excludeGlobs
       );
 
       if (totalSize > 0) {
@@ -505,7 +514,8 @@ export async function scanDeveloperProjectsRecursive(
           projects,
           currentDepth + 1,
           maxDepth,
-          protectedPaths
+          protectedPaths,
+          excludeGlobs
         );
       }
     }
@@ -519,7 +529,8 @@ export async function scanDeveloperProjects(
   basePaths: string[],
   enabledCategories: Category[],
   maxDepth = DEFAULT_DEV_SCAN_DEPTH,
-  protectedPaths: readonly string[] = []
+  protectedPaths: readonly string[] = [],
+  excludeGlobs: readonly string[] = []
 ): Promise<Project[]> {
   const projects: Project[] = [];
 
@@ -533,7 +544,8 @@ export async function scanDeveloperProjects(
         projects,
         0,
         maxDepth,
-        protectedPaths
+        protectedPaths,
+        excludeGlobs
       );
     } catch (error) {
       console.error(`Error scanning ${basePath}:`, error);
@@ -565,7 +577,8 @@ if (parentPort) {
         message.basePaths,
         message.enabledCategories,
         maxDepth,
-        message.protectedPaths ?? []
+        message.protectedPaths ?? [],
+        message.excludeGlobs ?? []
       );
 
       console.log(`Developer scan completed. Found ${projects.length} projects`);

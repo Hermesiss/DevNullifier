@@ -5,6 +5,7 @@ import type { Dirent } from "fs";
 import * as fileUtils from "./fileUtils";
 import { folderNameMatchesKeyword } from "./appDataCleaner";
 import { isUnderUserPath } from "./deletionPolicy";
+import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
 
 export interface Folder {
   path: string;
@@ -19,6 +20,7 @@ export interface WorkerMessage {
   keywords: string[];
   userDataPath: string;
   protectedPaths?: string[];
+  excludeGlobs?: string[];
 }
 
 export type WorkerResponse =
@@ -40,6 +42,7 @@ export class FolderScanner {
   private foldersToSend: Folder[] = [];
   private userDataPath = "";
   private protectedPaths: readonly string[] = [];
+  private excludeGlobs: readonly string[] = [];
   private readonly maxFoldersPerMessage = 20;
 
   constructor(
@@ -72,10 +75,13 @@ export class FolderScanner {
     }
 
     const fullPath = this.normalizePath(path.join(dirPath, entry.name));
-    if (this.isInsideUserData(fullPath) || this.isUserProtected(fullPath)) return results;
+    if (this.isInsideUserData(fullPath) || this.isUserProtected(fullPath) || this.isExcluded(fullPath)) {
+      return results;
+    }
 
     try {
       if (folderNameMatchesKeyword(entry.name, keywords)) {
+        if (await this.excludedByMarker(fullPath)) return results;
         const size = await this.fsOps.getDirSize(fullPath, () => this.isScanning);
         if (size > 0) {
           const folder: Folder = {
@@ -128,7 +134,8 @@ export class FolderScanner {
     if (
       !this.isScanning ||
       this.isInsideUserData(normalizedPath) ||
-      this.isUserProtected(normalizedPath)
+      this.isUserProtected(normalizedPath) ||
+      this.isExcluded(normalizedPath)
     ) {
       return results;
     }
@@ -137,6 +144,7 @@ export class FolderScanner {
       const entries = await this.fsOps.readdir(normalizedPath, {
         withFileTypes: true
       });
+      if (directoryExcludedByMarker(childFileNames(entries), this.excludeGlobs)) return results;
 
       for (const entry of entries) {
         if (!this.isScanning) {
@@ -172,18 +180,30 @@ export class FolderScanner {
     return isUnderUserPath(fullPath, this.protectedPaths);
   }
 
+  private isExcluded(fullPath: string): boolean {
+    return pathMatchesExclude(fullPath, this.excludeGlobs);
+  }
+
+  private async excludedByMarker(fullPath: string): Promise<boolean> {
+    if (!hasMarkerGlob(this.excludeGlobs)) return false;
+    const entries = await this.fsOps.readdir(fullPath, { withFileTypes: true });
+    return directoryExcludedByMarker(childFileNames(entries), this.excludeGlobs);
+  }
+
   async scanPaths(
     paths: string[],
     maxDepth: number,
     keywords: string[],
     userDataPath: string,
-    protectedPaths: readonly string[] = []
+    protectedPaths: readonly string[] = [],
+    excludeGlobs: readonly string[] = []
   ): Promise<Folder[]> {
     const allResults: Folder[] = [];
     this.foundCount = 0;
     this.isScanning = true;
     this.userDataPath = userDataPath;
     this.protectedPaths = protectedPaths;
+    this.excludeGlobs = excludeGlobs;
 
     try {
       // Set the userDataPath for fileUtils
@@ -240,10 +260,28 @@ export function initializeWorker(injectedPort: IMessagePort | null = null) {
       message.maxDepth,
       message.keywords,
       message.userDataPath,
-      message.protectedPaths ?? []
+      message.protectedPaths ?? [],
+      message.excludeGlobs ?? []
     );
     scanner.sendFolders(true);
   });
+}
+
+function childFileNames(entries: Array<{ name: string; isDirectory?: () => boolean }>): string[] {
+  const names: string[] = [];
+  for (const entry of entries) {
+    if (typeof entry.isDirectory === "function" && entry.isDirectory()) continue;
+    names.push(entry.name);
+  }
+  return names;
+}
+
+function hasMarkerGlob(globs: readonly string[]): boolean {
+  for (const glob of globs) {
+    const trimmed = glob.trim();
+    if (trimmed && !trimmed.includes("/") && !trimmed.includes("\\")) return true;
+  }
+  return false;
 }
 
 // Only run worker initialization when this file is being run as a worker thread

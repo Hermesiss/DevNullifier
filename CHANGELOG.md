@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.5]
+
+### Added
+
+- Path masks skip matching folders in both cleaners, and a mask with no slash skips a folder that contains that file. Those paths cannot be deleted.
+
 ## [1.3.4]
 
 ### Added

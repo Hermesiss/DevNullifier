@@ -188,6 +188,69 @@ describe("FolderScanner", () => {
       expect(mockFsOps.readdir).not.toHaveBeenCalled();
     });
 
+    it("does not emit or descend into an excluded directory", async () => {
+      const root = path.join(os.tmpdir(), "dn-exclude-root");
+      const saveGames = path.join(root, "Proj", "Saved", "SaveGames");
+      const config = path.join(root, "Proj", "Saved", "Config");
+      const rootKey = root.replace(/\\/g, "/");
+      const projKey = path.join(root, "Proj").replace(/\\/g, "/");
+      const savedKey = path.join(root, "Proj", "Saved").replace(/\\/g, "/");
+      const saveGamesKey = saveGames.replace(/\\/g, "/");
+      const configKey = config.replace(/\\/g, "/");
+
+      vi.mocked(mockFsOps.readdir).mockImplementation(async (dir: any) => {
+        const key = String(dir).replace(/\\/g, "/");
+        if (key === rootKey) return [mockDirEntry("Proj", true)] as any;
+        if (key === projKey) return [mockDirEntry("Saved", true)] as any;
+        if (key === savedKey) {
+          return [mockDirEntry("SaveGames", true), mockDirEntry("Config", true)] as any;
+        }
+        if (key === saveGamesKey) throw new Error(`should not read ${key}`);
+        if (key === configKey) return [] as any;
+        return [] as any;
+      });
+
+      const results = await scanner.scanPaths(
+        [root],
+        6,
+        ["cache", "savegames", "config"],
+        mockUserDataPath,
+        [],
+        ["*/Saved/SaveGames"]
+      );
+
+      expect(results.map(folder => folder.name)).toEqual(["Config"]);
+      expect(mockFsOps.getDirSize).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not emit a directory that contains a marker file", async () => {
+      const root = path.join(os.tmpdir(), "dn-marker-root");
+      const cache = path.join(root, "cache");
+      const rootKey = root.replace(/\\/g, "/");
+      const cacheKey = cache.replace(/\\/g, "/");
+
+      vi.mocked(mockFsOps.readdir).mockImplementation(async (dir: any) => {
+        const key = String(dir).replace(/\\/g, "/");
+        if (key === rootKey) return [mockDirEntry("cache", true)] as any;
+        if (key === cacheKey) {
+          return [mockDirEntry(".gitkeep", false), mockDirEntry("blob", true)] as any;
+        }
+        throw new Error(`should not read ${key}`);
+      });
+
+      const results = await scanner.scanPaths(
+        [root],
+        4,
+        ["cache"],
+        mockUserDataPath,
+        [],
+        [".gitkeep"]
+      );
+
+      expect(results).toEqual([]);
+      expect(mockFsOps.getDirSize).not.toHaveBeenCalled();
+    });
+
     it("skips the application userData directory", async () => {
       vi.mocked(mockFsOps.readdir).mockResolvedValue([
         mockDirEntry("Cache", true)

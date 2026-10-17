@@ -18,6 +18,7 @@ import {
   isProtectedPath,
   type ProtectionContext
 } from "./deletionPolicy";
+import { pathMatchesExclude } from "./excludeGlobs";
 
 // Set user data path early
 fileUtils.setUserDataPath(app.getPath('userData'));
@@ -28,13 +29,56 @@ let currentDeveloperScanWorker: Worker | null = null;
 let updateService: UpdateService | null = null;
 const scanAllowlist = new ScanAllowlist();
 
-async function protectionContext(protectedPaths?: string[]): Promise<ProtectionContext> {
-  const paths = protectedPaths ?? (await loadCleanerRules()).protectedPaths;
+async function protectionContext(
+  rules?: Pick<CleanerRules, "protectedPaths" | "excludeGlobs">
+): Promise<ProtectionContext> {
+  const loaded = rules ?? (await loadCleanerRules());
   return {
     home: os.homedir(),
     userData: app.getPath("userData"),
-    protectedPaths: paths
+    protectedPaths: loaded.protectedPaths,
+    excludeGlobs: loaded.excludeGlobs
   };
+}
+
+function excludeGlobsOf(protection: ProtectionContext): readonly string[] {
+  return protection.excludeGlobs ?? [];
+}
+
+function dropExcludedProject<T extends {
+  path: string;
+  caches?: Array<{
+    matches?: Array<{ path: string; size: number; selected?: boolean }>;
+    totalSize: number;
+    selectedSize: number;
+  }>;
+  totalCacheSize: number;
+  selectedCacheSize?: number;
+}>(project: T, globs: readonly string[]): T | null {
+  if (!project?.path || pathMatchesExclude(project.path, globs)) return null;
+  if (globs.length === 0) return project;
+
+  const caches = [];
+  for (const group of project.caches ?? []) {
+    const matches = (group.matches ?? []).filter(
+      match => match?.path && !pathMatchesExclude(match.path, globs)
+    );
+    if (matches.length === 0) continue;
+    const totalSize = matches.reduce((sum, match) => sum + (match.size || 0), 0);
+    const selectedSize = matches.reduce(
+      (sum, match) => sum + (match.selected ? match.size || 0 : 0),
+      0
+    );
+    caches.push({ ...group, matches, totalSize, selectedSize });
+  }
+  if (caches.length === 0) return null;
+
+  const totalCacheSize = caches.reduce((sum, group) => sum + group.totalSize, 0);
+  const next = { ...project, caches, totalCacheSize };
+  if (typeof project.selectedCacheSize === "number") {
+    next.selectedCacheSize = caches.reduce((sum, group) => sum + group.selectedSize, 0);
+  }
+  return next;
 }
 
 function sendToRenderer(channel: string, payload: unknown) {
@@ -140,7 +184,10 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
         sendToRenderer("scan-current-path", message.path);
       } else if (message.type === "folder-found") {
         const folders = (message.folders as { path: string }[]).filter(
-          folder => folder?.path && !isProtectedPath(folder.path, protection)
+          folder =>
+            folder?.path &&
+            !isProtectedPath(folder.path, protection) &&
+            !pathMatchesExclude(folder.path, excludeGlobsOf(protection))
         );
         scanAllowlist.addAppData(
           folders.map(folder => folder.path),
@@ -180,7 +227,8 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
       maxDepth,
       keywords: appDataCleaner.KEYWORDS,
       userDataPath: app.getPath("userData"),
-      protectedPaths: protection.protectedPaths
+      protectedPaths: protection.protectedPaths,
+      excludeGlobs: protection.excludeGlobs
     });
   });
 });
@@ -195,7 +243,7 @@ ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {
   const results = [];
   const allowed = scanAllowlist.keys();
   const rules = await loadCleanerRules();
-  const protection = await protectionContext(rules.protectedPaths);
+  const protection = await protectionContext(rules);
   const remove = rules.permanentDelete
     ? permanentRemove
     : (target: string) => shell.trashItem(target);
@@ -338,14 +386,18 @@ ipcMain.handle(
           sendToRenderer("developer-scan-current-path", message.path);
         } else if (message.type === "project-found") {
           if (isProtectedPath(message.project.path, protection)) return;
-          foundProjects.push(message.project);
-          scanAllowlist.addDeveloper(collectDeveloperPaths([message.project]), protection);
-          sendToRenderer("developer-project-found", message.project);
+          const project = dropExcludedProject(message.project, excludeGlobsOf(protection));
+          if (!project) return;
+          foundProjects.push(project);
+          scanAllowlist.addDeveloper(collectDeveloperPaths([project]), protection);
+          sendToRenderer("developer-project-found", project);
         } else if (message.type === "done") {
           if (foundProjects.length === 0) {
-            const projects = message.projects.filter(
-              project => project?.path && !isProtectedPath(project.path, protection)
-            );
+            const projects = message.projects.flatMap(project => {
+              if (!project?.path || isProtectedPath(project.path, protection)) return [];
+              const visible = dropExcludedProject(project, excludeGlobsOf(protection));
+              return visible ? [visible] : [];
+            });
             foundProjects.push(...projects);
             scanAllowlist.addDeveloper(collectDeveloperPaths(projects), protection);
           }
@@ -382,7 +434,8 @@ ipcMain.handle(
         enabledCategories,
         userDataPath: app.getPath("userData"),
         maxDepth: maxDepth,
-        protectedPaths: protection.protectedPaths
+        protectedPaths: protection.protectedPaths,
+        excludeGlobs: protection.excludeGlobs
       } as WorkerMessage);
     });
   }
@@ -404,8 +457,10 @@ ipcMain.handle("save-folders", async (event, folders) => {
 });
 
 ipcMain.handle("load-saved-folders", async () => {
-  const folders = await fileUtils.loadSavedFolders();
   const protection = await protectionContext();
+  const folders = (await fileUtils.loadSavedFolders()).filter(
+    folder => folder?.path && !pathMatchesExclude(folder.path, excludeGlobsOf(protection))
+  );
   scanAllowlist.addAppData(
     folders.map(folder => folder.path),
     protection
@@ -430,8 +485,11 @@ ipcMain.handle("save-developer-projects", async (event, projects) => {
 });
 
 ipcMain.handle("load-saved-developer-projects", async () => {
-  const projects = await fileUtils.loadSavedDeveloperProjects();
   const protection = await protectionContext();
+  const projects = (await fileUtils.loadSavedDeveloperProjects()).flatMap(project => {
+    const visible = dropExcludedProject(project, excludeGlobsOf(protection));
+    return visible ? [visible] : [];
+  });
   scanAllowlist.addDeveloper(collectDeveloperPaths(projects), protection);
   return projects;
 });

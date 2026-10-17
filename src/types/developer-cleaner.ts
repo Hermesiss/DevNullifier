@@ -37,6 +37,7 @@ export interface WorkerMessage {
   userDataPath?: string;
   maxDepth?: number;
   protectedPaths?: string[];
+  excludeGlobs?: string[];
 }
 
 export type WorkerResponse =

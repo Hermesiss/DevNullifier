@@ -357,6 +357,75 @@ describe("developerScanWorker", () => {
       expect(matchPaths.some(matchPath => matchPath.includes("dist"))).toBe(true);
     });
 
+    it("does not record a project matched by an exclude glob", async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        mockDirEntry("package.json", false),
+        mockDirEntry("node_modules", true)
+      ] as any);
+
+      const result = await worker.scanDeveloperProjects(
+        ["/keep/app"],
+        [mockCategory],
+        6,
+        [],
+        ["*/app"]
+      );
+
+      expect(result).toEqual([]);
+      expect(fs.readdir).not.toHaveBeenCalled();
+    });
+
+    it("skips a project directory that contains .gitkeep", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") {
+          return [
+            mockDirEntry("package.json", false),
+            mockDirEntry(".gitkeep", false),
+            mockDirEntry("pkg", true)
+          ] as any;
+        }
+        throw new Error(`should not read ${dir}`);
+      });
+
+      const result = await worker.scanDeveloperProjects(
+        ["/repo"],
+        [mockCategory],
+        6,
+        [],
+        [".gitkeep"]
+      );
+
+      expect(result).toEqual([]);
+      expect(fs.readdir).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not record a cache path matched by an exclude glob", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") return [mockDirEntry("package.json", false)] as any;
+        return [] as any;
+      });
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+        mtime: new Date(),
+        size: 1000
+      } as any);
+
+      const result = await worker.scanDeveloperProjects(
+        ["/repo"],
+        [mockCategory],
+        6,
+        [],
+        ["*/node_modules"]
+      );
+
+      const matchPaths = result.flatMap(project =>
+        project.caches.flatMap(group => group.matches.map(match => match.path))
+      );
+      expect(matchPaths.some(matchPath => matchPath.includes("node_modules"))).toBe(false);
+      expect(matchPaths.some(matchPath => matchPath.includes("dist"))).toBe(true);
+    });
+
     it("does not record a project inside a protected path", async () => {
       vi.mocked(fs.readdir).mockResolvedValue([
         mockDirEntry("package.json", false),

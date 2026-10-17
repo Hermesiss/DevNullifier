@@ -136,6 +136,25 @@ describe("deletionPolicy", () => {
     expect(sanitizeProtectedPaths([keep, `${keep}${path.sep}`, root, ""])).toEqual([keep]);
   });
 
+  it("does not delete or allowlist a path matched by an exclude glob", () => {
+    const cache = path.join(home, "AppData", "Local", "App", "Saved", "SaveGames");
+    const other = path.join(home, "AppData", "Local", "App", "Cache");
+    const withGlobs = { ...ctx, excludeGlobs: ["*/Saved/SaveGames"] };
+    const allowed = new Set([normalizePathKey(cache), normalizePathKey(other)]);
+
+    expect(canDelete(cache, allowed, withGlobs)).toBe(false);
+    expect(canDelete(other, allowed, withGlobs)).toBe(true);
+    expect(canDelete(home, allowed, withGlobs)).toBe(false);
+    expect(canDelete(userData, allowed, withGlobs)).toBe(false);
+
+    const list = new ScanAllowlist();
+    list.addAppData([cache, other], withGlobs);
+    list.addDeveloper([cache], withGlobs);
+
+    expect(list.keys().has(normalizePathKey(cache))).toBe(false);
+    expect(canDelete(other, list.keys(), withGlobs)).toBe(true);
+  });
+
   it("collects project and cache paths", () => {
     expect(
       collectDeveloperPaths([

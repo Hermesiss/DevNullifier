@@ -28,6 +28,48 @@
           </v-list-item>
         </v-list>
         <p v-else class="text-medium-emphasis">{{ t("common.no_protected_paths") }}</p>
+
+        <v-divider class="my-6" />
+
+        <div class="text-h6 mb-2">{{ t("common.exclude_globs") }}</div>
+        <p class="mb-4">{{ t("common.exclude_globs_hint") }}</p>
+
+        <div class="exclude-row mb-2">
+          <v-text-field
+            v-model="globDraft"
+            class="exclude-input"
+            density="compact"
+            variant="outlined"
+            hide-details
+            autocomplete="off"
+            :label="t('common.exclude_globs')"
+            :placeholder="t('common.exclude_glob_placeholder')"
+            :aria-label="t('common.exclude_globs')"
+            @keydown.enter.prevent="addGlob"
+          />
+          <v-btn color="primary" variant="text" prepend-icon="mdi-plus" @click="addGlob">
+            {{ t("common.add_exclude_glob") }}
+          </v-btn>
+        </div>
+
+        <v-list v-if="globs.length" density="compact">
+          <v-list-item v-for="item in globs" :key="item">
+            <v-list-item-title class="protected-path">{{ item }}</v-list-item-title>
+            <template v-slot:append>
+              <v-btn
+                icon
+                variant="text"
+                :aria-label="t('common.remove_exclude_glob')"
+                @click="removeGlob(item)"
+              >
+                <v-icon>mdi-close</v-icon>
+                <v-tooltip activator="parent" location="bottom">
+                  {{ t("common.remove_exclude_glob") }}
+                </v-tooltip>
+              </v-btn>
+            </template>
+          </v-list-item>
+        </v-list>
       </v-card-text>
 
       <v-card-actions>
@@ -49,6 +91,8 @@ import { enqueueCleanerRulesSave } from "../composables/useCleanerRules";
 const { t } = useI18n();
 const open = defineModel<boolean>({ default: false });
 const paths = ref<string[]>([]);
+const globs = ref<string[]>([]);
+const globDraft = ref("");
 
 function isDriveRootPath(value: string): boolean {
   const trimmed = value.trim().replace(/[\\/]+$/, "");
@@ -60,6 +104,8 @@ watch(open, async isOpen => {
   try {
     const rules = await window.electronAPI.getCleanerRules();
     paths.value = [...rules.protectedPaths];
+    globs.value = normalizeGlobs(rules.excludeGlobs ?? []);
+    globDraft.value = "";
   } catch (error) {
     console.error("Failed to load protected paths:", error);
   }
@@ -82,11 +128,51 @@ async function addPath(): Promise<void> {
 async function removePath(target: string): Promise<void> {
   await persist(paths.value.filter(item => item !== target));
 }
+
+function normalizeGlobs(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    next.push(trimmed);
+  }
+  return next;
+}
+
+async function persistGlobs(next: string[]): Promise<void> {
+  const cleaned = normalizeGlobs(next);
+  globs.value = cleaned;
+  const saved = await enqueueCleanerRulesSave({ excludeGlobs: cleaned });
+  if (saved) globs.value = normalizeGlobs(saved.excludeGlobs);
+}
+
+async function addGlob(): Promise<void> {
+  const trimmed = globDraft.value.trim();
+  globDraft.value = "";
+  if (!trimmed || globs.value.includes(trimmed)) return;
+  await persistGlobs([...globs.value, trimmed]);
+}
+
+async function removeGlob(target: string): Promise<void> {
+  await persistGlobs(globs.value.filter(item => item !== target));
+}
 </script>
 
 <style scoped>
 .protected-path {
   white-space: normal;
   word-break: break-all;
+}
+
+.exclude-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exclude-input {
+  flex: 1;
 }
 </style>

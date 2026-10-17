@@ -125,6 +125,11 @@
     "add_protected_path": "Add protected path",
     "remove_protected_path": "Remove protected path",
     "no_protected_paths": "No protected paths",
+    "exclude_globs": "Exclusions",
+    "exclude_globs_hint": "Skip paths matching a pattern such as */Saved/SaveGames. A pattern with no slash, such as .gitkeep, skips folders that contain that file.",
+    "add_exclude_glob": "Add exclusion",
+    "remove_exclude_glob": "Remove exclusion",
+    "exclude_glob_placeholder": "*/Saved/SaveGames",
     "warnings": {
       "python": "venv/ and .venv/ are virtual environments. They can be recreated, but only if you can reinstall the dependencies.",
       "nodejs": "node_modules/ can be restored by the package manager. Nested packages in a monorepo are scanned separately.",
