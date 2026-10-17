@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.18]
+
+### Added
+
+- A failed or partial delete shows the error code and can be retried. On Windows, a row can ask which process has the file open.
+
 ## [1.3.17]
 
 ### Added

@@ -24,6 +24,7 @@ export interface FlatTreeItem {
 export interface DeleteResult {
   path: string;
   success: boolean | "partial";
+  code?: string;
 }
 
 export interface FolderContents {
@@ -96,6 +97,8 @@ export interface ElectronAPI {
   getLocale: () => Promise<string>;
   openPath: (target: string) => Promise<string>;
   copyText: (text: string) => Promise<void>;
+  platform: string;
+  lockingProcess: (target: string) => Promise<string | null>;
 }
 
 // Add global type augmentation for Window interface

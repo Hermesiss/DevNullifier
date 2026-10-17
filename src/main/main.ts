@@ -33,6 +33,7 @@ import {
 } from "./deletionPolicy";
 import { collectExistingToolCaches, type ToolCacheFound } from "./globalToolCaches";
 import { pathMatchesExclude } from "./excludeGlobs";
+import { queryLockingProcess } from "./lockingProcess";
 
 // Set user data path early
 fileUtils.setUserDataPath(app.getPath('userData'));
@@ -275,14 +276,30 @@ ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {
 
   for (let i = 0; i < folderPaths.length; i++) {
     const folderPath = folderPaths[i];
-    const success = canDelete(folderPath, allowed, protection)
-      ? await appDataCleaner.deleteDirectory(folderPath, remove)
-      : false;
-    results.push({ path: folderPath, success });
+    results.push(
+      await appDataCleaner.deletePathResult(
+        folderPath,
+        canDelete(folderPath, allowed, protection),
+        remove
+      )
+    );
     sendToRenderer("delete-progress", i + 1);
   }
 
   return results;
+});
+
+ipcMain.handle("locking-process", async (_event, target: unknown) => {
+  if (process.platform !== "win32") return null;
+  if (typeof target !== "string" || target.length === 0) return null;
+
+  const allowed = scanAllowlist.keys();
+  const protection = await protectionContext();
+  const permitted =
+    canDelete(target, allowed, protection) || allowed.has(normalizePathKey(target));
+  if (!permitted) return null;
+
+  return queryLockingProcess(target);
 });
 
 ipcMain.handle("get-deletion-log", () => loadDeletionLog());

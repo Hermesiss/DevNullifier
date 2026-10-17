@@ -9,6 +9,8 @@
         <ResultsTable v-model="selectedFolders" :folders="folders" :is-scanning="isScanning"
             :compare-text="scanCompareText" @open-folder-tree="openFolderTree" />
 
+        <DeleteFailureList :failures="failedDeletes" :disabled="isDeleting" @retry="retryFailed" />
+
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedFolders.length" :selected-size="selectedSize"
             :permanent="permanentDelete" @confirm="deleteFolders" />
 
@@ -27,14 +29,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { failsThreshold } from '../../main/thresholds'
-import { summarizeDeleteResults } from '../utils/deleteResults'
+import { applyRetryResult, summarizeDeleteResults, unsuccessfulDeletes } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
 import ControlPanel from './AppDataCleaner/ControlPanel.vue'
 import ResultsTable from './AppDataCleaner/ResultsTable.vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
-import type { FolderItem } from '@/types'
+import DeleteFailureList from './DeleteFailureList.vue'
+import type { DeleteResult, FolderItem } from '@/types'
 import { formatSize } from '../utils/formatters'
 import { compareScans, toScanSnapshot, type ScanComparison, type ScanSnapshotItem } from '../utils/scanCompare'
 import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
@@ -54,6 +57,9 @@ const showFolderTree = ref(false)
 const selectedFolderPath = ref('')
 const statusText = ref(t('common.ready'))
 const deleteProgress = ref(0)
+const deleteBatchSize = ref(1)
+const failedDeletes = ref<DeleteResult[]>([])
+const deletionSizes = new Map<string, number>()
 const scanProgress = ref(0)
 const scannedDirectoryCount = ref(0)
 const currentScanPath = ref('')
@@ -401,9 +407,12 @@ const deleteFolders = async (): Promise<void> => {
         statusText.value = t('common.deleting_folders')
 
         await whenRulesSaved()
-        const sizes = new Map(folders.value.map(folder => [folder.path, folder.size]))
+        deletionSizes.clear()
+        for (const folder of folders.value) deletionSizes.set(folder.path, folder.size)
+        deleteBatchSize.value = selectedFolders.value.length || 1
         const results = await window.electronAPI.deleteFolders([...selectedFolders.value])
-        await recordDeletionLog(results, sizes)
+        await recordDeletionLog(results, deletionSizes)
+        failedDeletes.value = unsuccessfulDeletes(results)
         const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 
         const { message, color } = buildDeleteResultMessage(successCount, partialCount, failCount)
@@ -413,6 +422,36 @@ const deleteFolders = async (): Promise<void> => {
         setTimeout(() => {
             rescanAffectedDirectories(selectedFolders.value)
         }, 1000)
+    } catch (error) {
+        console.error('Delete error:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        emit('showNotification', `${t('common.error_deletion')}: ${errorMessage}`, 'error')
+    } finally {
+        isDeleting.value = false
+        deleteProgress.value = 0
+    }
+}
+
+const retryFailed = async (path: string): Promise<void> => {
+    if (isDeleting.value) return
+    isDeleting.value = true
+    deleteProgress.value = 0
+    deleteBatchSize.value = 1
+    statusText.value = t('common.deleting_folders')
+    try {
+        await whenRulesSaved()
+        const results = await window.electronAPI.deleteFolders([path])
+        await recordDeletionLog(results, deletionSizes)
+        const next = results.find(result => result.path === path)
+        failedDeletes.value = applyRetryResult(failedDeletes.value, path, results)
+        const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
+        const { message, color } = buildDeleteResultMessage(successCount, partialCount, failCount)
+        emit('showNotification', message, color)
+        if (next && next.success !== false) {
+            setTimeout(() => {
+                rescanAffectedDirectories([path])
+            }, 1000)
+        }
     } catch (error) {
         console.error('Delete error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -444,7 +483,9 @@ const setupEventListeners = (): void => {
     })
 
     window.electronAPI.onDeleteProgress((count: number) => {
-        deleteProgress.value = (count / selectedFolders.value.length) * 100
+        const total = deleteBatchSize.value
+        if (total <= 0) return
+        deleteProgress.value = (count / total) * 100
     })
 }
 

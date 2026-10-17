@@ -62,6 +62,8 @@
             :compare-text="scanCompareText" @open-folder-tree="openFolderTree"
             @cache-selection-changed="onCacheSelectionChanged" />
 
+        <DeleteFailureList :failures="failedDeletes" :disabled="isDeleting" @retry="retryFailed" />
+
         <!-- Category Info Dialog -->
         <CategoryInfoDialog v-model="showInfoDialog" :category="selectedCategory" />
 
@@ -77,7 +79,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { failsThreshold } from '../../main/thresholds'
-import { summarizeDeleteResults } from '../utils/deleteResults'
+import { applyRetryResult, summarizeDeleteResults, unsuccessfulDeletes } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
@@ -86,7 +88,8 @@ import CategoriesPanel from './DeveloperCleaner/CategoriesPanel.vue'
 import ControlPanel from './DeveloperCleaner/ControlPanel.vue'
 import ResultsTable from './DeveloperCleaner/ResultsTable.vue'
 import CategoryInfoDialog from './DeveloperCleaner/CategoryInfoDialog.vue'
-import type { DeveloperCategory, ProjectInfo, ToolCacheItem } from '@/types'
+import DeleteFailureList from './DeleteFailureList.vue'
+import type { DeleteResult, DeveloperCategory, ProjectInfo, ToolCacheItem } from '@/types'
 import { formatSize } from '../utils/formatters'
 import { compareScans, toScanSnapshot, type ScanComparison, type ScanSnapshotItem } from '../utils/scanCompare'
 import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
@@ -98,6 +101,8 @@ const { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved } = useCleanerRul
 const projects = ref<ProjectInfo[]>([])
 const isScanning = ref(false)
 const isDeleting = ref(false)
+const failedDeletes = ref<DeleteResult[]>([])
+const deletionSizes = new Map<string, number>()
 const showInfoDialog = ref(false)
 const selectedCategory = ref<DeveloperCategory | null>(null)
 const showDeleteDialog = ref(false)
@@ -762,15 +767,16 @@ const deleteCaches = async (): Promise<void> => {
         statusText.value = t('common.deleting_cache_folders', { count: selectedCachePaths.length })
 
         await whenRulesSaved()
-        const sizes = new Map<string, number>()
-        for (const item of toolCaches.value) sizes.set(item.path, item.size)
+        deletionSizes.clear()
+        for (const item of toolCaches.value) deletionSizes.set(item.path, item.size)
         for (const project of projects.value) {
             for (const cacheGroup of project.caches) {
-                for (const match of cacheGroup.matches) sizes.set(match.path, match.size)
+                for (const match of cacheGroup.matches) deletionSizes.set(match.path, match.size)
             }
         }
         const results = await window.electronAPI.deleteFolders([...selectedCachePaths])
-        await recordDeletionLog(results, sizes)
+        await recordDeletionLog(results, deletionSizes)
+        failedDeletes.value = unsuccessfulDeletes(results)
         const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 
         const parts: string[] = []
@@ -809,6 +815,56 @@ const deleteCaches = async (): Promise<void> => {
             }
         }
 
+    } catch (error) {
+        console.error('Delete error:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        showNotification(`${t('common.error_deletion')}: ${errorMessage}`, 'error')
+        statusText.value = t('common.deletion_failed')
+    } finally {
+        isDeleting.value = false
+    }
+}
+
+const projectPathForCache = (cachePath: string): string | null => {
+    for (const project of projects.value) {
+        const owns = project.caches.some(cacheGroup =>
+            cacheGroup.matches.some(match => match.path === cachePath)
+        )
+        if (owns) return project.path
+    }
+    return null
+}
+
+const retryFailed = async (path: string): Promise<void> => {
+    if (isDeleting.value) return
+    isDeleting.value = true
+    statusText.value = t('common.deleting_cache_folders', { count: 1 })
+    try {
+        await whenRulesSaved()
+        const results = await window.electronAPI.deleteFolders([path])
+        await recordDeletionLog(results, deletionSizes)
+        const next = results.find(result => result.path === path)
+        failedDeletes.value = applyRetryResult(failedDeletes.value, path, results)
+
+        const parts: string[] = []
+        const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
+        if (successCount > 0) parts.push(`${successCount} ${t('common.deleted')}`)
+        if (partialCount > 0) parts.push(`${partialCount} ${t('common.partial')}`)
+        if (failCount > 0) parts.push(`${failCount} ${t('common.failed')}`)
+        const fullyDeleted = failCount === 0 && partialCount === 0
+        const message = fullyDeleted
+            ? t('common.success_deleted_cache', { count: successCount })
+            : parts.join(', ')
+        showNotification(message, fullyDeleted ? 'success' : 'warning')
+        statusText.value = `${t('common.deletion_complete')}: ${parts.join(', ')}`
+
+        if (next?.success === true) {
+            toolCaches.value = toolCaches.value.filter(item => item.path !== path)
+        }
+        if (next && next.success !== false) {
+            const projectPath = projectPathForCache(path)
+            if (projectPath) rescanSpecificProjects([projectPath])
+        }
     } catch (error) {
         console.error('Delete error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'

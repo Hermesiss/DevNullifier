@@ -19,3 +19,20 @@ export function summarizeDeleteResults(results: DeleteOutcome[]): {
 
   return { successCount, partialCount, failCount };
 }
+
+export function unsuccessfulDeletes<T extends DeleteOutcome>(results: T[]): T[] {
+  return results.filter(result => result.success === false || result.success === "partial");
+}
+
+export function applyRetryResult<T extends DeleteOutcome & { path: string }>(
+  current: T[],
+  retriedPath: string,
+  results: T[]
+): T[] {
+  const next = results.find(result => result.path === retriedPath);
+  return current.flatMap(item => {
+    if (item.path !== retriedPath) return [item];
+    if (!next || next.success === true) return [];
+    return [next];
+  });
+}

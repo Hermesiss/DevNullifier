@@ -153,6 +153,8 @@ const api: ElectronAPI = {
 
   openPath: (target: string) => ipcRenderer.invoke("open-path", target),
   copyText: (text: string) => ipcRenderer.invoke("copy-text", text),
+  platform: process.platform,
+  lockingProcess: (target: string) => ipcRenderer.invoke("locking-process", target),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

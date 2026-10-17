@@ -86,6 +86,46 @@ export function getAppDataPaths() {
   return paths;
 }
 
+export interface PathDeleteResult {
+  path: string;
+  success: boolean | "partial";
+  code?: string;
+}
+
+export function deleteFailureCode(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code: unknown }).code;
+    if (typeof code === "string") return code;
+  }
+  return "error";
+}
+
+export async function deletePathResult(
+  folderPath: string,
+  permitted: boolean,
+  remove: (target: string) => Promise<void>
+): Promise<PathDeleteResult> {
+  if (!permitted) return { path: folderPath, success: false };
+
+  let code: string | undefined;
+  const removeCapturing = async (target: string): Promise<void> => {
+    try {
+      await remove(target);
+    } catch (error) {
+      code = deleteFailureCode(error);
+      throw error;
+    }
+  };
+
+  try {
+    const success = await deleteDirectory(folderPath, removeCapturing);
+    if (success !== true && code) return { path: folderPath, success, code };
+    return { path: folderPath, success };
+  } catch (error) {
+    return { path: folderPath, success: false, code: code ?? deleteFailureCode(error) };
+  }
+}
+
 export async function deleteDirectory(
   dirPath: string,
   trash: (target: string) => Promise<void>
