@@ -1,55 +1,37 @@
 <template>
   <v-app>
-    <v-app-bar color="primary" dark>
+    <v-app-bar color="surface" density="comfortable" flat>
       <v-app-bar-title>
-        <v-icon left>mdi-broom</v-icon>
-        DevNullifier
+        <div class="dn-app-title">
+          <img :src="appIcon" alt="" class="dn-app-logo" width="28" height="28" />
+          DevNullifier
+        </div>
       </v-app-bar-title>
 
       <v-spacer></v-spacer>
 
+      <v-btn v-if="showRelaunchElevated" class="mr-2" variant="text" color="info" @click="relaunchElevated">
+        <v-icon left>mdi-shield-account</v-icon>
+        {{ t('common.relaunch_elevated') }}
+        <v-tooltip activator="parent" location="bottom">{{ t('common.relaunch_elevated_hint') }}</v-tooltip>
+      </v-btn>
+
       <UpdateButton class="mr-2" />
 
-      <v-menu>
-        <template v-slot:activator="{ props }">
-          <v-btn icon v-bind="props">
-            <v-icon>{{ getThemeIcon() }}</v-icon>
-            <v-tooltip activator="parent" location="bottom">{{ t('theme.' + themeMode) }}</v-tooltip>
-          </v-btn>
-        </template>
-        <v-list>
-          <v-list-item v-for="mode in themeModes" :key="mode.value" @click="setThemeMode(mode.value)"
-            :class="{ 'v-list-item--active': themeMode === mode.value }">
-            <template v-slot:prepend>
-              <v-icon>{{ mode.icon }}</v-icon>
-            </template>
-            <v-list-item-title>{{ t('theme.' + mode.value) }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
+      <v-btn icon variant="text" color="info" class="mr-2" @click="showDeletionLog = true">
+        <v-icon>mdi-history</v-icon>
+        <v-tooltip activator="parent" location="bottom">{{ t('common.deletion_log') }}</v-tooltip>
+      </v-btn>
 
-      <v-menu>
-        <template v-slot:activator="{ props }">
-          <v-btn icon v-bind="props">
-            <span class="text-h6">{{ currentLanguage.icon }}</span>
-            <v-tooltip activator="parent" location="bottom">{{ currentLanguage.title }}</v-tooltip>
-          </v-btn>
-        </template>
-        <v-list>
-          <v-list-item v-for="lang in languages" :key="lang.value" @click="setLanguage(lang.value)"
-            :class="{ 'v-list-item--active': locale === lang.value }">
-            <template v-slot:prepend>
-              <span class="mr-2">{{ lang.icon }}</span>
-            </template>
-            <v-list-item-title>{{ lang.title }}</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
+      <v-btn icon variant="text" color="info" @click="showSettings = true">
+        <v-icon>mdi-cog</v-icon>
+        <v-tooltip activator="parent" location="bottom">{{ t('common.settings') }}</v-tooltip>
+      </v-btn>
     </v-app-bar>
 
     <v-main>
       <v-container fluid>
-        <v-tabs v-model="activeTab" color="primary" class="mb-4">
+        <v-tabs v-model="activeTab" color="info" class="mb-4">
           <v-tab value="appdata">
             <v-icon left>mdi-folder-remove</v-icon>
             {{ t('app.tabs.appdata') }}
@@ -73,6 +55,50 @@
     </v-main>
 
     <NotificationSnackbar v-model="showSnackbar" :text="snackbarText" :color="snackbarColor" />
+    <SettingsDialog
+      v-model="showSettings"
+      :language="locale"
+      :theme-mode="themeMode"
+      @update:language="setLanguage"
+      @update:theme-mode="setThemeMode"
+    />
+
+    <v-dialog v-model="showDeletionLog" max-width="960">
+      <v-card>
+        <v-card-title>
+          <v-icon left>mdi-history</v-icon>
+          {{ t('common.deletion_log') }}
+        </v-card-title>
+        <v-card-text class="deletion-log-body">
+          <p v-if="deletionLog.length === 0" class="text-medium-emphasis mb-0">{{ t('common.log_empty') }}</p>
+          <v-table v-else density="compact">
+            <thead>
+              <tr>
+                <th>{{ t('common.last_updated') }}</th>
+                <th>{{ t('common.path') }}</th>
+                <th class="text-end">{{ t('common.size') }}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(entry, index) in deletionLog" :key="`${entry.at}-${index}`">
+                <td class="text-no-wrap">{{ formatDate(entry.at) }}</td>
+                <td class="dn-path deletion-log-path" :title="entry.path">{{ entry.path }}</td>
+                <td class="text-end text-no-wrap dn-num">{{ formatSize(entry.size) }}</td>
+                <td class="text-no-wrap">{{ t('common.log_status_' + entry.status) }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn color="info" variant="text" @click="exportDeletionLog">
+            {{ t('common.export_csv') }}
+          </v-btn>
+          <v-btn variant="text" @click="showDeletionLog = false">{{ t('common.close') }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
@@ -84,26 +110,16 @@ import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
+import { formatDate, formatSize } from './utils/formatters'
+import type { DeletionLogEntry } from '../main/deletionLog'
+import { accessDeniedOutsideProfile } from './composables/useElevationPrompt'
+import appIcon from '../assets/icon-256.png'
 
 const { t, locale } = useI18n()
 
 // Language functionality
 type LanguageCode = 'en' | 'ru'
-
-interface LanguageOption {
-  value: LanguageCode
-  title: string
-  icon: string
-}
-
-const languages: LanguageOption[] = [
-  { value: 'en', title: 'English', icon: '🇺🇸' },
-  { value: 'ru', title: 'Русский', icon: '🇷🇺' }
-]
-
-const currentLanguage = computed(() => {
-  return languages.find(l => l.value === locale.value) || languages[0]
-})
 
 const setLanguage = (lang: LanguageCode) => {
   locale.value = lang
@@ -112,23 +128,10 @@ const setLanguage = (lang: LanguageCode) => {
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
-interface ThemeModeOption {
-  value: ThemeMode
-  title: string
-  icon: string
-}
-
 // Theme functionality
 const theme = useTheme()
 const themeMode = ref<ThemeMode>('system')
 let mediaQuery: MediaQueryList | null = null
-
-// Theme mode options
-const themeModes: ThemeModeOption[] = [
-  { value: 'light', title: 'Light', icon: 'mdi-brightness-7' },
-  { value: 'dark', title: 'Dark', icon: 'mdi-brightness-4' },
-  { value: 'system', title: 'System', icon: 'mdi-brightness-auto' }
-]
 
 // Get system theme preference
 const getSystemTheme = (): ThemeMode => {
@@ -144,14 +147,6 @@ const applyTheme = (): void => {
   }
 }
 
-// Get appropriate icon for current theme
-const getThemeIcon = (): string => {
-  if (themeMode.value === 'system') {
-    return 'mdi-brightness-auto'
-  }
-  return theme.global.name.value === 'dark' ? 'mdi-brightness-4' : 'mdi-brightness-7'
-}
-
 // Set theme mode
 const setThemeMode = (mode: ThemeMode): void => {
   themeMode.value = mode
@@ -163,6 +158,15 @@ const handleSystemThemeChange = (e: MediaQueryListEvent): void => {
   if (themeMode.value === 'system') {
     theme.global.name.value = e.matches ? 'dark' : 'light'
   }
+}
+
+const platform = ref<NodeJS.Platform | ''>('')
+const showRelaunchElevated = computed(
+  () => accessDeniedOutsideProfile.value && platform.value === 'win32'
+)
+
+const relaunchElevated = async (): Promise<void> => {
+  await window.electronAPI.relaunchElevated()
 }
 
 // Load theme mode and language from localStorage on startup
@@ -191,6 +195,12 @@ onMounted(async () => {
     }
   }
 
+  try {
+    platform.value = await window.electronAPI.getPlatform()
+  } catch (error) {
+    console.error('Failed to read platform:', error)
+  }
+
   // Apply initial theme
   applyTheme()
 
@@ -213,6 +223,9 @@ watch(themeMode, (newMode) => {
 
 // Reactive state
 const activeTab = ref<'appdata' | 'developer'>('appdata')
+const showSettings = ref(false)
+const showDeletionLog = ref(false)
+const deletionLog = ref<DeletionLogEntry[]>([])
 const showSnackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('info')
@@ -223,8 +236,38 @@ const showNotification = (text: string, color: string = 'info'): void => {
   snackbarColor.value = color
   showSnackbar.value = true
 }
+
+watch(showDeletionLog, (open) => {
+  if (!open) return
+  void refreshDeletionLog()
+})
+
+const refreshDeletionLog = async (): Promise<void> => {
+  try {
+    deletionLog.value = await window.electronAPI.getDeletionLog()
+  } catch (error) {
+    console.error('Failed to load deletion log:', error)
+    deletionLog.value = []
+  }
+}
+
+const exportDeletionLog = async (): Promise<void> => {
+  try {
+    await window.electronAPI.exportDeletionLog()
+  } catch (error) {
+    console.error('Failed to export deletion log:', error)
+  }
+}
 </script>
 
 <style scoped>
-/* keep component specific styles if needed */
+.deletion-log-body {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.deletion-log-path {
+  white-space: normal;
+  word-break: break-all;
+}
 </style>

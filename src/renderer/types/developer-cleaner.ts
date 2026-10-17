@@ -5,6 +5,9 @@ export interface CacheMatch {
   relativePath: string;
   size: number;
   selected: boolean;
+  categories?: string[];
+  patterns?: string[];
+  modifiedAt?: string | null;
 }
 
 export interface CacheGroup {
@@ -31,7 +34,6 @@ export interface DeveloperCategory {
   detectionFiles: string[];
   cachePatterns: string[];
   warning?: boolean;
-  warningText?: string;
 }
 
 export interface ProjectInfo {

@@ -17,6 +17,7 @@
 
                 <v-expand-transition>
                     <v-card-text v-show="showCategories" class="pt-0">
+                        <template v-if="rulesLoaded">
                         <v-row class="mb-2">
                             <v-col cols="auto">
                                 <v-btn variant="outlined" size="small" @click="enableAll">
@@ -30,6 +31,32 @@
                                     {{ t('common.disable_all') }}
                                 </v-btn>
                             </v-col>
+                            <v-col cols="auto">
+                                <v-tooltip :text="t('common.preset_regenerable_hint')" location="top">
+                                    <template #activator="{ props: tooltipProps }">
+                                        <v-btn v-bind="tooltipProps" variant="outlined" size="small"
+                                            @click="applyPreset('regenerable')">
+                                            {{ t('common.preset_regenerable') }}
+                                        </v-btn>
+                                    </template>
+                                </v-tooltip>
+                            </v-col>
+                            <v-col cols="auto">
+                                <v-tooltip :text="t('common.preset_aggressive_hint')" location="top">
+                                    <template #activator="{ props: tooltipProps }">
+                                        <v-btn v-bind="tooltipProps" variant="outlined" size="small"
+                                            @click="applyPreset('aggressive')">
+                                            {{ t('common.preset_aggressive') }}
+                                        </v-btn>
+                                    </template>
+                                </v-tooltip>
+                            </v-col>
+                            <v-col cols="auto">
+                                <v-btn variant="outlined" size="small" @click="showCustomRules = true">
+                                    <v-icon left size="small">mdi-plus</v-icon>
+                                    {{ t('common.custom_keywords') }} / {{ t('common.custom_categories') }}
+                                </v-btn>
+                            </v-col>
                         </v-row>
 
                         <v-row dense>
@@ -39,9 +66,9 @@
                                     <div class="d-flex align-center h-100">
                                         <v-checkbox v-model="category.enabled" color="primary" hide-details
                                             density="compact" @change="saveCategoryStates" />
-                                        <div class="flex-grow-1 ml-1 d-flex align-center justify-space-between">
-                                            <span class="text-caption font-weight-medium">
-                                                {{ t('common.category_names.' + category.id) }}
+                                        <div class="flex-grow-1 ml-1 d-flex align-center justify-space-between overflow-hidden">
+                                            <span class="text-caption font-weight-medium text-truncate">
+                                                {{ categoryLabel(category) }}
                                             </span>
                                             <v-btn icon variant="text" size="x-small"
                                                 @click.stop="showCategoryInfo(category)">
@@ -54,6 +81,8 @@
                                 </v-card>
                             </v-col>
                         </v-row>
+                        <CustomScanRulesDialog v-model="showCustomRules" @saved="onCustomRulesSaved" />
+                        </template>
                     </v-card-text>
                 </v-expand-transition>
             </v-card>
@@ -64,9 +93,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { applyCategoryPreset, type CategoryPreset } from '@/utils/categoryPresets'
+import type { DeveloperCategory } from '@/types'
+import type { CustomCategory, CustomScanRules } from '../../../main/customScanRules'
+import CustomScanRulesDialog from './CustomScanRulesDialog.vue'
 
 const { t } = useI18n()
-import type { DeveloperCategory } from '@/types'
 
 // Props
 const props = defineProps<{
@@ -82,6 +114,9 @@ const emit = defineEmits<{
 // Reactive state
 const categories = ref([...props.initialCategories])
 const showCategories = ref(false)
+const showCustomRules = ref(false)
+const rulesLoaded = ref(false)
+const builtInIds = new Set(props.initialCategories.map(category => category.id))
 
 // localStorage key
 const STORAGE_KEYS = {
@@ -108,20 +143,51 @@ const saveCategoryStates = (): void => {
     emit('categories-changed', categories.value)
 }
 
-const loadCategoryStates = (): void => {
+const readStoredStates = (): Record<string, boolean> => {
     try {
         const stored = localStorage.getItem(STORAGE_KEYS.CATEGORIES)
-        if (stored) {
-            const states: Record<string, boolean> = JSON.parse(stored)
-            categories.value.forEach(cat => {
-                if (states.hasOwnProperty(cat.id)) {
-                    cat.enabled = states[cat.id]
-                }
-            })
-        }
+        if (!stored) return {}
+        const parsed: unknown = JSON.parse(stored)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+        return parsed as Record<string, boolean>
     } catch (error) {
         console.error('Error loading category states:', error)
+        return {}
     }
+}
+
+const categoryLabel = (category: DeveloperCategory): string => {
+    if (!builtInIds.has(category.id)) return category.name
+    return t('common.category_names.' + category.id)
+}
+
+const applyCustomCategories = (customCategories: CustomCategory[]): void => {
+    const states = readStoredStates()
+    const current = new Map(categories.value.map(category => [category.id, category]))
+    const builtIns = props.initialCategories.map(category => {
+        const existing = current.get(category.id) ?? category
+        if (Object.prototype.hasOwnProperty.call(states, category.id)) {
+            existing.enabled = states[category.id]
+        }
+        return existing
+    })
+    const custom = customCategories
+        .filter(category => !builtInIds.has(category.id))
+        .map(category => ({
+            id: category.id,
+            name: category.name,
+            enabled: Object.prototype.hasOwnProperty.call(states, category.id)
+                ? states[category.id]
+                : true,
+            detectionFiles: [...category.detectionFiles],
+            cachePatterns: [...category.cachePatterns]
+        }))
+    categories.value = [...builtIns, ...custom]
+    emit('categories-changed', categories.value)
+}
+
+const onCustomRulesSaved = (rules: CustomScanRules): void => {
+    applyCustomCategories(rules.categories)
 }
 
 const enableAll = (): void => {
@@ -131,6 +197,11 @@ const enableAll = (): void => {
 
 const disableAll = (): void => {
     categories.value.forEach(cat => cat.enabled = false)
+    saveCategoryStates()
+}
+
+const applyPreset = (preset: CategoryPreset): void => {
+    categories.value = applyCategoryPreset(categories.value, preset)
     saveCategoryStates()
 }
 
@@ -144,17 +215,26 @@ watch(showCategories, (newValue) => {
 })
 
 // Load saved states on mount
-onMounted(() => {
-    loadCategoryStates()
-
-    // Load show categories preference
+onMounted(async () => {
     const showCategoriesStored = localStorage.getItem(STORAGE_KEYS.SHOW_CATEGORIES)
     if (showCategoriesStored !== null) {
-        showCategories.value = JSON.parse(showCategoriesStored)
+        try {
+            showCategories.value = JSON.parse(showCategoriesStored)
+        } catch {
+            showCategories.value = false
+        }
     }
 
-    // Emit initial categories state
-    emit('categories-changed', categories.value)
+    let custom: CustomCategory[] = []
+    try {
+        if (window.electronAPI?.getCustomScanRules) {
+            custom = (await window.electronAPI.getCustomScanRules()).categories
+        }
+    } catch (error) {
+        console.error('Error loading custom scan rules:', error)
+    }
+    applyCustomCategories(custom)
+    rulesLoaded.value = true
 })
 
 // Expose computed properties for parent access

@@ -1,4 +1,6 @@
 import { promises as fs } from "fs";
+import os from "os";
+import { parentPort } from "worker_threads";
 import { Category } from "../../types/developer-cleaner";
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 
@@ -56,6 +58,24 @@ describe("developerScanWorker", () => {
     name,
     isDirectory: () => isDir
   });
+
+  const visitedCounts = (): number[] => {
+    if (!parentPort) return [];
+    return vi.mocked(parentPort.postMessage).mock.calls.flatMap(call => {
+      const message = call[0] as { type?: string; visited?: number };
+      return message?.type === "current-path" && typeof message.visited === "number"
+        ? [message.visited]
+        : [];
+    });
+  };
+
+  const accessDeniedPaths = (): string[] => {
+    if (!parentPort) return [];
+    return vi.mocked(parentPort.postMessage).mock.calls.flatMap(call => {
+      const message = call[0] as { type?: string; path?: string };
+      return message?.type === "access-denied" && message.path ? [message.path] : [];
+    });
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -295,52 +315,171 @@ describe("developerScanWorker", () => {
 
     it("should continue scanning subdirectories when project has no caches", async () => {
       // Mock initial directory read
-      vi
-        .mocked(fs.readdir)
-        .mockResolvedValueOnce(
-          [
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/test/path") {
+          return [
             mockDirEntry("package.json", false),
             mockDirEntry("subproject", true)
-          ] as any
-        ) // Root dir
-        .mockResolvedValueOnce([mockDirEntry("package.json", false)] as any); // Subproject dir
+          ] as any;
+        }
+        if (dir === "/test/path/subproject") {
+          return [mockDirEntry("package.json", false)] as any;
+        }
+        return [] as any;
+      });
 
-      // Mock calculateCacheSizes to return no caches for root project but some for subproject
-      const mockCalculateCacheSizes = vi.spyOn(worker, "calculateCacheSizes");
-      mockCalculateCacheSizes
-        .mockResolvedValueOnce({ caches: [], totalSize: 0 }) // Root project
-        .mockResolvedValueOnce({
-          caches: [
-            {
-              pattern: "node_modules",
-              category: "TestProject",
-              matches: [],
-              totalSize: 1000,
-              selectedSize: 0,
-              expanded: false
-            }
-          ],
-          totalSize: 1000
-        }); // Subproject
-
-      // Mock fs.stat
-      vi.mocked(fs.stat).mockResolvedValue(
-        {
-          isDirectory: () => true,
-          mtime: new Date(),
-          size: 1000
-        } as any
-      );
+      vi.mocked(fs.stat).mockImplementation(async (target: any) => {
+        const value = String(target);
+        if (value.includes("/subproject") || value === "/test/path") {
+          return {
+            isDirectory: () => true,
+            isFile: () => false,
+            mtime: new Date(),
+            size: 1000
+          } as any;
+        }
+        throw new Error("ENOENT");
+      });
 
       const result = await worker.scanDeveloperProjects(
         ["/test/path"],
         [mockCategory]
       );
 
-      // Should find one project (the subproject)
       expect(result).toHaveLength(1);
-      expect(result[0].path).toContain("/test/path");
+      expect(result[0].path).toContain("/test/path/subproject");
       expect(result[0].totalCacheSize).toBe(2000);
+    });
+
+    it("does not record a cache inside a protected directory", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") return [mockDirEntry("package.json", false)] as any;
+        return [] as any;
+      });
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+        mtime: new Date(),
+        size: 1000
+      } as any);
+
+      const result = await worker.scanDeveloperProjects(
+        ["/repo"],
+        [mockCategory],
+        6,
+        ["/repo/node_modules"]
+      );
+
+      const matchPaths = result.flatMap(project =>
+        project.caches.flatMap(group => group.matches.map(match => match.path))
+      );
+      expect(matchPaths.some(matchPath => matchPath.includes("node_modules"))).toBe(false);
+      expect(matchPaths.some(matchPath => matchPath.includes("dist"))).toBe(true);
+    });
+
+    it("does not record a project matched by an exclude glob", async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        mockDirEntry("package.json", false),
+        mockDirEntry("node_modules", true)
+      ] as any);
+
+      const result = await worker.scanDeveloperProjects(
+        ["/keep/app"],
+        [mockCategory],
+        6,
+        [],
+        ["*/app"]
+      );
+
+      expect(result).toEqual([]);
+      expect(fs.readdir).not.toHaveBeenCalled();
+    });
+
+    it("skips a project directory that contains .gitkeep", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") {
+          return [
+            mockDirEntry("package.json", false),
+            mockDirEntry(".gitkeep", false),
+            mockDirEntry("pkg", true)
+          ] as any;
+        }
+        throw new Error(`should not read ${dir}`);
+      });
+
+      const result = await worker.scanDeveloperProjects(
+        ["/repo"],
+        [mockCategory],
+        6,
+        [],
+        [".gitkeep"]
+      );
+
+      expect(result).toEqual([]);
+      expect(fs.readdir).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not record a cache path matched by an exclude glob", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") return [mockDirEntry("package.json", false)] as any;
+        return [] as any;
+      });
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+        mtime: new Date(),
+        size: 1000
+      } as any);
+
+      const result = await worker.scanDeveloperProjects(
+        ["/repo"],
+        [mockCategory],
+        6,
+        [],
+        ["*/node_modules"]
+      );
+
+      const matchPaths = result.flatMap(project =>
+        project.caches.flatMap(group => group.matches.map(match => match.path))
+      );
+      expect(matchPaths.some(matchPath => matchPath.includes("node_modules"))).toBe(false);
+      expect(matchPaths.some(matchPath => matchPath.includes("dist"))).toBe(true);
+    });
+
+    it("does not record a project inside a protected path", async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([
+        mockDirEntry("package.json", false),
+        mockDirEntry("node_modules", true)
+      ] as any);
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        isFile: () => false,
+        mtime: new Date(),
+        size: 1000
+      } as any);
+
+      const result = await worker.scanDeveloperProjects(
+        ["/keep/app"],
+        [mockCategory],
+        6,
+        ["/keep"]
+      );
+
+      expect(result).toEqual([]);
+      expect(fs.readdir).not.toHaveBeenCalled();
+      expect(visitedCounts()).toEqual([]);
+    });
+
+    it("counts each directory it reads", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") return [mockDirEntry("pkg", true)] as any;
+        if (dir === "/repo/pkg") return [] as any;
+        return [] as any;
+      });
+
+      await worker.scanDeveloperProjects(["/repo"], [mockCategory], 6);
+
+      expect(visitedCounts()).toEqual([1, 2]);
     });
 
     it("should handle scan errors gracefully", async () => {
@@ -354,6 +493,140 @@ describe("developerScanWorker", () => {
 
       expect(Array.isArray(result)).toBe(true);
       expect(result).toEqual([]);
+      expect(accessDeniedPaths()).toEqual([]);
+    });
+
+    it("posts access-denied when a directory outside the profile cannot be read", async () => {
+      const outside = "C:/ProgramData/X";
+      const denied = Object.assign(new Error("denied"), { code: "EACCES" });
+      vi.mocked(fs.readdir).mockRejectedValue(denied);
+
+      await worker.scanDeveloperProjects([outside], [mockCategory]);
+
+      expect(accessDeniedPaths()).toEqual([outside]);
+    });
+
+    it("does not post access-denied for a directory inside the profile", async () => {
+      const inside = `${os.homedir().replace(/\\/g, "/")}/AppData/Local/X`;
+      const denied = Object.assign(new Error("denied"), { code: "EPERM" });
+      vi.mocked(fs.readdir).mockRejectedValue(denied);
+
+      await worker.scanDeveloperProjects([inside], [mockCategory]);
+
+      expect(accessDeniedPaths()).toEqual([]);
+    });
+
+    it("keeps scanning nested projects after the root already has cache", async () => {
+      vi.mocked(fs.readdir).mockImplementation(async (dir: any) => {
+        if (dir === "/repo") {
+          return [
+            mockDirEntry("package.json", false),
+            mockDirEntry("node_modules", true),
+            mockDirEntry("packages", true)
+          ] as any;
+        }
+        if (dir === "/repo/packages") return [mockDirEntry("pkg", true)] as any;
+        if (dir === "/repo/packages/pkg") return [mockDirEntry("package.json", false)] as any;
+        return [] as any;
+      });
+      const cacheSpy = vi.spyOn(worker, "calculateCacheSizes").mockResolvedValue({
+        caches: [],
+        totalSize: 10
+      });
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        mtime: new Date(),
+        size: 1
+      } as any);
+
+      try {
+        const result = await worker.scanDeveloperProjects(["/repo"], [mockCategory]);
+        const paths = result.map(project => project.path);
+
+        expect(paths).toContain("/repo");
+        expect(paths).toContain("/repo/packages/pkg");
+        expect(paths).not.toContain("/repo/node_modules");
+      } finally {
+        cacheSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("detection globs", () => {
+    it("does not let a dot in the pattern match any character", async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([mockDirEntry("gameXuproject", false)] as any);
+      const category: Category = {
+        name: "Unreal",
+        detectionFiles: ["*.uproject"],
+        cachePatterns: []
+      };
+
+      await expect(worker.checkProjectType("/game", [category])).resolves.toEqual([]);
+
+      vi.mocked(fs.readdir).mockResolvedValue([mockDirEntry("game.uproject", false)] as any);
+      await expect(worker.checkProjectType("/game", [category])).resolves.toEqual([category]);
+    });
+
+    it("matches a csproj by extension", async () => {
+      vi.mocked(fs.readdir).mockResolvedValue([mockDirEntry("App.csproj", false)] as any);
+      const category: Category = {
+        name: ".NET",
+        detectionFiles: ["*.csproj"],
+        cachePatterns: []
+      };
+
+      await expect(worker.checkProjectType("/app", [category])).resolves.toEqual([category]);
+    });
+  });
+
+  describe("processMatchingPath", () => {
+    it("stores modifiedAt from the cache path mtime", async () => {
+      const mtime = new Date("2019-03-04T05:06:07.000Z");
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        mtime,
+        size: 10
+      } as any);
+
+      const matches = new Map();
+      const size = await worker.processMatchingPath(
+        "/proj/node_modules",
+        "/proj",
+        mockCategory,
+        "node_modules",
+        matches
+      );
+
+      expect(size).toBe(1000);
+      expect(matches.get("/proj/node_modules")?.modifiedAt).toBe(mtime.toISOString());
+    });
+  });
+
+  describe("calculateCacheSizes", () => {
+    it("counts a path shared by two patterns once", async () => {
+      vi.mocked(fs.stat).mockImplementation(async (target: any) => {
+        if (String(target).endsWith("composer.lock")) {
+          return { isFile: () => true, isDirectory: () => false, size: 8, mtime: new Date() } as any;
+        }
+        return { isFile: () => false, isDirectory: () => true, size: 1000, mtime: new Date() } as any;
+      });
+
+      const result = await worker.calculateCacheSizes("/proj", [
+        { name: "PHP", detectionFiles: [], cachePatterns: ["vendor/"] },
+        { name: "Symfony", detectionFiles: [], cachePatterns: ["vendor/"] }
+      ]);
+
+      expect(result.totalSize).toBe(1000);
+    });
+
+    it("skips vendor when composer.lock is missing", async () => {
+      vi.mocked(fs.stat).mockRejectedValue(new Error("ENOENT"));
+
+      const result = await worker.calculateCacheSizes("/proj", [
+        { name: "PHP", detectionFiles: [], cachePatterns: ["vendor/"] }
+      ]);
+
+      expect(result.totalSize).toBe(0);
     });
   });
 });

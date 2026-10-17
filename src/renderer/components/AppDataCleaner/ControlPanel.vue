@@ -1,7 +1,7 @@
 <template>
     <v-row class="mb-4">
         <v-col cols="12">
-            <v-card>
+            <v-card class="dn-surface-card">
                 <v-card-text>
                     <v-row align="center">
                         <!-- Scan button -->
@@ -78,7 +78,7 @@ const emit = defineEmits<{
 const savedFoldersCount = ref(0)
 
 const depthLabel = computed(() => {
-    return props.maxDepth === 0 ? 'All' : props.maxDepth
+    return props.maxDepth === 0 ? t('common.all') : props.maxDepth
 })
 
 

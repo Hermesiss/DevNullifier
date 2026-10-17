@@ -9,18 +9,13 @@
 
         <v-card min-width="300" class="pa-4">
             <v-card-title class="text-h6">
-                Software Update
+                {{ t('update.title') }}
             </v-card-title>
 
             <v-card-text>
-                <div class="mb-4">
-                    <v-switch v-model="useBetaChannel" label="Use Beta Channel" color="warning" hide-details
-                        @change="handleBetaChannelChange" />
-                </div>
-
                 <div v-if="checking" class="d-flex align-center">
                     <v-progress-circular indeterminate size="24" class="mr-2" />
-                    Checking for updates...
+                    {{ t('update.checking') }}
                 </div>
 
                 <div v-else-if="error" class="text-error">
@@ -28,11 +23,11 @@
                 </div>
 
                 <div v-else-if="updateAvailable" class="text-body-1">
-                    <p>A new version is available!</p>
+                    <p>{{ t('update.available') }}</p>
                     <p class="text-caption" v-if="updateInfo">
-                        Version {{ updateInfo.version }}
+                        {{ t('update.version', { version: updateInfo.version }) }}
                         <br>
-                        Size: {{ formatBytes(updateInfo.files?.[0]?.size || 0) }}
+                        {{ t('update.size', { size: formatBytes(updateInfo.files?.[0]?.size || 0) }) }}
                     </p>
                     <div v-if="downloadProgress" class="mt-2">
                         <v-progress-linear :model-value="downloadProgress.percent" color="primary" height="20">
@@ -41,24 +36,23 @@
                             </template>
                         </v-progress-linear>
                         <div class="text-caption mt-1">
-                            {{ formatBytes(downloadProgress.transferred) }} of {{ formatBytes(downloadProgress.total) }}
+                            {{ t('update.transferred', { done: formatBytes(downloadProgress.transferred), total: formatBytes(downloadProgress.total) }) }}
                             <br>
-                            Speed: {{ formatBytes(downloadProgress.bytesPerSecond) }}/s
+                            {{ t('update.speed', { speed: formatBytes(downloadProgress.bytesPerSecond) }) }}
                         </div>
                     </div>
                 </div>
 
                 <div v-else class="text-body-1">
-                    Your software is up to date.
+                    {{ t('update.up_to_date') }}
                 </div>
             </v-card-text>
 
             <v-card-actions>
                 <v-spacer></v-spacer>
-                <v-btn v-if="!checking && !error" :text="updateAvailable ? 'Install Update' : 'Check for Updates'"
-                    :color="updateAvailable ? 'warning' : 'primary'" :loading="checking"
+                <v-btn v-if="!checking && !error" :color="updateAvailable ? 'warning' : 'primary'" :loading="checking"
                     @click="updateAvailable ? installUpdate() : checkForUpdates()">
-                    {{ updateAvailable ? 'Install Update' : 'Check for Updates' }}
+                    {{ updateAvailable ? t('update.install') : t('update.check') }}
                 </v-btn>
             </v-card-actions>
         </v-card>
@@ -67,13 +61,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
+
+const { t } = useI18n();
 
 const checking = ref(false);
 const error = ref<string | null>(null);
 const updateAvailable = ref(false);
 const updateInfo = ref<any>(null);
 const downloadProgress = ref<any>(null);
-const useBetaChannel = ref(localStorage.getItem('useBetaChannel') === 'true');
 
 // Format bytes to human readable format
 function formatBytes(bytes: number): string {
@@ -91,7 +87,7 @@ async function checkForUpdates() {
     try {
         await window.electronAPI.checkForUpdates();
     } catch (err) {
-        error.value = err instanceof Error ? err.message : 'Failed to check for updates';
+        error.value = err instanceof Error ? err.message : t('update.failed_check');
     } finally {
         checking.value = false;
     }
@@ -102,7 +98,7 @@ async function installUpdate() {
     try {
         await window.electronAPI.quitAndInstall();
     } catch (err) {
-        error.value = err instanceof Error ? err.message : 'Failed to install update';
+        error.value = err instanceof Error ? err.message : t('update.failed_install');
     }
 }
 
@@ -121,7 +117,7 @@ function handleUpdateStatus(status: { message: string; data?: any }) {
             downloadProgress.value = status.data;
             break;
         case 'Error in auto-updater.':
-            error.value = status.data?.message || 'Update error occurred';
+            error.value = status.data?.message || t('update.error');
             break;
         case 'Update downloaded':
             // The update is ready to install
@@ -129,16 +125,8 @@ function handleUpdateStatus(status: { message: string; data?: any }) {
     }
 }
 
-async function handleBetaChannelChange() {
-    localStorage.setItem('useBetaChannel', useBetaChannel.value.toString());
-    await window.electronAPI.setUpdateChannel(useBetaChannel.value ? 'latest-dev' : 'latest');
-    checkForUpdates();
-}
-
-onMounted(async () => {
+onMounted(() => {
     window.electronAPI.onUpdateStatus(handleUpdateStatus);
-    // Set initial update channel
-    await window.electronAPI.setUpdateChannel(useBetaChannel.value ? 'latest-dev' : 'latest');
 });
 
 onUnmounted(() => {

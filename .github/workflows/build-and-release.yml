@@ -2,11 +2,11 @@ name: Build and Release
 
 on:
   push:
-    branches: ["main", "develop", "feature/*"]
+    branches: ["main", "develop"]
 
 jobs:
   build-windows:
-    if: github.event_name == 'push' || (github.ref_name == 'develop' || github.ref_name == 'main' || startsWith(github.ref_name, 'feature/'))
+    if: github.ref_name == 'main' || github.ref_name == 'develop'
     runs-on: windows-latest
 
     outputs:
@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -62,7 +62,7 @@ jobs:
             dist/latest.yml
 
   build-linux:
-    if: github.event_name == 'push' || (github.ref_name == 'develop' || github.ref_name == 'main' || startsWith(github.ref_name, 'feature/'))
+    if: github.ref_name == 'main' || github.ref_name == 'develop'
     runs-on: ubuntu-latest
 
     steps:
@@ -72,7 +72,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -108,7 +108,7 @@ jobs:
             dist/latest-linux.yml
 
   build-macos:
-    if: github.event_name == 'push' || (github.ref_name == 'develop' || github.ref_name == 'main' || startsWith(github.ref_name, 'feature/'))
+    if: github.ref_name == 'main' || github.ref_name == 'develop'
     runs-on: macos-latest
 
     steps:
@@ -118,7 +118,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies
@@ -132,18 +132,13 @@ jobs:
           cd dist
           zip -r DevNullifier-mac-unpacked.zip mac/
 
-      - name: Find installer files
-        id: find-installer
-        run: |
-          DMG=$(find dist -name "*.dmg" -type f | head -1)
-          echo "dmg_path=$DMG" >> $GITHUB_OUTPUT
-
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-artifacts
           path: |
-            ${{ steps.find-installer.outputs.dmg_path }}
+            dist/*.dmg
+            dist/*.dmg.blockmap
             dist/DevNullifier-mac-unpacked.zip
             dist/latest-mac.yml
 
@@ -158,23 +153,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # Delete previous latest-dev tag and release if on develop branch
-      - name: Delete previous latest-dev tag and release
-        if: github.ref_name == 'develop'
-        run: |
-          # Delete previous release
-          RELEASE_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest-dev" | \
-            jq -r '.id')
-          if [ "$RELEASE_ID" != "null" ]; then
-            curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID"
-          fi
-
-          # Delete previous tag
-          git push --delete origin latest-dev || true
-        continue-on-error: true
 
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
@@ -196,44 +174,36 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ needs.build-windows.outputs.version }}
-          release_name: ${{ github.ref_name == 'develop' && 'DevNullifier [Pre-release]' || 'DevNullifier' }} ${{ needs.build-windows.outputs.version }}
-          draft: false
-          prerelease: ${{ needs.build-windows.outputs.prerelease == 'true' }}
-
-      # Create latest-dev tag and release for develop branch
-      - name: Create latest-dev tag and release
-        if: github.ref_name == 'develop'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create and push latest-dev tag
-          git tag -f latest-dev
-          git push -f origin latest-dev
+          TAG="${{ needs.build-windows.outputs.version }}"
+          TITLE="${{ github.ref_name == 'develop' && 'DevNullifier [Pre-release]' || 'DevNullifier' }} $TAG"
+          if [ "${{ needs.build-windows.outputs.prerelease }}" = "true" ]; then
+            gh release create "$TAG" --title "$TITLE" --notes "$TITLE" --prerelease
+          else
+            gh release create "$TAG" --title "$TITLE" --notes "$TITLE"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-          # Create latest-dev release
-          UPLOAD_URL=$(curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            -d '{
-              "tag_name": "latest-dev",
-              "name": "DevNullifier [Latest Development Build]",
-              "draft": false,
-              "prerelease": true
-            }' \
-            "https://api.github.com/repos/${{ github.repository }}/releases" | \
-            jq -r '.upload_url' | sed 's/{.*}//')
-
-          echo "LATEST_DEV_UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
+      - name: Ensure latest-dev release
+        if: github.ref_name == 'develop'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view latest-dev >/dev/null 2>&1 || \
+            gh release create latest-dev \
+              --title "DevNullifier [Latest Development Build]" \
+              --notes "Moving development build" \
+              --prerelease \
+              --target "${{ github.sha }}"
 
       # Upload assets with error handling
       - name: Upload Release Assets
         id: upload_assets
         continue-on-error: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_ID: ${{ steps.create_release.outputs.id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ needs.build-windows.outputs.version }}
         run: |
           upload_asset() {
@@ -252,20 +222,10 @@ jobs:
                 return 0
               fi
               
-              # Extract base upload URL (remove {?name,label} template suffix)
-              local upload_url="${{ steps.create_release.outputs.upload_url }}"
-              upload_url="${upload_url%\{*}"
-              
-              # Attempt upload with increased timeout and better error handling
-              response=$(curl --fail --silent --show-error \
-                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Content-Type: ${type}" \
-                --connect-timeout 10 \
-                --max-time 600 \
-                --retry 3 \
-                --retry-delay 5 \
-                --upload-file "${file}" \
-                "${upload_url}?name=${name}" 2>&1)
+              local staged
+              staged="$(mktemp -d)/${name}"
+              cp "$file" "$staged"
+              response=$(gh release upload "$TAG_NAME" "$staged" --clobber 2>&1)
               
               if [ $? -eq 0 ]; then
                 echo "Successfully uploaded $name"
@@ -307,52 +267,29 @@ jobs:
           upload_asset "artifacts/linux/DevNullifier-linux-unpacked.zip" "${{ github.ref_name == 'develop' && 'DevNullifier-linux-unpacked-dev.zip' || 'DevNullifier-linux-unpacked.zip' }}" "application/zip"
           upload_asset "artifacts/linux/latest-linux.yml" "latest-linux.yml" "text/yaml"
 
-          # macOS assets
-          DMG=$(find artifacts/macos -name "*.dmg" -type f | head -1)
-          BLOCKMAP=$(find artifacts/macos -name "*.dmg.blockmap" -type f | head -1)
-          if [ -n "$DMG" ]; then
-            upload_asset "$DMG" "${{ github.ref_name == 'develop' && 'DevNullifier-mac-x64-dev.dmg' || 'DevNullifier-mac-x64.dmg' }}" "application/octet-stream"
-          fi
-          if [ -n "$BLOCKMAP" ]; then
-            upload_asset "$BLOCKMAP" "${{ github.ref_name == 'develop' && 'DevNullifier-mac-x64-dev.dmg.blockmap' || 'DevNullifier-mac-x64.dmg.blockmap' }}" "application/octet-stream"
-          fi
+          # macOS assets, one file per architecture
+          while IFS= read -r mac_file; do
+            [ -n "$mac_file" ] || continue
+            upload_asset "$mac_file" "$(basename "$mac_file")" "application/octet-stream"
+          done < <(find artifacts/macos -type f \( -name "*.dmg" -o -name "*.dmg.blockmap" \) | sort)
           upload_asset "artifacts/macos/DevNullifier-mac-unpacked.zip" "${{ github.ref_name == 'develop' && 'DevNullifier-mac-unpacked-dev.zip' || 'DevNullifier-mac-unpacked.zip' }}" "application/zip"
           upload_asset "artifacts/macos/latest-mac.yml" "latest-mac.yml" "text/yaml"
 
       # Cleanup on failure
       - name: Cleanup on failure
         if: steps.upload_assets.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Upload failed, cleaning up..."
-
-          # Delete the release
-          curl -X DELETE \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}"
-
-          # Delete the tag
-          git push --delete origin ${{ needs.build-windows.outputs.version }} || true
-
-          # If on develop, also clean up latest-dev
-          if [ "${{ github.ref_name }}" = "develop" ]; then
-            # Delete latest-dev release
-            LATEST_DEV_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/tags/latest-dev" | \
-              jq -r '.id')
-            if [ "$LATEST_DEV_ID" != "null" ]; then
-              curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/${{ github.repository }}/releases/$LATEST_DEV_ID"
-            fi
-            
-            # Delete latest-dev tag
-            git push --delete origin latest-dev || true
-          fi
-
+          gh release delete "${{ needs.build-windows.outputs.version }}" --yes --cleanup-tag || true
           exit 1
 
       # Upload to latest-dev release if on develop branch and main upload succeeded
       - name: Upload assets to latest-dev release
         if: github.ref_name == 'develop' && steps.upload_assets.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Function to upload asset
           upload_asset() {
@@ -371,20 +308,10 @@ jobs:
                 return 0
               fi
               
-              # Extract base upload URL (remove {?name,label} template suffix)
-              local upload_url="${LATEST_DEV_UPLOAD_URL}"
-              upload_url="${upload_url%\{*}"
-              
-              # Attempt upload with increased timeout and better error handling
-              response=$(curl --fail --silent --show-error \
-                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Content-Type: ${type}" \
-                --connect-timeout 10 \
-                --max-time 600 \
-                --retry 3 \
-                --retry-delay 5 \
-                --upload-file "${file}" \
-                "${upload_url}?name=${name}" 2>&1)
+              local staged
+              staged="$(mktemp -d)/${name}"
+              cp "$file" "$staged"
+              response=$(gh release upload "latest-dev" "$staged" --clobber 2>&1)
               
               if [ $? -eq 0 ]; then
                 echo "Successfully uploaded $name to latest-dev"
@@ -426,14 +353,9 @@ jobs:
           upload_asset "artifacts/linux/DevNullifier-linux-unpacked.zip" "DevNullifier-linux-unpacked.zip" "application/zip"
           upload_asset "artifacts/linux/latest-linux.yml" "latest-linux.yml" "text/yaml"
 
-          # macOS assets
-          DMG=$(find artifacts/macos -name "*.dmg" -type f | head -1)
-          BLOCKMAP=$(find artifacts/macos -name "*.dmg.blockmap" -type f | head -1)
-          if [ -n "$DMG" ]; then
-            upload_asset "$DMG" "DevNullifier-mac-x64.dmg" "application/octet-stream"
-          fi
-          if [ -n "$BLOCKMAP" ]; then
-            upload_asset "$BLOCKMAP" "DevNullifier-mac-x64.dmg.blockmap" "application/octet-stream"
-          fi
+          while IFS= read -r mac_file; do
+            [ -n "$mac_file" ] || continue
+            upload_asset "$mac_file" "$(basename "$mac_file")" "application/octet-stream"
+          done < <(find artifacts/macos -type f \( -name "*.dmg" -o -name "*.dmg.blockmap" \) | sort)
           upload_asset "artifacts/macos/DevNullifier-mac-unpacked.zip" "DevNullifier-mac-unpacked.zip" "application/zip"
           upload_asset "artifacts/macos/latest-mac.yml" "latest-mac.yml" "text/yaml"

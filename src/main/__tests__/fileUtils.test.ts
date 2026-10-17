@@ -76,6 +76,34 @@ describe("fileUtils", () => {
       expect(size).toBe(600); // 100 + 200 + 300 bytes
     });
 
+    it("does not follow a symlink", async () => {
+      const outside = path.join(os.tmpdir(), `dn-outside-${Date.now()}`);
+      await fs.writeFile(outside, "x".repeat(40));
+      const link = path.join(tempDir, "link");
+      try {
+        await fs.symlink(outside, link);
+      } catch {
+        await fs.rm(outside, { force: true });
+        return;
+      }
+
+      const size = await getDirSize(tempDir);
+      expect(size).toBe(0);
+      await fs.rm(outside, { force: true });
+    });
+
+    it("stops when the caller cancels", async () => {
+      await fs.writeFile(path.join(tempDir, "file.txt"), "abcde");
+      const size = await getDirSize(tempDir, () => false);
+      expect(size).toBe(0);
+    });
+
+    it("returns the size of a file", async () => {
+      const file = path.join(tempDir, "alone.txt");
+      await fs.writeFile(file, "abcd");
+      await expect(getDirSize(file)).resolves.toBe(4);
+    });
+
     it("should handle errors gracefully", async () => {
       // Try to get size of non-existent directory
       const nonExistentDir = path.join(tempDir, "does-not-exist");
@@ -114,6 +142,24 @@ describe("fileUtils", () => {
     it("should handle load error and return empty array", async () => {
       const result = await loadSavedFolders();
       expect(result).toEqual([]);
+    });
+
+    it("loads path strings and older path-size objects", async () => {
+      const filePath = path.join(mockUserDataPath, "saved-folders-appdata.json");
+      await fs.writeFile(
+        filePath,
+        JSON.stringify(["C:/Cache", { path: "/a", size: 12 }, { path: "/b", keyword: "temp" }]),
+        "utf-8"
+      );
+
+      const loaded = await loadSavedFolders();
+      expect(loaded).toEqual([
+        { path: "C:/Cache" },
+        { path: "/a", size: 12 },
+        { path: "/b", keyword: "temp" }
+      ]);
+      expect(loaded[0].size).toBeUndefined();
+      expect(loaded[2].size).toBeUndefined();
     });
 
     it("should get saved folders count correctly", async () => {
@@ -155,11 +201,35 @@ describe("fileUtils", () => {
         path.join(mockUserDataPath, "saved-folders-developer.json"),
         "utf-8"
       );
-      expect(JSON.parse(savedContent)).toEqual(mockProjects);
+      const stored = mockProjects.map(project => ({ ...project, size: project.totalCacheSize }));
+      expect(JSON.parse(savedContent)).toEqual(stored);
 
       // Load projects and verify
       const loadedProjects = await loadSavedDeveloperProjects();
-      expect(loadedProjects).toEqual(mockProjects);
+      expect(loadedProjects).toEqual(stored);
+    });
+
+    it("keeps an existing size and does not drop path", async () => {
+      const project = { ...mockProjects[0], size: 5 };
+      await saveDeveloperProjects([project]);
+
+      const savedContent = await fs.readFile(
+        path.join(mockUserDataPath, "saved-folders-developer.json"),
+        "utf-8"
+      );
+      const saved = JSON.parse(savedContent);
+      expect(saved[0].path).toBe("/test");
+      expect(saved[0].size).toBe(5);
+      expect(saved[0].totalCacheSize).toBe(1000);
+    });
+
+    it("loads path strings and older path-size objects", async () => {
+      const filePath = path.join(mockUserDataPath, "saved-folders-developer.json");
+      await fs.writeFile(filePath, JSON.stringify(["C:/proj", { path: "/a", size: 4 }]), "utf-8");
+
+      const loaded = await loadSavedDeveloperProjects();
+      expect(loaded).toEqual([{ path: "C:/proj" }, { path: "/a", size: 4 }]);
+      expect(loaded[0].totalCacheSize).toBeUndefined();
     });
 
     it("should handle load error and return empty array", async () => {

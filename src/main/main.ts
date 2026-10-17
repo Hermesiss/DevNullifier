@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from "electron";
+import { spawn } from "child_process";
 import type { OpenDialogOptions, OpenDialogReturnValue } from "electron";
 import path from "path";
 import type { Dirent } from "fs";
@@ -7,8 +8,34 @@ import os from "os";
 import { Worker } from "worker_threads";
 import * as appDataCleaner from "./appDataCleaner";
 import * as fileUtils from "./fileUtils";
+import { loadCleanerRules, permanentRemove, saveCleanerRules, type CleanerRules } from "./cleanerRules";
+import {
+  loadCustomScanRules,
+  mergeKeywords,
+  saveCustomScanRules,
+  type CustomScanRulesUpdate
+} from "./customScanRules";
+import {
+  appendDeletionLog,
+  deletionLogToCsv,
+  loadDeletionLog,
+  type DeletionLogEntry
+} from "./deletionLog";
 import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 import { UpdateService } from "./updateService";
+import {
+  ScanAllowlist,
+  canDelete,
+  canRead,
+  collectDeveloperPaths,
+  isProtectedPath,
+  normalizePathKey,
+  type ProtectionContext
+} from "./deletionPolicy";
+import { collectExistingToolCaches, type ToolCacheFound } from "./globalToolCaches";
+import { pathMatchesExclude } from "./excludeGlobs";
+import { queryLockingProcess } from "./lockingProcess";
+import { elevationCommandEnv } from "./elevation";
 
 // Set user data path early
 fileUtils.setUserDataPath(app.getPath('userData'));
@@ -17,6 +44,65 @@ let mainWindow: BrowserWindow | null = null;
 let currentAppDataScanWorker: Worker | null = null;
 let currentDeveloperScanWorker: Worker | null = null;
 let updateService: UpdateService | null = null;
+const scanAllowlist = new ScanAllowlist();
+let acceptedToolCaches: string[] = [];
+
+async function protectionContext(
+  rules?: Pick<CleanerRules, "protectedPaths" | "excludeGlobs">
+): Promise<ProtectionContext> {
+  const loaded = rules ?? (await loadCleanerRules());
+  return {
+    home: os.homedir(),
+    userData: app.getPath("userData"),
+    protectedPaths: loaded.protectedPaths,
+    excludeGlobs: loaded.excludeGlobs
+  };
+}
+
+function excludeGlobsOf(protection: ProtectionContext): readonly string[] {
+  return protection.excludeGlobs ?? [];
+}
+
+function dropExcludedProject<T extends {
+  path: string;
+  caches?: Array<{
+    matches?: Array<{ path: string; size: number; selected?: boolean }>;
+    totalSize: number;
+    selectedSize: number;
+  }>;
+  totalCacheSize: number;
+  selectedCacheSize?: number;
+}>(project: T, globs: readonly string[]): T | null {
+  if (!project?.path || pathMatchesExclude(project.path, globs)) return null;
+  if (globs.length === 0 || project.caches == null) return project;
+
+  const caches = [];
+  for (const group of project.caches ?? []) {
+    const matches = (group.matches ?? []).filter(
+      match => match?.path && !pathMatchesExclude(match.path, globs)
+    );
+    if (matches.length === 0) continue;
+    const totalSize = matches.reduce((sum, match) => sum + (match.size || 0), 0);
+    const selectedSize = matches.reduce(
+      (sum, match) => sum + (match.selected ? match.size || 0 : 0),
+      0
+    );
+    caches.push({ ...group, matches, totalSize, selectedSize });
+  }
+  if (caches.length === 0) return null;
+
+  const totalCacheSize = caches.reduce((sum, group) => sum + group.totalSize, 0);
+  const next = { ...project, caches, totalCacheSize };
+  if (typeof project.selectedCacheSize === "number") {
+    next.selectedCacheSize = caches.reduce((sum, group) => sum + group.selectedSize, 0);
+  }
+  return next;
+}
+
+function sendToRenderer(channel: string, ...payload: unknown[]) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(channel, ...payload);
+}
 
 const isDev =
   process.env.NODE_ENV === "development" || !!process.env.VITE_DEV_SERVER_URL;
@@ -29,9 +115,16 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, "preload.js")
     },
     icon: path.join(__dirname, "../assets/icon-256.png")
+  });
+
+  mainWindow.on("closed", () => {
+    void currentAppDataScanWorker?.terminate();
+    void currentDeveloperScanWorker?.terminate();
+    mainWindow = null;
   });
 
   if (isDev) {
@@ -66,6 +159,7 @@ app.on("activate", () => {
 ipcMain.handle("stop-appdata-scan", () => {
   if (currentAppDataScanWorker) {
     currentAppDataScanWorker.postMessage({ type: "stop" });
+    void currentAppDataScanWorker.terminate();
   }
   return true;
 });
@@ -74,48 +168,71 @@ ipcMain.handle("get-appdata-paths", () => {
   return appDataCleaner.getAppDataPaths();
 });
 
-ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
+ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }) => {
   // If there's an existing scan, terminate it
   if (currentAppDataScanWorker) {
     currentAppDataScanWorker.terminate();
     currentAppDataScanWorker = null;
   }
 
+  if (resetAllowlist) scanAllowlist.beginAppDataScan();
+  const [protection, customRules] = await Promise.all([
+    protectionContext(),
+    loadCustomScanRules()
+  ]);
+
   return new Promise((resolve, reject) => {
     const workerPath = path.join(__dirname, "appDataScanWorker.js");
 
-    currentAppDataScanWorker = new Worker(workerPath);
+    const worker = new Worker(workerPath);
+    currentAppDataScanWorker = worker;
     const allResults: any[] = [];
     let wasTerminated = false;
+    let settled = false;
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (currentAppDataScanWorker === worker) currentAppDataScanWorker = null;
+      if (error && !wasTerminated) reject(error);
+      else resolve(allResults);
+    };
 
     currentAppDataScanWorker.on("message", message => {
-      if (!mainWindow) return;
-      if (message.type === "progress") {
-        mainWindow.webContents.send("scan-progress", message.count);
-      } else if (message.type === "current-path") {
-        mainWindow.webContents.send("scan-current-path", message.path);
+      if (message.type === "current-path") {
+        sendToRenderer("scan-current-path", message.path, message.visited);
+        if (typeof message.visited === "number") {
+          sendToRenderer("scan-progress", message.visited);
+        }
       } else if (message.type === "folder-found") {
-        mainWindow.webContents.send("scan-folder-found", message.folders);
-        allResults.push(...message.folders);
+        const folders = (message.folders as { path: string }[]).filter(
+          folder =>
+            folder?.path &&
+            !isProtectedPath(folder.path, protection) &&
+            !pathMatchesExclude(folder.path, excludeGlobsOf(protection))
+        );
+        scanAllowlist.addAppData(
+          folders.map(folder => folder.path),
+          protection
+        );
+        if (folders.length > 0) sendToRenderer("scan-folder-found", folders);
+        allResults.push(...folders);
+      } else if (message.type === "access-denied") {
+        sendToRenderer("scan-access-denied", message.path);
       } else if (message.type === "done") {
-        currentAppDataScanWorker = null;
-        resolve(allResults);
+        finish();
       }
     });
 
     currentAppDataScanWorker.on("error", error => {
-      currentAppDataScanWorker = null;
-      if (!wasTerminated) {
-        reject(error);
-      }
+      finish(error);
     });
 
     currentAppDataScanWorker.on("exit", code => {
-      currentAppDataScanWorker = null;
       if (code !== 0 && !wasTerminated) {
-        reject(new Error(`Worker stopped with exit code ${code}`));
+        finish(new Error(`Worker stopped with exit code ${code}`));
       } else {
-        resolve(allResults);
+        finish();
       }
     });
 
@@ -129,43 +246,85 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth }) => {
       return originalTerminate();
     };
 
-    currentAppDataScanWorker.postMessage({ 
-      paths, 
-      maxDepth, 
-      keywords: appDataCleaner.KEYWORDS,
-      userDataPath: app.getPath('userData')  // Pass userDataPath to worker
+    currentAppDataScanWorker.postMessage({
+      paths,
+      maxDepth,
+      keywords: mergeKeywords(appDataCleaner.KEYWORDS, customRules.keywords),
+      userDataPath: app.getPath("userData"),
+      protectedPaths: protection.protectedPaths,
+      excludeGlobs: protection.excludeGlobs
     });
   });
 });
 
+ipcMain.handle("get-cleaner-rules", () => loadCleanerRules());
+
+ipcMain.handle("set-cleaner-rules", (_event, partial: Partial<CleanerRules>) => {
+  return saveCleanerRules(partial);
+});
+
+ipcMain.handle("get-custom-scan-rules", () => loadCustomScanRules());
+
+ipcMain.handle("set-custom-scan-rules", (_event, partial: CustomScanRulesUpdate) => {
+  return saveCustomScanRules(partial);
+});
+
 ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {
   const results = [];
+  const allowed = scanAllowlist.keys();
+  const rules = await loadCleanerRules();
+  const protection = await protectionContext(rules);
+  const remove = rules.permanentDelete
+    ? permanentRemove
+    : (target: string) => shell.trashItem(target);
 
   for (let i = 0; i < folderPaths.length; i++) {
-    console.log("Deleting folder:", folderPaths[i]);
-    const success = await appDataCleaner.deleteDirectory(folderPaths[i]);
-    results.push({ path: folderPaths[i], success });
-
-    // Send progress update
-    if (mainWindow) {
-      mainWindow.webContents.send("delete-progress", i + 1);
-    }
+    const folderPath = folderPaths[i];
+    results.push(
+      await appDataCleaner.deletePathResult(
+        folderPath,
+        canDelete(folderPath, allowed, protection),
+        remove
+      )
+    );
+    sendToRenderer("delete-progress", i + 1);
   }
 
   return results;
 });
 
-ipcMain.handle("check-admin", () => {
-  // On Windows, check if running as admin
-  if (process.platform === "win32") {
-    try {
-      // This is a simple check - in production you might want more robust checking
-      return process.getuid && process.getuid() === 0;
-    } catch {
-      return false;
-    }
-  }
-  return true;
+ipcMain.handle("locking-process", async (_event, target: unknown) => {
+  if (process.platform !== "win32") return null;
+  if (typeof target !== "string" || target.length === 0) return null;
+
+  const allowed = scanAllowlist.keys();
+  const protection = await protectionContext();
+  const permitted =
+    canDelete(target, allowed, protection) || allowed.has(normalizePathKey(target));
+  if (!permitted) return null;
+
+  return queryLockingProcess(target);
+});
+
+ipcMain.handle("get-deletion-log", () => loadDeletionLog());
+
+ipcMain.handle("append-deletion-log", async (_event, entries: unknown) => {
+  const list = Array.isArray(entries) ? (entries as DeletionLogEntry[]) : [];
+  await appendDeletionLog(list);
+  return loadDeletionLog();
+});
+
+ipcMain.handle("export-deletion-log", async () => {
+  if (!mainWindow) return { saved: false };
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: "devnullifier-deletions.csv"
+  });
+
+  if (result.canceled || !result.filePath) return { saved: false };
+
+  await fsPromises.writeFile(result.filePath, deletionLogToCsv(await loadDeletionLog()), "utf-8");
+  return { saved: true };
 });
 
 // Get user home directory
@@ -240,6 +399,10 @@ function sortFolderContents(contents: FolderContents[]): FolderContents[] {
 
 // Get folder contents
 ipcMain.handle("get-folder-contents", async (event, folderPath: string): Promise<FolderContents[]> => {
+  if (!canRead(folderPath, scanAllowlist.keys(), await protectionContext())) {
+    throw new Error("Folder is outside the current scan results");
+  }
+
   try {
     const entries = await fsPromises.readdir(folderPath, { withFileTypes: true });
     const limitedEntries = entries.slice(0, 1000); // Limit to first 1000 entries to prevent UI freezing
@@ -256,50 +419,98 @@ ipcMain.handle("get-folder-contents", async (event, folderPath: string): Promise
   }
 });
 
+ipcMain.handle("scan-global-caches", async () => {
+  const home = os.homedir();
+  const protection = await protectionContext();
+  const found = await collectExistingToolCaches(home, process.platform, {
+    stat: target => fsPromises.lstat(target),
+    getDirSize: target => fileUtils.getDirSize(target)
+  });
+
+  const visible: ToolCacheFound[] = [];
+  const accepted: string[] = [];
+  for (const item of found) {
+    if (!canDelete(item.path, new Set([normalizePathKey(item.path)]), protection)) continue;
+    accepted.push(item.path);
+    visible.push({ id: item.id, label: item.label, path: item.path, size: item.size });
+  }
+  acceptedToolCaches = accepted;
+  scanAllowlist.addDeveloper(accepted, protection);
+  return visible;
+});
+
 // Scan for developer caches
 ipcMain.handle(
   "scan-developer-caches",
-  async (event, { basePaths, enabledCategories }: { basePaths: string[], enabledCategories: Category[] }): Promise<Project[]> => {
+  async (event, { basePaths, enabledCategories, maxDepth, resetAllowlist }: { basePaths: string[], enabledCategories: Category[], maxDepth?: number, resetAllowlist?: boolean }): Promise<Project[]> => {
     // If there's an existing scan, terminate it
     if (currentDeveloperScanWorker) {
       currentDeveloperScanWorker.terminate();
     }
 
+    const protection = await protectionContext();
+    if (resetAllowlist) {
+      scanAllowlist.beginDeveloperScan();
+      scanAllowlist.addDeveloper(acceptedToolCaches, protection);
+    }
+
     return new Promise((resolve, reject) => {
       const workerPath = path.join(__dirname, "developerScanWorker.js");
 
-      currentDeveloperScanWorker = new Worker(workerPath);
+      const worker = new Worker(workerPath);
+      currentDeveloperScanWorker = worker;
       let wasTerminated = false;
+      let settled = false;
+      const foundProjects: Project[] = [];
+
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        if (currentDeveloperScanWorker === worker) currentDeveloperScanWorker = null;
+        if (error && !wasTerminated) reject(error);
+        else resolve(foundProjects);
+      };
 
       currentDeveloperScanWorker.on("message", (message: WorkerResponse) => {
-        if (!mainWindow) return;
-
         if (message.type === "current-path") {
-          mainWindow.webContents.send("developer-scan-current-path", message.path);
-        } else if (message.type === "project-found") {
-          mainWindow.webContents.send("developer-project-found", message.project);
-        } else if (message.type === "done") {
-          currentDeveloperScanWorker = null;
-          resolve(message.projects);
-        } else if (message.type === "error") {
-          currentDeveloperScanWorker = null;
-          if (!wasTerminated) {
-            reject(new Error(message.error));
+          sendToRenderer("developer-scan-current-path", message.path, message.visited);
+          if (typeof message.visited === "number") {
+            sendToRenderer("developer-scan-visited", message.visited);
           }
+        } else if (message.type === "project-found") {
+          if (isProtectedPath(message.project.path, protection)) return;
+          const project = dropExcludedProject(message.project, excludeGlobsOf(protection));
+          if (!project) return;
+          foundProjects.push(project);
+          scanAllowlist.addDeveloper(collectDeveloperPaths([project]), protection);
+          sendToRenderer("developer-project-found", project);
+        } else if (message.type === "access-denied") {
+          sendToRenderer("scan-access-denied", message.path);
+        } else if (message.type === "done") {
+          if (foundProjects.length === 0) {
+            const projects = message.projects.flatMap(project => {
+              if (!project?.path || isProtectedPath(project.path, protection)) return [];
+              const visible = dropExcludedProject(project, excludeGlobsOf(protection));
+              return visible ? [visible] : [];
+            });
+            foundProjects.push(...projects);
+            scanAllowlist.addDeveloper(collectDeveloperPaths(projects), protection);
+          }
+          finish();
+        } else if (message.type === "error") {
+          finish(new Error(message.error));
         }
       });
 
       currentDeveloperScanWorker.on("error", error => {
-        currentDeveloperScanWorker = null;
-        if (!wasTerminated) {
-          reject(error);
-        }
+        finish(error);
       });
 
       currentDeveloperScanWorker.on("exit", code => {
-        currentDeveloperScanWorker = null;
         if (code !== 0 && !wasTerminated) {
-          reject(new Error(`Developer scan worker stopped with exit code ${code}`));
+          finish(new Error(`Developer scan worker stopped with exit code ${code}`));
+        } else {
+          finish();
         }
       });
 
@@ -313,10 +524,13 @@ ipcMain.handle(
         return originalTerminate();
       };
 
-      currentDeveloperScanWorker.postMessage({ 
-        basePaths, 
+      currentDeveloperScanWorker.postMessage({
+        basePaths,
         enabledCategories,
-        userDataPath: app.getPath('userData')  // Pass userDataPath to worker
+        userDataPath: app.getPath("userData"),
+        maxDepth: maxDepth,
+        protectedPaths: protection.protectedPaths,
+        excludeGlobs: protection.excludeGlobs
       } as WorkerMessage);
     });
   }
@@ -326,6 +540,7 @@ ipcMain.handle(
 ipcMain.handle("stop-developer-scan", () => {
   if (currentDeveloperScanWorker) {
     currentDeveloperScanWorker.postMessage({ type: "stop" });
+    void currentDeveloperScanWorker.terminate();
   }
   return true;
 });
@@ -337,15 +552,47 @@ ipcMain.handle("save-folders", async (event, folders) => {
 });
 
 ipcMain.handle("load-saved-folders", async () => {
-  return fileUtils.loadSavedFolders();
+  const protection = await protectionContext();
+  const folders = (await fileUtils.loadSavedFolders()).filter(
+    folder => folder?.path && !pathMatchesExclude(folder.path, excludeGlobsOf(protection))
+  );
+  scanAllowlist.addAppData(
+    folders.map(folder => folder.path),
+    protection
+  );
+  return folders;
 });
 
 ipcMain.handle("get-saved-folders-count", async () => {
   return fileUtils.getSavedFoldersCount();
 });
 
-ipcMain.handle("get-directory-size", async (event, path) => {
-  return appDataCleaner.getDirectorySize(path);
+ipcMain.handle("get-directory-size", async (event, targetPath: string) => {
+  if (!canRead(targetPath, scanAllowlist.keys(), await protectionContext())) {
+    throw new Error("Path is outside the current scan results");
+  }
+  return appDataCleaner.getDirectorySize(targetPath);
+});
+
+function statfsBytes(bsize: number, blocks: number): number | null {
+  if (!Number.isFinite(bsize) || bsize <= 0) return null;
+  if (!Number.isFinite(blocks) || blocks < 0) return null;
+  return bsize * blocks;
+}
+
+ipcMain.handle("disk-free", async (_event, path: unknown) => {
+  if (typeof path !== "string" || !path.trim()) {
+    return null;
+  }
+  try {
+    const stats = await fsPromises.statfs(path);
+    const free = statfsBytes(stats.bsize, stats.bfree) ?? statfsBytes(stats.bsize, stats.bavail);
+    const total = statfsBytes(stats.bsize, stats.blocks);
+    if (free === null) return null;
+    return { free, total };
+  } catch {
+    return null;
+  }
 });
 
 ipcMain.handle("save-developer-projects", async (event, projects) => {
@@ -354,7 +601,13 @@ ipcMain.handle("save-developer-projects", async (event, projects) => {
 });
 
 ipcMain.handle("load-saved-developer-projects", async () => {
-  return fileUtils.loadSavedDeveloperProjects();
+  const protection = await protectionContext();
+  const projects = (await fileUtils.loadSavedDeveloperProjects()).flatMap(project => {
+    const visible = dropExcludedProject(project, excludeGlobsOf(protection));
+    return visible ? [visible] : [];
+  });
+  scanAllowlist.addDeveloper(collectDeveloperPaths(projects), protection);
+  return projects;
 });
 
 ipcMain.handle("get-saved-developer-projects-count", async () => {
@@ -374,12 +627,41 @@ ipcMain.handle('quit-and-install', () => {
   }
 });
 
-ipcMain.handle('set-update-channel', (event, channel) => {
-  if (updateService) {
-    updateService.setUpdateChannel(channel);
-  }
-});
-
 ipcMain.handle('get-locale', () => {
   return app.getLocale();
+});
+
+ipcMain.handle("open-path", (_event, target: string) => {
+  if (!target) return "";
+  return shell.openPath(target);
+});
+
+ipcMain.handle("copy-text", (_event, text: string) => {
+  if (!text) return;
+  clipboard.writeText(text);
+});
+
+ipcMain.handle("get-platform", () => process.platform);
+
+ipcMain.handle("relaunch-elevated", () => {
+  if (process.platform !== "win32") return;
+
+  const env = elevationCommandEnv(process.execPath, process.argv.slice(1));
+  spawn(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "Start-Process -FilePath $env:DEVNULLIFIER_EXE -ArgumentList $env:DEVNULLIFIER_ARGS -Verb RunAs"
+    ],
+    {
+      detached: true,
+      shell: false,
+      stdio: "ignore",
+      windowsHide: true,
+      env: { ...process.env, ...env }
+    }
+  ).unref();
+  app.quit();
 }); 

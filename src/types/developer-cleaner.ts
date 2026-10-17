@@ -11,6 +11,7 @@ export interface CacheMatch {
   selected: boolean;
   categories: string[];
   patterns: string[];
+  modifiedAt?: string | null;
 }
 
 export interface PatternGroup {
@@ -35,10 +36,14 @@ export interface WorkerMessage {
   basePaths: string[];
   enabledCategories: Category[];
   userDataPath?: string;
+  maxDepth?: number;
+  protectedPaths?: string[];
+  excludeGlobs?: string[];
 }
 
 export type WorkerResponse =
-  | { type: "current-path"; path: string }
+  | { type: "current-path"; path: string; visited?: number }
   | { type: "project-found"; project: Project }
   | { type: "done"; projects: Project[] }
-  | { type: "error"; error: string };
+  | { type: "error"; error: string }
+  | { type: "access-denied"; path: string };

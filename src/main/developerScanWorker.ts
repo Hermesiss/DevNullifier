@@ -1,10 +1,16 @@
 import { parentPort } from "worker_threads";
 import { promises as fs, Dirent } from "fs";
 import path from "path";
+import os from "os";
 import * as fileUtils from "./fileUtils";
+import { mapPool, SIZE_CONCURRENCY } from "./mapPool";
 import { Category, CacheMatch, PatternGroup, Project, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
+import { isUnderUserPath } from "./deletionPolicy";
+import { isDeniedOutsideHome } from "./elevation";
+import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
 
 let isScanning = true;
+let visitedDirectories = 0;
 
 // Helper function to check if directory contains detection files
 export async function checkProjectType(projectPath: string, categories: Category[]): Promise<Category[]> {
@@ -17,9 +23,7 @@ export async function checkProjectType(projectPath: string, categories: Category
     for (const category of categories) {
       const hasDetectionFile = category.detectionFiles.some(pattern => {
         if (pattern.includes("*")) {
-          // Handle wildcard patterns
-          const regex = new RegExp(pattern.replace(/\*/g, ".*"));
-          return fileNames.some(file => regex.test(file));
+          return fileNames.some(file => globToRegExp(pattern).test(file));
         } else if (pattern.endsWith("/")) {
           // Check for directory
           return entries.some(
@@ -40,6 +44,43 @@ export async function checkProjectType(projectPath: string, categories: Category
   }
 
   return foundCategories;
+}
+
+export function globToRegExp(pattern: string): RegExp {
+  const body = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return new RegExp(`^${body}$`);
+}
+
+const SKIP_DIRECTORY_NAMES = new Set([
+  "node_modules",
+  ".git",
+  "vendor",
+  "Library",
+  "Binaries",
+  "Intermediate",
+  "DerivedDataCache",
+  "target",
+  ".gradle",
+  "Pods",
+  "bower_components",
+  ".venv",
+  "venv"
+]);
+
+export const DEFAULT_DEV_SCAN_DEPTH = 6;
+
+function isVendorPattern(pattern: string): boolean {
+  const normalized = pattern.replace(/\\/g, "/").replace(/\/+$/, "");
+  return normalized === "vendor" || normalized.endsWith("/vendor");
+}
+
+async function projectHasComposerLock(projectPath: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(path.join(projectPath, "composer.lock"));
+    return stats.isFile();
+  } catch {
+    return false;
+  }
 }
 
 // Helper function to expand glob patterns like "Plugins/**/Binaries/"
@@ -210,6 +251,25 @@ export async function searchGlobPattern(
   }
 }
 
+type CacheMeasurement = {
+  size: number;
+  modifiedAt: string | null;
+};
+
+async function measureCachePath(cachePath: string): Promise<CacheMeasurement | null> {
+  try {
+    const stats = await fs.stat(cachePath);
+    const modifiedAt = stats.mtime instanceof Date ? stats.mtime.toISOString() : null;
+    if (!stats.isDirectory()) {
+      return { size: stats.size, modifiedAt };
+    }
+    const size = await fileUtils.getDirSize(cachePath, () => isScanning);
+    return { size, modifiedAt };
+  } catch {
+    return null;
+  }
+}
+
 // Helper function to process a single matching path
 export async function processMatchingPath(
   cachePath: string,
@@ -218,39 +278,22 @@ export async function processMatchingPath(
   pattern: string,
   allMatches: Map<string, CacheMatch>
 ): Promise<number> {
-  let exists = false;
-  let isDirectory = false;
+  const measured = await measureCachePath(cachePath);
+  if (!measured) return 0;
 
-  try {
-    const stats = await fs.stat(cachePath);
-    exists = true;
-    isDirectory = stats.isDirectory();
-  } catch {
-    return 0; // Path doesn't exist, return 0 size
-  }
-
-  if (!exists) return 0;
-
-  let size = 0;
-  if (isDirectory) {
-    size = await fileUtils.getDirSize(cachePath);
-  } else {
-    const stats = await fs.stat(cachePath);
-    size = stats.size;
-  }
-
-  if (size > 0) {
+  if (measured.size > 0) {
     addMatchToCollection(
       cachePath,
       projectPath,
-      size,
+      measured.size,
       category,
       pattern,
-      allMatches
+      allMatches,
+      measured.modifiedAt
     );
   }
 
-  return size;
+  return measured.size;
 }
 
 // Helper function to add a match to the collection
@@ -260,7 +303,8 @@ export function addMatchToCollection(
   size: number,
   category: Category,
   pattern: string,
-  allMatches: Map<string, CacheMatch>
+  allMatches: Map<string, CacheMatch>,
+  modifiedAt?: string | null
 ): void {
   const normalizedPath = cachePath.toLowerCase();
   const relativePath = path.relative(projectPath, cachePath);
@@ -275,6 +319,9 @@ export function addMatchToCollection(
     if (!existing.patterns.includes(pattern)) {
       existing.patterns.push(pattern);
     }
+    if (existing.modifiedAt == null && modifiedAt != null) {
+      existing.modifiedAt = modifiedAt;
+    }
   } else {
     // New path, add it
     allMatches.set(normalizedPath, {
@@ -283,7 +330,8 @@ export function addMatchToCollection(
       size: size,
       selected: false,
       categories: [category.name],
-      patterns: [pattern]
+      patterns: [pattern],
+      modifiedAt: modifiedAt ?? null
     });
   }
 }
@@ -295,20 +343,36 @@ export async function processCachePattern(
   pattern: string,
   allMatches: Map<string, CacheMatch>
 ): Promise<number> {
+  if (isVendorPattern(pattern) && !(await projectHasComposerLock(projectPath))) {
+    return 0;
+  }
+
   let patternSize = 0;
 
   try {
     const matchingPaths = await expandGlobPattern(projectPath, pattern);
+    const measured = await mapPool(
+      matchingPaths,
+      SIZE_CONCURRENCY,
+      cachePath => measureCachePath(cachePath),
+      () => isScanning
+    );
 
-    for (const cachePath of matchingPaths) {
-      const size = await processMatchingPath(
-        cachePath,
+    // Record matches only after the pool so one path cannot be inserted twice.
+    for (let index = 0; index < measured.length; index++) {
+      const item = measured[index];
+      if (!item || typeof item.size !== "number") continue;
+      patternSize += item.size;
+      if (item.size <= 0) continue;
+      addMatchToCollection(
+        matchingPaths[index],
         projectPath,
+        item.size,
         category,
         pattern,
-        allMatches
+        allMatches,
+        item.modifiedAt
       );
-      patternSize += size;
     }
   } catch {  }
 
@@ -346,25 +410,58 @@ export function createPatternGroups(allMatches: Map<string, CacheMatch>): Patter
 // Helper function to calculate cache sizes for a project
 export async function calculateCacheSizes(projectPath: string, categories: Category[]): Promise<{ caches: PatternGroup[]; totalSize: number }> {
   const allMatches = new Map<string, CacheMatch>();
-  let totalSize = 0;
 
-  // First pass: collect all matches grouped by actual path
   for (const category of categories) {
     for (const pattern of category.cachePatterns) {
-      const patternSize = await processCachePattern(
-        projectPath,
-        category,
-        pattern,
-        allMatches
-      );
-      totalSize += patternSize;
+      await processCachePattern(projectPath, category, pattern, allMatches);
     }
   }
+
+  const totalSize = Array.from(allMatches.values()).reduce(
+    (sum, match) => sum + match.size,
+    0
+  );
 
   // Second pass: group by primary pattern for display
   const caches = createPatternGroups(allMatches);
 
   return { caches, totalSize };
+}
+
+function cachesOutsideProtectedPaths(
+  caches: PatternGroup[],
+  totalSize: number,
+  protectedPaths: readonly string[],
+  excludeGlobs: readonly string[] = []
+): { caches: PatternGroup[]; totalSize: number } {
+  if (protectedPaths.length === 0 && excludeGlobs.length === 0) return { caches, totalSize };
+
+  const hidden = (matchPath: string) =>
+    isUnderUserPath(matchPath, protectedPaths) || pathMatchesExclude(matchPath, excludeGlobs);
+
+  const visible: PatternGroup[] = [];
+  for (const group of caches) {
+    const matches = group.matches.filter(match => !hidden(match.path));
+    if (matches.length === 0) continue;
+    const groupSize = matches.reduce((sum, match) => sum + match.size, 0);
+    const selectedSize = matches.reduce(
+      (sum, match) => sum + (match.selected ? match.size : 0),
+      0
+    );
+    visible.push({ ...group, matches, totalSize: groupSize, selectedSize });
+  }
+
+  const seen = new Set<string>();
+  let visibleSize = 0;
+  for (const group of visible) {
+    for (const match of group.matches) {
+      if (seen.has(match.path)) continue;
+      seen.add(match.path);
+      visibleSize += match.size;
+    }
+  }
+
+  return { caches: visible, totalSize: visibleSize };
 }
 
 // Recursive function to scan for developer projects
@@ -373,24 +470,36 @@ export async function scanDeveloperProjectsRecursive(
   enabledCategories: Category[],
   projects: Project[],
   currentDepth: number,
-  maxDepth: number
+  maxDepth: number,
+  protectedPaths: readonly string[] = [],
+  excludeGlobs: readonly string[] = []
 ): Promise<void> {
   if (currentDepth > maxDepth) return;
+  if (isUnderUserPath(dirPath, protectedPaths) || pathMatchesExclude(dirPath, excludeGlobs)) return;
 
   try {
     if (!parentPort) throw new Error("Worker thread parent port not available");
-    parentPort.postMessage({ type: "current-path", path: dirPath } as WorkerResponse);
-
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    visitedDirectories += 1;
+    parentPort.postMessage({
+      type: "current-path",
+      path: dirPath,
+      visited: visitedDirectories
+    } as WorkerResponse);
+    const fileNames = entries.filter(entry => !entry.isDirectory()).map(entry => entry.name);
+    if (directoryExcludedByMarker(fileNames, excludeGlobs)) return;
 
     // Check if current directory is a project
     const foundCategories = await checkProjectType(dirPath, enabledCategories);
 
     if (foundCategories.length > 0) {
       // This is a development project
-      const { caches, totalSize } = await calculateCacheSizes(
-        dirPath,
-        foundCategories
+      const sized = await calculateCacheSizes(dirPath, foundCategories);
+      const { caches, totalSize } = cachesOutsideProtectedPaths(
+        sized.caches,
+        sized.totalSize,
+        protectedPaths,
+        excludeGlobs
       );
 
       if (totalSize > 0) {
@@ -415,10 +524,6 @@ export async function scanDeveloperProjectsRecursive(
 
         // Send real-time update
         parentPort.postMessage({ type: "project-found", project } as WorkerResponse);
-
-        // Only stop recursing if we found a project WITH caches to avoid nested scans
-        // If no caches found, continue scanning subdirectories
-        return;
       }
 
       // If this directory matches project detection but has no caches,
@@ -428,27 +533,46 @@ export async function scanDeveloperProjectsRecursive(
     // Recurse into subdirectories
     for (const entry of entries) {
       if (!isScanning) return;
-      if (entry.isDirectory()) {
+      if (entry.isDirectory() && !SKIP_DIRECTORY_NAMES.has(entry.name)) {
         const fullPath = path.join(dirPath, entry.name);
         await scanDeveloperProjectsRecursive(
           fullPath,
           enabledCategories,
           projects,
           currentDepth + 1,
-          maxDepth
+          maxDepth,
+          protectedPaths,
+          excludeGlobs
         );
       }
     }
   } catch (error) {
     console.warn("Error scanning directory:", error);
+    const code = errnoCode(error);
+    if (isDeniedOutsideHome(code, dirPath, os.homedir())) {
+      parentPort?.postMessage({ type: "access-denied", path: dirPath } as WorkerResponse);
+    }
   }
 }
 
+function errnoCode(err: unknown): string | undefined {
+  if (!err || typeof err !== "object" || !("code" in err)) return undefined;
+  const code = (err as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+}
+
 // Main scan function
-export async function scanDeveloperProjects(basePaths: string[], enabledCategories: Category[]): Promise<Project[]> {
+export async function scanDeveloperProjects(
+  basePaths: string[],
+  enabledCategories: Category[],
+  maxDepth = DEFAULT_DEV_SCAN_DEPTH,
+  protectedPaths: readonly string[] = [],
+  excludeGlobs: readonly string[] = []
+): Promise<Project[]> {
   const projects: Project[] = [];
 
   isScanning = true;
+  visitedDirectories = 0;
   for (const basePath of basePaths) {
     try {
       if (!isScanning) return projects;
@@ -457,14 +581,15 @@ export async function scanDeveloperProjects(basePaths: string[], enabledCategori
         enabledCategories,
         projects,
         0,
-        10 // Max depth of 10
+        maxDepth,
+        protectedPaths,
+        excludeGlobs
       );
     } catch (error) {
       console.error(`Error scanning ${basePath}:`, error);
     }
   }
 
-  isScanning = false;
   return projects;
 }
 
@@ -483,7 +608,15 @@ if (parentPort) {
       }
 
       // enabledCategories already contains the full category objects from the frontend
-      const projects = await scanDeveloperProjects(message.basePaths, message.enabledCategories);
+      const maxDepth =
+        typeof message.maxDepth === "number" ? message.maxDepth : DEFAULT_DEV_SCAN_DEPTH;
+      const projects = await scanDeveloperProjects(
+        message.basePaths,
+        message.enabledCategories,
+        maxDepth,
+        message.protectedPaths ?? [],
+        message.excludeGlobs ?? []
+      );
 
       console.log(`Developer scan completed. Found ${projects.length} projects`);
       parentPort?.postMessage({ type: "done", projects } as WorkerResponse);

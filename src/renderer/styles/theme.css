@@ -1,0 +1,142 @@
+/* DevNullifier design system — global polish on top of Vuetify themes */
+
+:root {
+  --dn-radius: 7px;
+  --dn-transition: 150ms ease;
+  --dn-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --dn-mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --dn-border: #dcddd7;
+}
+
+.v-theme--dark {
+  --dn-border: #41444b;
+}
+
+html,
+body,
+.v-application {
+  font-family: var(--dn-font);
+}
+
+.v-btn {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 600;
+  transition: background-color var(--dn-transition), color var(--dn-transition),
+    border-color var(--dn-transition), opacity var(--dn-transition), box-shadow var(--dn-transition);
+}
+
+.v-card {
+  border: 1px solid var(--dn-border);
+  box-shadow: none !important;
+}
+
+.v-app-bar {
+  border-bottom: 1px solid var(--dn-border);
+  box-shadow: none !important;
+}
+
+.v-tabs {
+  border-bottom: 1px solid var(--dn-border);
+}
+
+.v-tab {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-weight: 500;
+  min-height: 40px;
+  transition: color var(--dn-transition), background-color var(--dn-transition);
+}
+
+.v-tab--selected {
+  font-weight: 600;
+}
+
+.v-data-table {
+  border: 1px solid var(--dn-border);
+  border-radius: var(--dn-radius);
+  overflow: hidden;
+}
+
+.v-data-table .v-table {
+  --v-table-row-height: 40px;
+}
+
+.v-data-table th {
+  font-weight: 600 !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.02em;
+  color: rgba(var(--v-theme-on-surface), 0.65) !important;
+  border-bottom: 1px solid var(--dn-border) !important;
+}
+
+.v-data-table td {
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  font-size: 0.8125rem;
+}
+
+.v-data-table tbody tr {
+  transition: background-color var(--dn-transition);
+}
+
+.v-data-table tbody tr:hover > td {
+  background: rgba(var(--v-theme-on-surface), 0.04) !important;
+}
+
+.v-data-table tbody tr.v-data-table__selected > td,
+.v-data-table__tr--selected > td {
+  background: rgba(var(--v-theme-primary), 0.14) !important;
+}
+
+.v-field {
+  transition: border-color var(--dn-transition), box-shadow var(--dn-transition);
+}
+
+.v-chip {
+  font-weight: 500;
+}
+
+.v-snackbar .v-snackbar__wrapper {
+  border-radius: var(--dn-radius);
+}
+
+.dn-path {
+  font-family: var(--dn-mono);
+  font-size: 12.5px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.dn-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+}
+
+.dn-app-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.dn-app-title {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.dn-surface-card {
+  border: 1px solid var(--dn-border);
+}
+
+.dn-cache-header {
+  background: rgb(var(--v-theme-surface-variant));
+  border: 1px solid var(--dn-border);
+}

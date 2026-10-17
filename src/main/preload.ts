@@ -10,6 +10,8 @@ interface ScanFoldersOptions {
 interface ScanDeveloperOptions {
   basePaths: string[];
   enabledCategories: Category[];
+  maxDepth?: number;
+  resetAllowlist?: boolean;
 }
 
 // Export the API type for use in other files
@@ -22,15 +24,24 @@ const api: ElectronAPI = {
   getAppDataPaths: () => ipcRenderer.invoke("get-appdata-paths"),
 
   // Scan for folders
-  scanFolders: (paths: string[], maxDepth: number) =>
-    ipcRenderer.invoke("scan-folders", { paths, maxDepth } as ScanFoldersOptions),
+  scanFolders: (paths: string[], maxDepth: number, resetAllowlist = false) =>
+    ipcRenderer.invoke("scan-folders", { paths, maxDepth, resetAllowlist } as ScanFoldersOptions & { resetAllowlist: boolean }),
 
   // Scan for developer caches
-  scanDeveloperCaches: (basePaths: string[], enabledCategories: Category[]) =>
+  scanDeveloperCaches: (
+    basePaths: string[],
+    enabledCategories: Category[],
+    maxDepth?: number,
+    resetAllowlist = false
+  ) =>
     ipcRenderer.invoke("scan-developer-caches", {
       basePaths,
-      enabledCategories
+      enabledCategories,
+      maxDepth,
+      resetAllowlist
     } as ScanDeveloperOptions),
+
+  scanGlobalCaches: () => ipcRenderer.invoke("scan-global-caches"),
 
   // Stop scanning
   stopAppDataScan: () => ipcRenderer.invoke("stop-appdata-scan"),
@@ -38,12 +49,18 @@ const api: ElectronAPI = {
   // Stop developer scanning
   stopDeveloperScan: () => ipcRenderer.invoke("stop-developer-scan"),
 
-  // Delete folders
+  // Delete folders. Permanent mode is a saved main-process setting, not an argument.
   deleteFolders: (folderPaths: string[]) =>
     ipcRenderer.invoke("delete-folders", folderPaths),
 
-  // Check admin privileges
-  checkAdmin: () => ipcRenderer.invoke("check-admin"),
+  getDeletionLog: () => ipcRenderer.invoke("get-deletion-log"),
+  appendDeletionLog: entries => ipcRenderer.invoke("append-deletion-log", entries),
+  exportDeletionLog: () => ipcRenderer.invoke("export-deletion-log"),
+
+  getCleanerRules: () => ipcRenderer.invoke("get-cleaner-rules"),
+  setCleanerRules: rules => ipcRenderer.invoke("set-cleaner-rules", rules),
+  getCustomScanRules: () => ipcRenderer.invoke("get-custom-scan-rules"),
+  setCustomScanRules: rules => ipcRenderer.invoke("set-custom-scan-rules", rules),
 
   // Select directory
   selectDirectory: () => ipcRenderer.invoke("select-directory"),
@@ -55,14 +72,26 @@ const api: ElectronAPI = {
   getFolderContents: (folderPath: string) =>
     ipcRenderer.invoke("get-folder-contents", folderPath),
 
-  // Listen for scan progress
+  // Listen for directories entered during a scan
   onScanProgress: (callback: (count: number) => void) => {
     ipcRenderer.on("scan-progress", (_event, count) => callback(count));
   },
 
   // Listen for current path being scanned
-  onScanCurrentPath: (callback: (path: string) => void) => {
-    ipcRenderer.on("scan-current-path", (_event, path) => callback(path));
+  onScanCurrentPath: (callback: (path: string, visited?: number) => void) => {
+    ipcRenderer.on("scan-current-path", (_event, path: string, visited?: number) =>
+      callback(path, visited)
+    );
+  },
+
+  onDeveloperScanCurrentPath: (callback: (path: string, visited?: number) => void) => {
+    ipcRenderer.on("developer-scan-current-path", (_event, path: string, visited?: number) =>
+      callback(path, visited)
+    );
+  },
+
+  onDeveloperScanVisited: (callback: (count: number) => void) => {
+    ipcRenderer.on("developer-scan-visited", (_event, count: number) => callback(count));
   },
 
   // Listen for delete progress
@@ -105,6 +134,7 @@ const api: ElectronAPI = {
   loadSavedFolders: () => ipcRenderer.invoke("load-saved-folders"),
   getSavedFoldersCount: () => ipcRenderer.invoke("get-saved-folders-count"),
   getDirectorySize: (path: string) => ipcRenderer.invoke("get-directory-size", path),
+  diskFree: (path: string) => ipcRenderer.invoke("disk-free", path),
   
   // Developer cleaner handlers
   saveDeveloperProjects: (projects: ProjectInfo[]) => ipcRenderer.invoke("save-developer-projects", projects),
@@ -121,6 +151,18 @@ const api: ElectronAPI = {
   // New handler
   setUpdateChannel: (channel: 'latest' | 'latest-dev') => ipcRenderer.invoke('set-update-channel', channel),
   getLocale: () => ipcRenderer.invoke('get-locale'),
+
+  openPath: (target: string) => ipcRenderer.invoke("open-path", target),
+  copyText: (text: string) => ipcRenderer.invoke("copy-text", text),
+  platform: process.platform,
+  getPlatform: () => ipcRenderer.invoke("get-platform"),
+  lockingProcess: (target: string) => ipcRenderer.invoke("locking-process", target),
+
+  onScanAccessDenied: (callback: (deniedPath: string) => void) => {
+    ipcRenderer.on("scan-access-denied", (_event, deniedPath: string) => callback(deniedPath));
+  },
+
+  relaunchElevated: () => ipcRenderer.invoke("relaunch-elevated"),
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

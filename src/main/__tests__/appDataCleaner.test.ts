@@ -1,13 +1,14 @@
 import { promises as fs } from "fs";
-import fsSync, { Dirent } from "fs";
+import fsSync from "fs";
 import os from "os";
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { getAppDataPaths, deleteDirectory } from "../appDataCleaner";
+import { getAppDataPaths, deleteDirectory, folderNameMatchesKeyword, matchedKeyword } from "../appDataCleaner";
 
 // Mock modules
 vi.mock("fs", () => ({
   promises: {
     stat: vi.fn(),
+    lstat: vi.fn(),
     readdir: vi.fn(),
     rm: vi.fn(),
     unlink: vi.fn()
@@ -70,6 +71,14 @@ describe("getAppDataPaths", () => {
       ]);
     });
 
+    it("builds LocalLow from the last segment, not the first Local substring", () => {
+      process.env.LOCALAPPDATA = "C:/Users/LocalAdmin/AppData/Local";
+      vi.mocked(fsSync.existsSync).mockReturnValue(true);
+      const paths = getAppDataPaths();
+      expect(paths).toContain("C:/Users/LocalAdmin/AppData/LocalLow");
+      expect(paths.some(entry => entry.includes("LocalLowAdmin"))).toBe(false);
+    });
+
     it("should skip non-existent Windows paths", () => {
       vi.mocked(fsSync.existsSync).mockReturnValue(false);
       const paths = getAppDataPaths();
@@ -115,7 +124,6 @@ describe("getAppDataPaths", () => {
         "/Users/user/Library/Caches",
         "/Users/user/Library/Application Support",
         "/Users/user/Library/Logs",
-        "/Users/user/Library/Preferences",
         "/tmp"
       ]);
     });
@@ -128,58 +136,99 @@ describe("getAppDataPaths", () => {
   });
 });
 
+describe("folderNameMatchesKeyword", () => {
+  const keywords = ["cache", "temp", "report"];
+
+  it("matches a keyword at the start or end of the name", () => {
+    expect(folderNameMatchesKeyword("Cache", keywords)).toBe(true);
+    expect(folderNameMatchesKeyword("shadercache", keywords)).toBe(true);
+    expect(folderNameMatchesKeyword("temp-dir", keywords)).toBe(true);
+    expect(folderNameMatchesKeyword("coverage-report", keywords)).toBe(true);
+  });
+
+  it("does not match a keyword buried in the name", () => {
+    expect(folderNameMatchesKeyword("Templates", keywords)).toBe(false);
+    expect(folderNameMatchesKeyword("template", keywords)).toBe(false);
+    expect(folderNameMatchesKeyword("myreportfiles", keywords)).toBe(false);
+  });
+});
+
+describe("matchedKeyword", () => {
+  const keywords = ["cache", "temp", "report"];
+
+  it("returns the keyword Cache matches", () => {
+    expect(matchedKeyword("Cache", keywords)).toBe("cache");
+  });
+
+  it("returns null when Templates matches nothing", () => {
+    expect(matchedKeyword("Templates", keywords)).toBeNull();
+  });
+
+  it("returns the first keyword when several could match", () => {
+    expect(matchedKeyword("tempcache", ["cache", "temp"])).toBe("cache");
+    expect(matchedKeyword("tempcache", ["temp", "cache"])).toBe("temp");
+  });
+});
+
 describe("deleteDirectory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  const createDirent = (name: string, isDirectory: boolean): Dirent =>
-    ({
-      name,
-      isDirectory: () => isDirectory
-    } as Dirent);
+  const trash = vi.fn().mockResolvedValue(undefined);
 
-  it("should return true if path does not exist", async () => {
-    vi.mocked(fs.stat).mockRejectedValue(new Error("ENOENT"));
-    const result = await deleteDirectory("/non/existent");
-    expect(result).toBe(true);
+  it("returns true when the path is already gone", async () => {
+    vi.mocked(fs.lstat).mockRejectedValue(new Error("ENOENT"));
+    await expect(deleteDirectory("/missing", trash)).resolves.toBe(true);
+    expect(trash).not.toHaveBeenCalled();
   });
 
-  it("should return true for a fully successful deletion", async () => {
-    // Mock the directory structure and successful deletions
-    vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => true } as any);
-    vi
-      .mocked(fs.readdir)
-      .mockResolvedValueOnce([createDirent("file.txt", false)] as any);
+  it("moves a directory to the trash without walking it", async () => {
+    vi.mocked(fs.lstat).mockResolvedValue({
+      isSymbolicLink: () => false,
+      isDirectory: () => true,
+      isFile: () => false
+    } as any);
+
+    await expect(deleteDirectory("/path/to/delete", trash)).resolves.toBe(true);
+    expect(trash).toHaveBeenCalledWith("/path/to/delete");
+    expect(fs.readdir).not.toHaveBeenCalled();
+    expect(fs.unlink).not.toHaveBeenCalled();
+  });
+
+  it("moves a file to the trash", async () => {
+    vi.mocked(fs.lstat).mockResolvedValue({
+      isSymbolicLink: () => false,
+      isDirectory: () => false,
+      isFile: () => true
+    } as any);
+
+    await expect(deleteDirectory("/path/.eslintcache", trash)).resolves.toBe(true);
+    expect(trash).toHaveBeenCalledWith("/path/.eslintcache");
+  });
+
+  it("unlinks a symlink or junction instead of following it", async () => {
+    vi.mocked(fs.lstat).mockResolvedValue({
+      isSymbolicLink: () => true,
+      isDirectory: () => false,
+      isFile: () => false
+    } as any);
     vi.mocked(fs.unlink).mockResolvedValue(undefined);
-    vi.mocked(fs.rm).mockResolvedValue(undefined);
 
-    const result = await deleteDirectory("/path/to/delete");
-    expect(result).toBe(true);
+    await expect(deleteDirectory("/path/junction", trash)).resolves.toBe(true);
+    expect(fs.unlink).toHaveBeenCalledWith("/path/junction");
+    expect(trash).not.toHaveBeenCalled();
+    expect(fs.readdir).not.toHaveBeenCalled();
   });
 
-  it("should handle nested directories correctly", async () => {
-    // This requires more complex mocking to handle the recursion.
-    vi.mocked(fs.stat).mockImplementation(
-      (async (p: any) => ({
-        isDirectory: () => !p.includes("file")
-      })) as any
-    );
+  it("returns false when trash fails", async () => {
+    vi.mocked(fs.lstat).mockResolvedValue({
+      isSymbolicLink: () => false,
+      isDirectory: () => true,
+      isFile: () => false
+    } as any);
+    const failingTrash = vi.fn().mockRejectedValue(new Error("busy"));
 
-    vi.mocked(fs.readdir).mockImplementation(
-      (async (p: any) => {
-        if (p === "/tmp/delete-me") return [createDirent("subdir", true)];
-        if (p === "/tmp/delete-me/subdir")
-          return [createDirent("file.txt", false)];
-        return [];
-      }) as any
-    );
-
-    vi.mocked(fs.unlink).mockResolvedValue(undefined);
-    vi.mocked(fs.rm).mockResolvedValue(undefined);
-
-    const result = await deleteDirectory("/tmp/delete-me");
-    expect(result).toBe(true);
+    await expect(deleteDirectory("/path/busy", failingTrash)).resolves.toBe(false);
   });
 });

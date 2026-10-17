@@ -2,6 +2,14 @@ import { BrowserWindow, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
 
+let updateChannelRegistered = false;
+
+const githubFeed = {
+  provider: "github" as const,
+  owner: "Hermesiss",
+  repo: "DevNullifier"
+};
+
 export class UpdateService {
   private readonly mainWindow: BrowserWindow;
 
@@ -12,6 +20,8 @@ export class UpdateService {
   }
 
   private setupIpcHandlers() {
+    if (updateChannelRegistered) return;
+    updateChannelRegistered = true;
     ipcMain.handle(
       "set-update-channel",
       (_, channel: "latest" | "latest-dev") => {
@@ -22,13 +32,7 @@ export class UpdateService {
 
   public setUpdateChannel(channel: "latest" | "latest-dev") {
     autoUpdater.allowPrerelease = channel === "latest-dev";
-
-    let baseUrl =
-      channel === "latest"
-        ? "https://github.com/Hermesiss/DevNullifier/releases/latest/download/"
-        : "https://github.com/Hermesiss/DevNullifier/releases/download/latest-dev/";
-
-    autoUpdater.setFeedURL(baseUrl);
+    autoUpdater.setFeedURL(githubFeed);
   }
 
   private initializeAutoUpdater() {

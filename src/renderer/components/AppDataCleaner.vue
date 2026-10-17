@@ -7,39 +7,52 @@
 
         <!-- Results Table -->
         <ResultsTable v-model="selectedFolders" :folders="folders" :is-scanning="isScanning"
-            @open-folder-tree="openFolderTree" />
+            :compare-text="scanCompareText" @open-folder-tree="openFolderTree" />
+
+        <DeleteFailureList :failures="failedDeletes" :disabled="isDeleting" @retry="retryFailed" />
 
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedFolders.length" :selected-size="selectedSize"
-            @confirm="deleteFolders" />
+            :permanent="permanentDelete" @confirm="deleteFolders" />
 
         <!-- Folder Tree Viewer -->
         <FolderTreeViewer v-model="showFolderTree" :folder-path="selectedFolderPath" />
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
-            <ActionsBar :status-text="statusText" :delete-progress="deleteProgress"
-                :selected-count="selectedFolders.length" :is-scanning="isScanning" :is-deleting="isDeleting"
-                @delete="confirmDelete" />
+            <ActionsBar :status-text="statusText" :disk-status="diskStatus"
+                :delete-progress="deleteProgress" :selected-count="selectedFolders.length" :is-scanning="isScanning"
+                :is-deleting="isDeleting" @delete="confirmDelete" />
         </v-footer>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useElevationPrompt } from '../composables/useElevationPrompt'
+import { failsThreshold } from '../../main/thresholds'
+import { applyRetryResult, summarizeDeleteResults, unsuccessfulDeletes } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
 import ControlPanel from './AppDataCleaner/ControlPanel.vue'
 import ResultsTable from './AppDataCleaner/ResultsTable.vue'
 import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
+import DeleteFailureList from './DeleteFailureList.vue'
 import type { DeleteResult, FolderItem } from '@/types'
+import { formatSize } from '../utils/formatters'
+import { compareScans, toScanSnapshot, type ScanComparison, type ScanSnapshotItem } from '../utils/scanCompare'
+import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
+import { useDiskStatus } from '../composables/useDiskStatus'
 
 const { t } = useI18n()
+const { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved } = useCleanerRules()
+useElevationPrompt()
 
 // Reactive state
 const folders = ref<FolderItem[]>([])
 const selectedFolders = ref<string[]>([])
 const maxDepth = ref(3)
+const scanDepth = () => maxDepth.value === 0 ? -1 : maxDepth.value
 const isScanning = ref(false)
 const isDeleting = ref(false)
 const showDeleteDialog = ref(false)
@@ -47,7 +60,24 @@ const showFolderTree = ref(false)
 const selectedFolderPath = ref('')
 const statusText = ref(t('common.ready'))
 const deleteProgress = ref(0)
+const deleteBatchSize = ref(1)
+const failedDeletes = ref<DeleteResult[]>([])
+const deletionSizes = new Map<string, number>()
 const scanProgress = ref(0)
+const scannedDirectoryCount = ref(0)
+const currentScanPath = ref('')
+const acceptScanDetail = ref(false)
+const scanComparison = ref<ScanComparison | null>(null)
+const scanRoot = ref<string | null>(null)
+const scanCompareText = computed(() => {
+    const comparison = scanComparison.value
+    if (!comparison) return ''
+    return t('common.scan_compare', {
+        added: comparison.added.length,
+        grown: comparison.grown.length,
+        freed: formatSize(comparison.freedBytes)
+    })
+})
 
 // Emit events to parent
 const emit = defineEmits<{
@@ -62,10 +92,39 @@ const selectedSize = computed(() => {
     }, 0)
 })
 
-// Selection helpers
-const selectAll = () => {
-    selectedFolders.value = folders.value.map((f) => f.path)
+const foundSize = computed(() => folders.value.reduce((sum, folder) => sum + folder.size, 0))
+
+const refreshScanRoot = async (): Promise<void> => {
+    const paths = await window.electronAPI.getAppDataPaths()
+    scanRoot.value = paths[0] ?? null
 }
+
+const { diskStatus } = useDiskStatus(scanRoot, selectedSize, foundSize)
+
+const thresholdRules = () => ({
+    minAgeDays: minAgeDays.value,
+    minSizeMb: minSizeMb.value
+})
+
+// Selection helpers. Select-all adds rows that pass and leaves hand-checked rows alone.
+const selectAll = () => {
+    const rules = thresholdRules()
+    const selected = new Set(selectedFolders.value)
+    for (const folder of folders.value) {
+        if (!failsThreshold(folder.size, folder.modifiedAt, rules)) selected.add(folder.path)
+    }
+    selectedFolders.value = folders.value.map(folder => folder.path).filter(path => selected.has(path))
+}
+
+watch([minAgeDays, minSizeMb], () => {
+    if (!cleanerThresholdsActive(minAgeDays.value, minSizeMb.value)) return
+    const rules = thresholdRules()
+    selectedFolders.value = selectedFolders.value.filter(path => {
+        const folder = folders.value.find(item => item.path === path)
+        if (!folder) return true
+        return !failsThreshold(folder.size, folder.modifiedAt, rules)
+    })
+})
 
 const deselectAll = () => {
     selectedFolders.value = []
@@ -78,7 +137,22 @@ const openFolderTree = (folderPath: string): void => {
 }
 
 // Scan logic
+const publishScanDetail = (): void => {
+    if (!acceptScanDetail.value) return
+    statusText.value = t('common.scan_progress_detail', {
+        count: scannedDirectoryCount.value,
+        path: currentScanPath.value
+    })
+}
+
+const beginScanDetail = (): void => {
+    scannedDirectoryCount.value = 0
+    currentScanPath.value = ''
+    acceptScanDetail.value = true
+}
+
 const stopScan = async (): Promise<void> => {
+    acceptScanDetail.value = false
     statusText.value = t('common.stopping_scan')
 
     try {
@@ -94,16 +168,28 @@ const stopScan = async (): Promise<void> => {
     }
 }
 
+const loadPreviousSnapshot = async (): Promise<ScanSnapshotItem[]> => {
+    try {
+        return toScanSnapshot(await window.electronAPI.loadSavedFolders())
+    } catch (error) {
+        console.error('Failed to load previous scan:', error)
+        return []
+    }
+}
+
 const startScan = async (): Promise<void> => {
     try {
         isScanning.value = true
+        scanComparison.value = null
         scanProgress.value = -1
         statusText.value = t('common.getting_app_data_paths')
         folders.value = []
         selectedFolders.value = []
         const seenPaths = new Set<string>()
+        const previous = await loadPreviousSnapshot()
 
         const paths = await window.electronAPI.getAppDataPaths()
+        scanRoot.value = paths[0] ?? null
         if (paths.length === 0) {
             emit('showNotification', t('common.no_app_data_paths'), 'warning')
             isScanning.value = false
@@ -111,6 +197,7 @@ const startScan = async (): Promise<void> => {
         }
 
         statusText.value = t('common.scanning_folders')
+        beginScanDetail()
         // Listen for real-time folder updates
         window.electronAPI.onScanFolderFound((folderss: FolderItem[]) => {
             for (const folder of folderss) {
@@ -125,15 +212,20 @@ const startScan = async (): Promise<void> => {
                 }
             }
         })
-        await window.electronAPI.scanFolders(paths, maxDepth.value)
+        await window.electronAPI.scanFolders(paths, scanDepth(), true)
+        acceptScanDetail.value = false
         // Only sort and show success if we weren't terminated
         if (isScanning.value) {
             // Sort at the end for display
             folders.value.sort((a, b) => b.size - a.size)
+            if (previous.length > 0) {
+                scanComparison.value = compareScans(previous, toScanSnapshot(folders.value))
+            }
             // Save folders after successful scan
-            await window.electronAPI.saveFolders(folders.value.map(f => ({
-                path: f.path,
-                size: f.size
+            await window.electronAPI.saveFolders(folders.value.map(folder => ({
+                ...folder,
+                keyword: folder.keyword,
+                modifiedAt: folder.modifiedAt ?? null
             })))
             statusText.value = t('common.found_folders_count', { count: folders.value.length })
             if (folders.value.length === 0) {
@@ -150,6 +242,7 @@ const startScan = async (): Promise<void> => {
             emit('showNotification', `${t('common.error_scan')}: ${errorMessage}`, 'error')
         }
     } finally {
+        acceptScanDetail.value = false
         // Only update scanning state here if we haven't started stopping
         isScanning.value = false
     }
@@ -158,6 +251,7 @@ const startScan = async (): Promise<void> => {
 const startQuickScan = async (): Promise<void> => {
     try {
         isScanning.value = true
+        scanComparison.value = null
         statusText.value = t('common.loading_saved_folders')
         folders.value = []
         selectedFolders.value = []
@@ -180,6 +274,7 @@ const startQuickScan = async (): Promise<void> => {
                 if (size !== undefined) {
                     validFolders.push({
                         ...folder,
+                        keyword: folder.keyword,
                         size
                     })
                 }
@@ -207,6 +302,7 @@ const startQuickScan = async (): Promise<void> => {
 
 const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> => {
     try {
+        scanComparison.value = null
         selectedFolders.value = []
         statusText.value = t('common.updating_dirs')
 
@@ -248,7 +344,9 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
         })
 
         // Rescan only the affected directories
-        await window.electronAPI.scanFolders(affectedPaths, maxDepth.value)
+        beginScanDetail()
+        await window.electronAPI.scanFolders(affectedPaths, scanDepth(), false)
+        acceptScanDetail.value = false
 
         // Re-sort the entire list
         folders.value.sort((a, b) => b.size - a.size)
@@ -256,6 +354,7 @@ const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> 
         statusText.value = t('common.updated_dirs_count', { count: affectedPaths.length })
 
     } catch (error) {
+        acceptScanDetail.value = false
         console.error('Rescan error:', error)
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         emit('showNotification', `${t('common.error_updating_dirs')}: ${errorMessage}`, 'error')
@@ -295,6 +394,25 @@ const buildDeleteResultMessage = (successCount: number, partialCount: number, fa
     }
 }
 
+const recordDeletionLog = async (
+    results: Array<{ path: string; success: boolean | 'partial' }>,
+    sizes: Map<string, number>
+): Promise<void> => {
+    if (results.length === 0) return
+    try {
+        await window.electronAPI.appendDeletionLog(results.map(result => {
+            const raw = sizes.get(result.path)
+            return {
+                path: result.path,
+                size: typeof raw === 'number' && Number.isFinite(raw) ? raw : 0,
+                status: result.success === true ? 'success' as const : result.success === 'partial' ? 'partial' as const : 'error' as const
+            }
+        }))
+    } catch (error) {
+        console.error('Failed to append deletion log:', error)
+    }
+}
+
 const deleteFolders = async (): Promise<void> => {
     try {
         showDeleteDialog.value = false
@@ -302,11 +420,14 @@ const deleteFolders = async (): Promise<void> => {
         deleteProgress.value = 0
         statusText.value = t('common.deleting_folders')
 
+        await whenRulesSaved()
+        deletionSizes.clear()
+        for (const folder of folders.value) deletionSizes.set(folder.path, folder.size)
+        deleteBatchSize.value = selectedFolders.value.length || 1
         const results = await window.electronAPI.deleteFolders([...selectedFolders.value])
-
-        const successCount = results.filter((r: DeleteResult) => r.success === true).length
-        const partialCount = results.filter((r: DeleteResult) => r.success === 'partial').length
-        const failCount = results.filter((r: DeleteResult) => r.success === false).length
+        await recordDeletionLog(results, deletionSizes)
+        failedDeletes.value = unsuccessfulDeletes(results)
+        const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 
         const { message, color } = buildDeleteResultMessage(successCount, partialCount, failCount)
         emit('showNotification', message, color)
@@ -325,6 +446,36 @@ const deleteFolders = async (): Promise<void> => {
     }
 }
 
+const retryFailed = async (path: string): Promise<void> => {
+    if (isDeleting.value) return
+    isDeleting.value = true
+    deleteProgress.value = 0
+    deleteBatchSize.value = 1
+    statusText.value = t('common.deleting_folders')
+    try {
+        await whenRulesSaved()
+        const results = await window.electronAPI.deleteFolders([path])
+        await recordDeletionLog(results, deletionSizes)
+        const next = results.find(result => result.path === path)
+        failedDeletes.value = applyRetryResult(failedDeletes.value, path, results)
+        const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
+        const { message, color } = buildDeleteResultMessage(successCount, partialCount, failCount)
+        emit('showNotification', message, color)
+        if (next && next.success !== false) {
+            setTimeout(() => {
+                rescanAffectedDirectories([path])
+            }, 1000)
+        }
+    } catch (error) {
+        console.error('Delete error:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        emit('showNotification', `${t('common.error_deletion')}: ${errorMessage}`, 'error')
+    } finally {
+        isDeleting.value = false
+        deleteProgress.value = 0
+    }
+}
+
 // Event listeners setup
 const setupEventListeners = (): void => {
     // Ensure no duplicate listeners first
@@ -333,17 +484,22 @@ const setupEventListeners = (): void => {
     window.electronAPI.removeAllListeners('delete-progress')
     window.electronAPI.removeAllListeners('scan-folder-found')
 
-    // Attach listeners
+    // Attach listeners. Progress count is directories entered, not matches found.
     window.electronAPI.onScanProgress((count: number) => {
-        statusText.value = t('common.found_folders_count', { count: count })
+        scannedDirectoryCount.value = count
+        publishScanDetail()
     })
 
-    window.electronAPI.onScanCurrentPath((path: string) => {
-        statusText.value = t('common.scanning_path', { path: path })
+    window.electronAPI.onScanCurrentPath((path: string, visited?: number) => {
+        currentScanPath.value = path ?? ''
+        if (typeof visited === 'number') scannedDirectoryCount.value = visited
+        publishScanDetail()
     })
 
     window.electronAPI.onDeleteProgress((count: number) => {
-        deleteProgress.value = (count / selectedFolders.value.length) * 100
+        const total = deleteBatchSize.value
+        if (total <= 0) return
+        deleteProgress.value = (count / total) * 100
     })
 }
 
@@ -351,9 +507,13 @@ const removeEventListeners = (): void => {
     window.electronAPI.removeAllListeners('scan-progress')
     window.electronAPI.removeAllListeners('scan-current-path')
     window.electronAPI.removeAllListeners('delete-progress')
+    window.electronAPI.removeAllListeners('scan-folder-found')
 }
 
-onMounted(setupEventListeners)
+onMounted(() => {
+    setupEventListeners()
+    void refreshScanRoot()
+})
 onUnmounted(removeEventListeners)
 
 // Expose methods and computed properties for parent
