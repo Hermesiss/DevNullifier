@@ -62,5 +62,5 @@ export function useDiskStatus(
     };
   });
 
-  return { diskStatus };
+  return { diskStatus, refreshDiskStatus: refreshFreeBytes };
 }

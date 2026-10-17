@@ -90,6 +90,8 @@ export interface ElectronAPI {
   ) => Promise<ProjectInfo[]>;
   scanGlobalCaches: (locale?: string) => Promise<ToolCacheItem[]>;
   getToolCacheCatalog: (locale?: string) => Promise<ToolCacheCatalogCategory[]>;
+  scanGames: () => Promise<GameApp[]>;
+  uninstallGame: (request: UninstallGameRequest) => Promise<UninstallGameResult>;
   onToolCacheScanProgress: (callback: (progress: { checked: number; total: number; path: string }) => void) => void;
   onToolCacheFound: (callback: (item: ToolCacheItem) => void) => void;
   stopAppDataScan: () => Promise<void>;
@@ -149,3 +151,4 @@ import type { ProjectInfo, DeveloperCategory } from "./developer-cleaner";
 import type { CleanerRules } from "../../main/cleanerRules";
 import type { CustomScanRules, CustomScanRulesUpdate } from "../../main/customScanRules";
 import type { DeletionLogEntry } from "../../main/deletionLog";
+import type { GameApp, UninstallGameRequest, UninstallGameResult } from "../../main/games/types";

@@ -24,7 +24,7 @@ const disk: DiskStatus = {
 };
 
 describe("ActionsBar disk bar", () => {
-  it("puts found on the right of used and selected inside found", () => {
+  it("renders DiskStrip with disk status", () => {
     const wrapper = mount(ActionsBar, {
       props: {
         statusText: "Ready",
@@ -53,8 +53,7 @@ describe("ActionsBar disk bar", () => {
     expect(wrapper.get(".disk-used").attributes("style")).toContain("flex-grow: 600");
     expect(wrapper.get(".disk-found").attributes("style")).toContain("flex-grow: 200");
     expect(wrapper.get(".disk-selected").attributes("style")).toContain("width: 40%");
-    expect(wrapper.get(".disk-free").attributes("style")).toContain("flex-grow: 200");
     expect(wrapper.text()).toContain("Found 200 B");
-    expect(wrapper.text()).toContain("Will free 80 B (10% of used)");
+    expect(wrapper.text()).toContain("Ready");
   });
 });

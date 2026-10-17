@@ -44,6 +44,10 @@
             <v-icon left>mdi-toolbox-outline</v-icon>
             {{ t('app.tabs.tools') }}
           </v-tab>
+          <v-tab value="games">
+            <v-icon left>mdi-controller</v-icon>
+            {{ t('app.tabs.games') }}
+          </v-tab>
         </v-tabs>
 
         <v-tabs-window v-model="activeTab">
@@ -57,6 +61,10 @@
 
           <v-tabs-window-item value="tools">
             <ToolCachesCleaner @showNotification="showNotification" />
+          </v-tabs-window-item>
+
+          <v-tabs-window-item value="games">
+            <GamesCleaner @showNotification="showNotification" />
           </v-tabs-window-item>
         </v-tabs-window>
       </v-container>
@@ -117,6 +125,7 @@ import { useI18n } from 'vue-i18n'
 import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import ToolCachesCleaner from './components/ToolCachesCleaner.vue'
+import GamesCleaner from './components/GamesCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
