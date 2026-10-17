@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.21]
+
+### Added
+
+- The status line shows free space on the scan volume, how much is selected, and what share of the free space that is.
+
 ## [1.3.20]
 
 ### Changed

@@ -69,7 +69,7 @@
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
-            <ActionsBar :status-text="statusText" :delete-progress="0"
+            <ActionsBar :status-text="statusText" :disk-status-text="diskStatusText" :delete-progress="0"
                 :selected-count="selectedCacheCount" :is-scanning="isScanning" :is-deleting="isDeleting"
                 @delete="confirmDelete" />
         </v-footer>
@@ -94,6 +94,7 @@ import { formatSize } from '../utils/formatters'
 import { compareScans, toScanSnapshot, type ScanComparison, type ScanSnapshotItem } from '../utils/scanCompare'
 import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
 import { useElevationPrompt } from '../composables/useElevationPrompt'
+import { useDiskStatus } from '../composables/useDiskStatus'
 
 const { t } = useI18n()
 const { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved } = useCleanerRules()
@@ -291,6 +292,9 @@ const selectedCacheSize = computed(() => {
     const toolSize = selectedToolCaches.value.reduce((total, item) => total + item.size, 0)
     return projectSize + toolSize
 })
+
+const devScanRoot = computed(() => controlPanel.value?.firstBasePath ?? null)
+const { diskStatusText } = useDiskStatus(devScanRoot, selectedCacheSize)
 
 // Methods
 const showNotification = (message: string, type: string = 'info'): void => {

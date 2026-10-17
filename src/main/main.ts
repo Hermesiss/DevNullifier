@@ -574,6 +574,25 @@ ipcMain.handle("get-directory-size", async (event, targetPath: string) => {
   return appDataCleaner.getDirectorySize(targetPath);
 });
 
+ipcMain.handle("disk-free", async (_event, path: unknown) => {
+  if (typeof path !== "string" || !path.trim()) {
+    return null;
+  }
+  try {
+    const stats = await fsPromises.statfs(path);
+    const { bsize, bfree, bavail } = stats;
+    if (typeof bsize === "number" && typeof bfree === "number") {
+      return { free: bsize * bfree };
+    }
+    if (typeof bsize === "number" && typeof bavail === "number") {
+      return { free: bsize * bavail };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+});
+
 ipcMain.handle("save-developer-projects", async (event, projects) => {
   await fileUtils.saveDeveloperProjects(projects);
   return true;

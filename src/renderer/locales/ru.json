@@ -35,6 +35,7 @@
     "nested_projects": "{count} вложенных",
     "quick_scan": "Быстрое сканирование",
     "delete_selected": "Удалить выбранные",
+    "disk_status": "Свободно {free}. Выбрано {selected} ({percent}% от свободного).",
     "found_folders": "Найденные папки",
     "scan_compare": "{added} новых, {grown} выросли, освобождено {freed}",
     "path": "Путь",

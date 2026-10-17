@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -195,9 +195,12 @@ watch(() => props.isScanning, async (newVal) => {
     }
 })
 
+const firstBasePath = computed(() => basePaths.value[0] ?? null)
+
 // Expose basePaths for parent access
 defineExpose({
-    basePaths
+    basePaths,
+    firstBasePath
 })
 </script>
 

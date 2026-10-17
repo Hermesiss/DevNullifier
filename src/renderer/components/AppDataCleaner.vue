@@ -19,7 +19,7 @@
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
-            <ActionsBar :status-text="statusText"
+            <ActionsBar :status-text="statusText" :disk-status-text="diskStatusText"
                 :delete-progress="deleteProgress" :selected-count="selectedFolders.length" :is-scanning="isScanning"
                 :is-deleting="isDeleting" @delete="confirmDelete" />
         </v-footer>
@@ -42,6 +42,7 @@ import type { DeleteResult, FolderItem } from '@/types'
 import { formatSize } from '../utils/formatters'
 import { compareScans, toScanSnapshot, type ScanComparison, type ScanSnapshotItem } from '../utils/scanCompare'
 import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
+import { useDiskStatus } from '../composables/useDiskStatus'
 
 const { t } = useI18n()
 const { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved } = useCleanerRules()
@@ -67,6 +68,7 @@ const scannedDirectoryCount = ref(0)
 const currentScanPath = ref('')
 const acceptScanDetail = ref(false)
 const scanComparison = ref<ScanComparison | null>(null)
+const scanRoot = ref<string | null>(null)
 const scanCompareText = computed(() => {
     const comparison = scanComparison.value
     if (!comparison) return ''
@@ -89,6 +91,13 @@ const selectedSize = computed(() => {
         return sum + (folder ? folder.size : 0)
     }, 0)
 })
+
+const refreshScanRoot = async (): Promise<void> => {
+    const paths = await window.electronAPI.getAppDataPaths()
+    scanRoot.value = paths[0] ?? null
+}
+
+const { diskStatusText } = useDiskStatus(scanRoot, selectedSize)
 
 const thresholdRules = () => ({
     minAgeDays: minAgeDays.value,
@@ -178,6 +187,7 @@ const startScan = async (): Promise<void> => {
         const previous = await loadPreviousSnapshot()
 
         const paths = await window.electronAPI.getAppDataPaths()
+        scanRoot.value = paths[0] ?? null
         if (paths.length === 0) {
             emit('showNotification', t('common.no_app_data_paths'), 'warning')
             isScanning.value = false
@@ -498,7 +508,10 @@ const removeEventListeners = (): void => {
     window.electronAPI.removeAllListeners('scan-folder-found')
 }
 
-onMounted(setupEventListeners)
+onMounted(() => {
+    setupEventListeners()
+    void refreshScanRoot()
+})
 onUnmounted(removeEventListeners)
 
 // Expose methods and computed properties for parent

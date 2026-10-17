@@ -91,6 +91,7 @@ export interface ElectronAPI {
   loadSavedFolders: () => Promise<FolderItem[]>;
   getSavedFoldersCount: () => Promise<number>;
   getDirectorySize: (path: string) => Promise<number>;
+  diskFree: (path: string) => Promise<{ free: number } | null>;
   saveDeveloperProjects: (projects: ProjectInfo[]) => Promise<void>;
   loadSavedDeveloperProjects: () => Promise<ProjectInfo[]>;
   getSavedDeveloperProjectsCount: () => Promise<number>;

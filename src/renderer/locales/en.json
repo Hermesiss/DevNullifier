@@ -35,6 +35,7 @@
     "nested_projects": "{count} nested",
     "quick_scan": "Quick Scan",
     "delete_selected": "Delete Selected",
+    "disk_status": "Free {free}. Selected {selected} ({percent}% of free).",
     "found_folders": "Found Folders",
     "scan_compare": "{added} new, {grown} grew, freed {freed}",
     "path": "Path",

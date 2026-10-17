@@ -3,7 +3,10 @@
         <v-card-text>
             <v-row align="center" no-gutters>
                 <v-col cols="auto" class="ml-2">
-                    <v-chip color="info" variant="outlined">{{ statusText }}</v-chip>
+                    <div class="d-flex flex-column ga-1">
+                        <v-chip color="info" variant="outlined">{{ statusText }}</v-chip>
+                        <span v-if="diskStatusText" class="text-caption text-medium-emphasis">{{ diskStatusText }}</span>
+                    </div>
                 </v-col>
 
                 <v-spacer />
@@ -32,6 +35,7 @@ const { t } = useI18n()
 
 defineProps<{
     statusText: string
+    diskStatusText?: string | null
     deleteProgress: number
     selectedCount: number
     isScanning: boolean

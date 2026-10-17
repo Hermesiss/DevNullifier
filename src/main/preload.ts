@@ -134,6 +134,7 @@ const api: ElectronAPI = {
   loadSavedFolders: () => ipcRenderer.invoke("load-saved-folders"),
   getSavedFoldersCount: () => ipcRenderer.invoke("get-saved-folders-count"),
   getDirectorySize: (path: string) => ipcRenderer.invoke("get-directory-size", path),
+  diskFree: (path: string) => ipcRenderer.invoke("disk-free", path),
   
   // Developer cleaner handlers
   saveDeveloperProjects: (projects: ProjectInfo[]) => ipcRenderer.invoke("save-developer-projects", projects),
