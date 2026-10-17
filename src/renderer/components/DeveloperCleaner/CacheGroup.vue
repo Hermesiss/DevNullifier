@@ -34,6 +34,9 @@
                         <!-- For multiple matches, show pattern -->
                         <span v-else>{{ cacheGroup.pattern }}</span>
                     </div>
+                    <div v-if="cacheGroup.matches.length === 1" :class="secondaryTextClass">
+                        {{ matchReason(cacheGroup.matches[0]) }}
+                    </div>
                     <div :class="secondaryTextClass">
                         {{ cacheGroup.matches.length }}
                         {{ cacheGroup.matches.length === 1 ? t('common.match') : t('common.matches') }} •
@@ -78,6 +81,7 @@
                         </v-btn>
                         <div class="flex-grow-1">
                             <div class="font-weight-medium">{{ match.relativePath }}</div>
+                            <div :class="secondaryTextClass">{{ matchReason(match) }}</div>
                             <div :class="secondaryTextClass">{{ formatSize(match.size) }}</div>
                         </div>
                     </div>
@@ -147,6 +151,12 @@ const thresholdRules = () => ({
 
 const canAutoSelect = (match: Pick<CacheMatch, 'size' | 'modifiedAt'>): boolean => {
     return !failsThreshold(match.size, match.modifiedAt, thresholdRules())
+}
+
+function matchReason(match: CacheMatch): string {
+    const categories = (match.categories ?? []).join(', ')
+    const patterns = (match.patterns ?? []).join(', ')
+    return `${t('common.matched_category')}: ${categories} • ${t('common.matched_pattern')}: ${patterns}`
 }
 
 function allGroupCachesSelected(cacheGroup: CacheGroup): boolean {

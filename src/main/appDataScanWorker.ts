@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs/promises";
 import type { Dirent } from "fs";
 import * as fileUtils from "./fileUtils";
-import { folderNameMatchesKeyword } from "./appDataCleaner";
+import { matchedKeyword } from "./appDataCleaner";
 import { isUnderUserPath } from "./deletionPolicy";
 import { directoryExcludedByMarker, pathMatchesExclude } from "./excludeGlobs";
 
@@ -12,6 +12,7 @@ export interface Folder {
   size: number;
   name: string;
   modifiedAt?: string | null;
+  keyword?: string;
 }
 
 export interface WorkerMessage {
@@ -96,7 +97,8 @@ export class FolderScanner {
     }
 
     try {
-      if (folderNameMatchesKeyword(entry.name, keywords)) {
+      const keyword = matchedKeyword(entry.name, keywords);
+      if (keyword !== null) {
         if (await this.excludedByMarker(fullPath)) return results;
         const size = await this.fsOps.getDirSize(fullPath, () => this.isScanning);
         if (size > 0) {
@@ -104,7 +106,8 @@ export class FolderScanner {
             path: fullPath,
             size,
             name: entry.name,
-            modifiedAt: await this.readModifiedAt(fullPath)
+            modifiedAt: await this.readModifiedAt(fullPath),
+            keyword
           };
           results.push(folder);
           this.foundCount++;

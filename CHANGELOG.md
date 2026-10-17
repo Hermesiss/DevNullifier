@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.7]
+
+### Added
+
+- AppData rows show the keyword that matched. Dev Cleaner rows show the category and pattern.
+
 ## [1.3.6]
 
 ### Added

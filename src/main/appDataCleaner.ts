@@ -16,17 +16,22 @@ export const KEYWORDS = [
 
 const KEYWORD_NAME_EXCLUSIONS = new Set(["template", "templates"]);
 
+export function matchedKeyword(folderName: string, keywords: string[]): string | null {
+  const name = folderName.toLowerCase();
+  if (KEYWORD_NAME_EXCLUSIONS.has(name)) return null;
+
+  for (const keyword of keywords) {
+    const normalized = keyword.toLowerCase();
+    if (name.startsWith(normalized) || name.endsWith(normalized)) return keyword;
+  }
+  return null;
+}
+
 export function folderNameMatchesKeyword(
   folderName: string,
   keywords: string[]
 ): boolean {
-  const name = folderName.toLowerCase();
-  if (KEYWORD_NAME_EXCLUSIONS.has(name)) return false;
-
-  return keywords.some(keyword => {
-    const normalized = keyword.toLowerCase();
-    return name.startsWith(normalized) || name.endsWith(normalized);
-  });
+  return matchedKeyword(folderName, keywords) !== null;
 }
 
 function localLowPath(localAppData: string): string | null {

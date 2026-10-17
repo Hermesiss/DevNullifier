@@ -2,7 +2,7 @@ import { promises as fs } from "fs";
 import fsSync from "fs";
 import os from "os";
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { getAppDataPaths, deleteDirectory, folderNameMatchesKeyword } from "../appDataCleaner";
+import { getAppDataPaths, deleteDirectory, folderNameMatchesKeyword, matchedKeyword } from "../appDataCleaner";
 
 // Mock modules
 vi.mock("fs", () => ({
@@ -150,6 +150,23 @@ describe("folderNameMatchesKeyword", () => {
     expect(folderNameMatchesKeyword("Templates", keywords)).toBe(false);
     expect(folderNameMatchesKeyword("template", keywords)).toBe(false);
     expect(folderNameMatchesKeyword("myreportfiles", keywords)).toBe(false);
+  });
+});
+
+describe("matchedKeyword", () => {
+  const keywords = ["cache", "temp", "report"];
+
+  it("returns the keyword Cache matches", () => {
+    expect(matchedKeyword("Cache", keywords)).toBe("cache");
+  });
+
+  it("returns null when Templates matches nothing", () => {
+    expect(matchedKeyword("Templates", keywords)).toBeNull();
+  });
+
+  it("returns the first keyword when several could match", () => {
+    expect(matchedKeyword("tempcache", ["cache", "temp"])).toBe("cache");
+    expect(matchedKeyword("tempcache", ["temp", "cache"])).toBe("temp");
   });
 });
 

@@ -11,6 +11,10 @@
         <v-data-table v-model="selected" :headers="translatedHeaders" :items="uniqueItems" :items-per-page="50"
             item-value="path" show-select :select-strategy="tableSelectStrategy" :loading="isScanning"
             :loading-text="t('common.loading')" :sort-by="[{ key: 'size', order: 'desc' }]" class="elevation-1">
+            <template #item.keyword="{ item }">
+                {{ item.keyword }}
+            </template>
+
             <template #item.size="{ item }">
                 {{ formatSize(item.size) }}
             </template>
@@ -108,6 +112,7 @@ const selected = computed({
 
 const translatedHeaders = computed(() => [
     { title: t('common.path'), key: 'path', sortable: true },
+    { title: t('common.matched_keyword'), key: 'keyword', sortable: true },
     { title: t('common.size'), key: 'size', sortable: true, width: '150px' },
 ])
 

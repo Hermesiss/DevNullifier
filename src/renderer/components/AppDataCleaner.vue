@@ -158,6 +158,7 @@ const startScan = async (): Promise<void> => {
             // Save folders after successful scan
             await window.electronAPI.saveFolders(folders.value.map(folder => ({
                 ...folder,
+                keyword: folder.keyword,
                 modifiedAt: folder.modifiedAt ?? null
             })))
             statusText.value = t('common.found_folders_count', { count: folders.value.length })
@@ -205,6 +206,7 @@ const startQuickScan = async (): Promise<void> => {
                 if (size !== undefined) {
                     validFolders.push({
                         ...folder,
+                        keyword: folder.keyword,
                         size
                     })
                 }

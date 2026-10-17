@@ -304,6 +304,7 @@ describe("FolderScanner", () => {
       );
 
       expect(results.map(folder => folder.name)).toEqual(["shadercache"]);
+      expect(results[0].keyword).toBe("cache");
     });
 
     it("should match keywords case-insensitively", async () => {
@@ -326,9 +327,9 @@ describe("FolderScanner", () => {
       expect(foundFolders).toHaveLength(3);
       expect(foundFolders).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ name: "CACHE", size: 1234 }),
-          expect.objectContaining({ name: "Cache", size: 1234 }),
-          expect.objectContaining({ name: "cache", size: 1234 })
+          expect.objectContaining({ name: "CACHE", size: 1234, keyword: "cache" }),
+          expect.objectContaining({ name: "Cache", size: 1234, keyword: "cache" }),
+          expect.objectContaining({ name: "cache", size: 1234, keyword: "cache" })
         ])
       );
     });
