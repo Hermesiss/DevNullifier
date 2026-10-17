@@ -9,6 +9,13 @@ export function setUserDataPath(path: string) {
   userDataPath = path;
 }
 
+export function getUserDataPath(): string {
+  if (!userDataPath) {
+    throw new Error("User data path not set");
+  }
+  return userDataPath;
+}
+
 // Size of a file, or of a directory without following symlinks or junctions.
 export async function getDirSize(
   targetPath: string,

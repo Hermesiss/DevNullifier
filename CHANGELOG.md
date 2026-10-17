@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.3]
+
+### Added
+
+- Optional permanent delete, off by default. Selected items still go to the trash unless that switch is on.
+
 ## [1.3.2]
 
 ### Changed

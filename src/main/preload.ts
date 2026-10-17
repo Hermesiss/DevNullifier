@@ -47,9 +47,12 @@ const api: ElectronAPI = {
   // Stop developer scanning
   stopDeveloperScan: () => ipcRenderer.invoke("stop-developer-scan"),
 
-  // Delete folders
+  // Delete folders. Permanent mode is a saved main-process setting, not an argument.
   deleteFolders: (folderPaths: string[]) =>
     ipcRenderer.invoke("delete-folders", folderPaths),
+
+  getCleanerRules: () => ipcRenderer.invoke("get-cleaner-rules"),
+  setCleanerRules: rules => ipcRenderer.invoke("set-cleaner-rules", rules),
 
   // Select directory
   selectDirectory: () => ipcRenderer.invoke("select-directory"),

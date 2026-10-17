@@ -10,16 +10,16 @@
             @open-folder-tree="openFolderTree" />
 
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedFolders.length" :selected-size="selectedSize"
-            @confirm="deleteFolders" />
+            :permanent="permanentDelete" @confirm="deleteFolders" />
 
         <!-- Folder Tree Viewer -->
         <FolderTreeViewer v-model="showFolderTree" :folder-path="selectedFolderPath" />
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
-            <ActionsBar :status-text="statusText" :delete-progress="deleteProgress"
-                :selected-count="selectedFolders.length" :is-scanning="isScanning" :is-deleting="isDeleting"
-                @delete="confirmDelete" />
+            <ActionsBar v-model:permanent-delete="permanentDelete" :status-text="statusText"
+                :delete-progress="deleteProgress" :selected-count="selectedFolders.length" :is-scanning="isScanning"
+                :is-deleting="isDeleting" @delete="confirmDelete" />
         </v-footer>
     </div>
 </template>
@@ -34,8 +34,10 @@ import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
 import type { FolderItem } from '@/types'
+import { useCleanerRules } from '../composables/useCleanerRules'
 
 const { t } = useI18n()
+const { permanentDelete, whenRulesSaved } = useCleanerRules()
 
 // Reactive state
 const folders = ref<FolderItem[]>([])
@@ -304,6 +306,7 @@ const deleteFolders = async (): Promise<void> => {
         deleteProgress.value = 0
         statusText.value = t('common.deleting_folders')
 
+        await whenRulesSaved()
         const results = await window.electronAPI.deleteFolders([...selectedFolders.value])
         const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 

@@ -7,6 +7,7 @@ import os from "os";
 import { Worker } from "worker_threads";
 import * as appDataCleaner from "./appDataCleaner";
 import * as fileUtils from "./fileUtils";
+import { loadCleanerRules, permanentRemove, saveCleanerRules, type CleanerRules } from "./cleanerRules";
 import type { Project, Category, WorkerMessage, WorkerResponse } from "../types/developer-cleaner";
 import { UpdateService } from "./updateService";
 import {
@@ -172,15 +173,25 @@ ipcMain.handle("scan-folders", async (event, { paths, maxDepth, resetAllowlist }
   });
 });
 
+ipcMain.handle("get-cleaner-rules", () => loadCleanerRules());
+
+ipcMain.handle("set-cleaner-rules", (_event, partial: Partial<CleanerRules>) => {
+  return saveCleanerRules(partial);
+});
+
 ipcMain.handle("delete-folders", async (event, folderPaths: string[]) => {
   const results = [];
   const allowed = scanAllowlist.keys();
   const protection = protectionContext();
+  const rules = await loadCleanerRules();
+  const remove = rules.permanentDelete
+    ? permanentRemove
+    : (target: string) => shell.trashItem(target);
 
   for (let i = 0; i < folderPaths.length; i++) {
     const folderPath = folderPaths[i];
     const success = canDelete(folderPath, allowed, protection)
-      ? await appDataCleaner.deleteDirectory(folderPath, target => shell.trashItem(target))
+      ? await appDataCleaner.deleteDirectory(folderPath, remove)
       : false;
     results.push({ path: folderPath, success });
     sendToRenderer("delete-progress", i + 1);

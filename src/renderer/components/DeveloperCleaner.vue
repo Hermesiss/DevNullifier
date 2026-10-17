@@ -2,7 +2,7 @@
     <div>
         <!-- Delete Dialog -->
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedCacheCount" :selected-size="selectedCacheSize"
-            @confirm="deleteCaches" />
+            :permanent="permanentDelete" @confirm="deleteCaches" />
 
         <!-- Folder Tree Viewer -->
         <FolderTreeViewer v-model="showFolderTree" :folder-path="selectedFolderPath" />
@@ -25,8 +25,9 @@
 
         <!-- Actions Bar -->
         <v-footer app class="pa-0">
-            <ActionsBar :status-text="statusText" :delete-progress="0" :selected-count="selectedCacheCount"
-                :is-scanning="isScanning" :is-deleting="isDeleting" @delete="confirmDelete" />
+            <ActionsBar v-model:permanent-delete="permanentDelete" :status-text="statusText" :delete-progress="0"
+                :selected-count="selectedCacheCount" :is-scanning="isScanning" :is-deleting="isDeleting"
+                @delete="confirmDelete" />
         </v-footer>
     </div>
 </template>
@@ -36,8 +37,6 @@ import { ref, computed, onUnmounted } from 'vue'
 import { summarizeDeleteResults } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
 import DeleteDialog from './DeleteDialog.vue'
-
-const { t } = useI18n()
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
 import CategoriesPanel from './DeveloperCleaner/CategoriesPanel.vue'
@@ -45,6 +44,10 @@ import ControlPanel from './DeveloperCleaner/ControlPanel.vue'
 import ResultsTable from './DeveloperCleaner/ResultsTable.vue'
 import CategoryInfoDialog from './DeveloperCleaner/CategoryInfoDialog.vue'
 import type { DeveloperCategory, ProjectInfo } from '@/types'
+import { useCleanerRules } from '../composables/useCleanerRules'
+
+const { t } = useI18n()
+const { permanentDelete, whenRulesSaved } = useCleanerRules()
 
 // Reactive state
 const projects = ref<ProjectInfo[]>([])
@@ -569,6 +572,7 @@ const deleteCaches = async (): Promise<void> => {
 
         statusText.value = t('common.deleting_cache_folders', { count: selectedCachePaths.length })
 
+        await whenRulesSaved()
         const results = await window.electronAPI.deleteFolders([...selectedCachePaths])
         const { successCount, partialCount, failCount } = summarizeDeleteResults(results)
 

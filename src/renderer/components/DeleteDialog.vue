@@ -7,8 +7,8 @@
             </v-card-title>
 
             <v-card-text>
-                <p>{{ t('common.delete_folders_count', { count: selectedCount }) }}</p>
-                <p class="text-warning">⚠️ {{ t('common.delete_warning') }}</p>
+                <p>{{ t(permanent ? 'common.delete_folders_count_permanent' : 'common.delete_folders_count', { count: selectedCount }) }}</p>
+                <p class="text-warning">⚠️ {{ t(permanent ? 'common.delete_warning_permanent' : 'common.delete_warning') }}</p>
                 <p>{{ t('common.total_size_deleted', { size: formatSize(selectedSize) }) }}</p>
             </v-card-text>
 
@@ -28,11 +28,14 @@ import { formatSize } from '@/utils/formatters'
 
 const { t } = useI18n()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     modelValue: boolean
     selectedCount: number
     selectedSize: number
-}>()
+    permanent?: boolean
+}>(), {
+    permanent: false
+})
 
 const emits = defineEmits<{
     (e: 'update:modelValue', value: boolean): void
