@@ -11,6 +11,7 @@ export interface Folder {
   path: string;
   size: number;
   name: string;
+  modifiedAt?: string | null;
 }
 
 export interface WorkerMessage {
@@ -47,9 +48,14 @@ export class FolderScanner {
 
   constructor(
     private readonly messagePort: IMessagePort,
-    private readonly fsOps = {
+    private readonly fsOps: {
+      readdir: typeof fs.readdir;
+      getDirSize: typeof fileUtils.getDirSize;
+      stat?: typeof fs.stat;
+    } = {
       readdir: fs.readdir,
-      getDirSize: fileUtils.getDirSize
+      getDirSize: fileUtils.getDirSize,
+      stat: fs.stat
     }
   ) {}
 
@@ -60,6 +66,16 @@ export class FolderScanner {
 
   private normalizePath(p: string): string {
     return path.normalize(p).replace(/\\/g, "/");
+  }
+
+  private async readModifiedAt(targetPath: string): Promise<string | null> {
+    if (!this.fsOps.stat) return null;
+    try {
+      const stats = await this.fsOps.stat(targetPath);
+      return stats.mtime instanceof Date ? stats.mtime.toISOString() : null;
+    } catch {
+      return null;
+    }
   }
 
   private async processDirectoryEntry(
@@ -87,7 +103,8 @@ export class FolderScanner {
           const folder: Folder = {
             path: fullPath,
             size,
-            name: entry.name
+            name: entry.name,
+            modifiedAt: await this.readModifiedAt(fullPath)
           };
           results.push(folder);
           this.foundCount++;

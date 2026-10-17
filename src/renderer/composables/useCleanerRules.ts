@@ -2,9 +2,24 @@ import { onMounted, ref, watch } from "vue";
 import type { CleanerRules } from "../../main/cleanerRules";
 
 const permanentDelete = ref(false);
+export const minAgeDays = ref<number | null>(null);
+export const minSizeMb = ref<number | null>(null);
 let applyingRemote = false;
 let localChange = false;
+let thresholdsLocal = false;
 let persist: Promise<unknown> = Promise.resolve();
+
+export function cleanerThresholdsActive(age: number | null, size: number | null): boolean {
+  const active = (value: number | null) =>
+    typeof value === "number" && Number.isFinite(value) && value > 0;
+  return active(age) || active(size);
+}
+
+export function setLocalThresholds(age: number | null, size: number | null): void {
+  thresholdsLocal = true;
+  minAgeDays.value = age;
+  minSizeMb.value = size;
+}
 
 export function enqueueCleanerRulesSave(
   partial: Partial<CleanerRules>
@@ -33,9 +48,12 @@ export function useCleanerRules() {
 
     try {
       const rules = await window.electronAPI.getCleanerRules();
-      if (localChange) return;
       applyingRemote = true;
-      permanentDelete.value = rules.permanentDelete;
+      if (!localChange) permanentDelete.value = rules.permanentDelete;
+      if (!thresholdsLocal) {
+        minAgeDays.value = rules.minAgeDays ?? null;
+        minSizeMb.value = rules.minSizeMb ?? null;
+      }
     } catch (error) {
       console.error("Failed to load cleaner rules:", error);
     } finally {
@@ -47,5 +65,5 @@ export function useCleanerRules() {
     await persist;
   }
 
-  return { permanentDelete, whenRulesSaved };
+  return { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved };
 }

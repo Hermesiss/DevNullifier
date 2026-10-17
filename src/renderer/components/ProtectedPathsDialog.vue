@@ -70,6 +70,30 @@
             </template>
           </v-list-item>
         </v-list>
+
+        <v-divider class="my-6" />
+        <p class="mb-4">{{ t("common.threshold_hint") }}</p>
+        <v-text-field
+          v-model="ageDraft"
+          class="mb-4"
+          type="number"
+          density="compact"
+          variant="outlined"
+          hide-details
+          :label="t('common.min_age_days')"
+          @blur="saveThresholds"
+          @keydown.enter.prevent="saveThresholds"
+        />
+        <v-text-field
+          v-model="sizeDraft"
+          type="number"
+          density="compact"
+          variant="outlined"
+          hide-details
+          :label="t('common.min_size_mb')"
+          @blur="saveThresholds"
+          @keydown.enter.prevent="saveThresholds"
+        />
       </v-card-text>
 
       <v-card-actions>
@@ -86,13 +110,21 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { enqueueCleanerRulesSave } from "../composables/useCleanerRules";
+import {
+  enqueueCleanerRulesSave,
+  minAgeDays,
+  minSizeMb,
+  setLocalThresholds
+} from "../composables/useCleanerRules";
 
 const { t } = useI18n();
 const open = defineModel<boolean>({ default: false });
 const paths = ref<string[]>([]);
 const globs = ref<string[]>([]);
 const globDraft = ref("");
+const ageDraft = ref<string | number>("");
+const sizeDraft = ref<string | number>("");
+let hydratingThresholds = false;
 
 function isDriveRootPath(value: string): boolean {
   const trimmed = value.trim().replace(/[\\/]+$/, "");
@@ -106,6 +138,15 @@ watch(open, async isOpen => {
     paths.value = [...rules.protectedPaths];
     globs.value = normalizeGlobs(rules.excludeGlobs ?? []);
     globDraft.value = "";
+    hydratingThresholds = true;
+    ageDraft.value = formatThreshold(rules.minAgeDays);
+    sizeDraft.value = formatThreshold(rules.minSizeMb);
+    hydratingThresholds = false;
+    const age = rules.minAgeDays ?? null;
+    const size = rules.minSizeMb ?? null;
+    if (age !== minAgeDays.value || size !== minSizeMb.value) {
+      setLocalThresholds(age, size);
+    }
   } catch (error) {
     console.error("Failed to load protected paths:", error);
   }
@@ -157,6 +198,31 @@ async function addGlob(): Promise<void> {
 
 async function removeGlob(target: string): Promise<void> {
   await persistGlobs(globs.value.filter(item => item !== target));
+}
+
+function formatThreshold(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "";
+  return String(value);
+}
+
+function parseThreshold(raw: string | number | null | undefined): number | null {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : null;
+}
+
+async function saveThresholds(): Promise<void> {
+  if (hydratingThresholds) return;
+  const age = parseThreshold(ageDraft.value);
+  const size = parseThreshold(sizeDraft.value);
+  ageDraft.value = formatThreshold(age);
+  sizeDraft.value = formatThreshold(size);
+  if (age === minAgeDays.value && size === minSizeMb.value) return;
+  setLocalThresholds(age, size);
+  await enqueueCleanerRulesSave({ minAgeDays: age, minSizeMb: size });
 }
 </script>
 

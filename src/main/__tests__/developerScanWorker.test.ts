@@ -525,6 +525,29 @@ describe("developerScanWorker", () => {
     });
   });
 
+  describe("processMatchingPath", () => {
+    it("stores modifiedAt from the cache path mtime", async () => {
+      const mtime = new Date("2019-03-04T05:06:07.000Z");
+      vi.mocked(fs.stat).mockResolvedValue({
+        isDirectory: () => true,
+        mtime,
+        size: 10
+      } as any);
+
+      const matches = new Map();
+      const size = await worker.processMatchingPath(
+        "/proj/node_modules",
+        "/proj",
+        mockCategory,
+        "node_modules",
+        matches
+      );
+
+      expect(size).toBe(1000);
+      expect(matches.get("/proj/node_modules")?.modifiedAt).toBe(mtime.toISOString());
+    });
+  });
+
   describe("calculateCacheSizes", () => {
     it("counts a path shared by two patterns once", async () => {
       vi.mocked(fs.stat).mockImplementation(async (target: any) => {

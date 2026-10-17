@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.6]
+
+### Added
+
+- Minimum age and size leave newer or smaller rows in the list, but select-all skips them.
+
 ## [1.3.5]
 
 ### Added

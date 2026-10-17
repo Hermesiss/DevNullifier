@@ -130,6 +130,9 @@
     "add_exclude_glob": "Add exclusion",
     "remove_exclude_glob": "Remove exclusion",
     "exclude_glob_placeholder": "*/Saved/SaveGames",
+    "min_age_days": "Minimum age (days)",
+    "min_size_mb": "Minimum size (MB)",
+    "threshold_hint": "Newer or smaller rows stay listed but are not selected.",
     "warnings": {
       "python": "venv/ and .venv/ are virtual environments. They can be recreated, but only if you can reinstall the dependencies.",
       "nodejs": "node_modules/ can be restored by the package manager. Nested packages in a monorepo are scanned separately.",

@@ -119,6 +119,23 @@ describe("FolderScanner", () => {
       expect(messages).toContainEqual({ type: "done", results: [] });
     });
 
+    it("records modifiedAt from the folder mtime", async () => {
+      const mtime = new Date("2020-06-01T12:00:00.000Z");
+      const stat = vi.fn().mockResolvedValue({ mtime });
+      const port: IMessagePort = { postMessage: () => undefined, on: vi.fn() };
+      const localScanner = new FolderScanner(port, {
+        readdir: vi.fn().mockResolvedValue([mockDirEntry("cache", true)] as any),
+        getDirSize: vi.fn().mockResolvedValue(50),
+        stat
+      });
+
+      const results = await localScanner.scanPaths(["/test"], 1, ["cache"], mockUserDataPath);
+
+      expect(stat).toHaveBeenCalledWith("/test/cache");
+      expect(results).toHaveLength(1);
+      expect(results[0].modifiedAt).toBe(mtime.toISOString());
+    });
+
     it("should ignore empty folders", async () => {
       vi.mocked(mockFsOps.getDirSize).mockResolvedValue(0);
       vi.mocked(mockFsOps.readdir).mockResolvedValue([

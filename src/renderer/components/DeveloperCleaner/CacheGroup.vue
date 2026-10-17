@@ -106,7 +106,9 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme } from 'vuetify'
-import type { CacheGroup } from '@/types'
+import { failsThreshold } from '../../../main/thresholds'
+import { minAgeDays, minSizeMb } from '../../composables/useCleanerRules'
+import type { CacheGroup, CacheMatch } from '@/types'
 import { getTypeColor } from '@/utils/categoryColors'
 import { formatSize } from '@/utils/formatters'
 
@@ -138,11 +140,24 @@ const secondaryTextClass = computed(() => {
     return theme.global.name.value === 'dark' ? 'text-grey-lighten-1' : 'text-grey'
 })
 
+const thresholdRules = () => ({
+    minAgeDays: minAgeDays.value,
+    minSizeMb: minSizeMb.value
+})
+
+const canAutoSelect = (match: Pick<CacheMatch, 'size' | 'modifiedAt'>): boolean => {
+    return !failsThreshold(match.size, match.modifiedAt, thresholdRules())
+}
+
+function allGroupCachesSelected(cacheGroup: CacheGroup): boolean {
+    const selectable = cacheGroup.matches.filter(match => canAutoSelect(match))
+    if (selectable.length > 0) return selectable.every(match => match.selected)
+    return cacheGroup.matches.length > 0 && cacheGroup.matches.every(match => match.selected)
+}
+
 // Computed properties
 const allCachesSelected = computed(() => {
-    return props.cacheGroups.length > 0 && props.cacheGroups.every(group =>
-        group.matches.length > 0 && group.matches.every(match => match.selected)
-    )
+    return props.cacheGroups.length > 0 && props.cacheGroups.every(group => allGroupCachesSelected(group))
 })
 
 const noCachesSelected = computed(() => {
@@ -166,7 +181,9 @@ const openFolderTree = (folderPath: string): void => {
 
 const selectAllCaches = (): void => {
     props.cacheGroups.forEach(group => {
-        group.matches.forEach(match => match.selected = true)
+        group.matches.forEach(match => {
+            if (canAutoSelect(match)) match.selected = true
+        })
         updateCacheGroupSelection(group)
     })
     emit('cache-selection-changed')
@@ -181,7 +198,9 @@ const deselectAllCaches = (): void => {
 }
 
 const selectAllCachesInGroup = (cacheGroup: CacheGroup): void => {
-    cacheGroup.matches.forEach(match => match.selected = true)
+    cacheGroup.matches.forEach(match => {
+        if (canAutoSelect(match)) match.selected = true
+    })
     updateCacheGroupSelection(cacheGroup)
     emit('cache-selection-changed')
 }
@@ -190,10 +209,6 @@ const deselectAllCachesInGroup = (cacheGroup: CacheGroup): void => {
     cacheGroup.matches.forEach(match => match.selected = false)
     updateCacheGroupSelection(cacheGroup)
     emit('cache-selection-changed')
-}
-
-const allGroupCachesSelected = (cacheGroup: CacheGroup): boolean => {
-    return cacheGroup.matches.length > 0 && cacheGroup.matches.every(match => match.selected)
 }
 
 const noGroupCachesSelected = (cacheGroup: CacheGroup): boolean => {
@@ -209,12 +224,16 @@ const updateCacheGroupSelection = (cacheGroup: CacheGroup): void => {
 
 // Get checkbox state for a cache group
 const getCacheGroupCheckboxState = (cacheGroup: CacheGroup): boolean | null => {
+    const selectable = cacheGroup.matches.filter(match => canAutoSelect(match))
     const selectedCount = cacheGroup.matches.filter(match => match.selected).length
-    const totalCount = cacheGroup.matches.length
-
+    if (selectable.length > 0) {
+        if (selectable.every(match => match.selected)) return true
+        if (selectedCount === 0) return false
+        return null
+    }
     if (selectedCount === 0) return false
-    if (selectedCount === totalCount) return true
-    return null // indeterminate state
+    if (selectedCount === cacheGroup.matches.length) return true
+    return null
 }
 
 // Handle cache group checkbox click

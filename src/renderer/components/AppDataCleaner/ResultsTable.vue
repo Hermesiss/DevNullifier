@@ -8,9 +8,9 @@
             </v-chip>
         </v-card-title>
 
-        <v-data-table v-model="selected" :headers="translatedHeaders" :items="uniqueItems" :items-per-page="50" item-value="path"
-            show-select :loading="isScanning" :loading-text="t('common.loading')"
-            :sort-by="[{ key: 'size', order: 'desc' }]" class="elevation-1">
+        <v-data-table v-model="selected" :headers="translatedHeaders" :items="uniqueItems" :items-per-page="50"
+            item-value="path" show-select :select-strategy="tableSelectStrategy" :loading="isScanning"
+            :loading-text="t('common.loading')" :sort-by="[{ key: 'size', order: 'desc' }]" class="elevation-1">
             <template #item.size="{ item }">
                 {{ formatSize(item.size) }}
             </template>
@@ -33,8 +33,43 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { failsThreshold } from '../../../main/thresholds'
+import { minAgeDays, minSizeMb } from '../../composables/useCleanerRules'
 import { formatSize } from '@/utils/formatters'
 import { FolderItem } from '@/types/common'
+
+type PageRow = { value: unknown; raw?: FolderItem }
+
+function rowFails(item: PageRow): boolean {
+    const folder = item.raw
+    if (!folder) return false
+    return failsThreshold(folder.size, folder.modifiedAt, {
+        minAgeDays: minAgeDays.value,
+        minSizeMb: minSizeMb.value
+    })
+}
+
+// Header select-all is the current page. Skip rows that fail the threshold; row clicks still select them.
+const tableSelectStrategy = {
+    showSelectAll: true,
+    allSelected(data: { currentPage: PageRow[] }) {
+        return data.currentPage.filter(item => !rowFails(item))
+    },
+    select(data: { items: PageRow[]; value: boolean; selected: Set<unknown> }) {
+        for (const item of data.items) {
+            if (data.value) data.selected.add(item.value)
+            else data.selected.delete(item.value)
+        }
+        return data.selected
+    },
+    selectAll(data: { value: boolean; currentPage: PageRow[]; selected: Set<unknown> }) {
+        for (const item of data.currentPage) {
+            if (!data.value) data.selected.delete(item.value)
+            else if (!rowFails(item)) data.selected.add(item.value)
+        }
+        return data.selected
+    }
+} as unknown as 'page'
 
 const { t } = useI18n()
 

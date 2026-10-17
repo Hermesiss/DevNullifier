@@ -1,6 +1,7 @@
 export interface FolderItem {
   path: string;
   size: number;
+  modifiedAt?: string | null;
 }
 
 export interface TreeItem {
@@ -36,6 +37,7 @@ export interface Folder {
   path: string;
   size: number;
   name: string;
+  modifiedAt?: string | null;
 }
 
 export interface ElectronAPI {

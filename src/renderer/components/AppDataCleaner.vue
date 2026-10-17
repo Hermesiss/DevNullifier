@@ -25,7 +25,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { failsThreshold } from '../../main/thresholds'
 import { summarizeDeleteResults } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
 import ControlPanel from './AppDataCleaner/ControlPanel.vue'
@@ -34,10 +35,10 @@ import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
 import type { FolderItem } from '@/types'
-import { useCleanerRules } from '../composables/useCleanerRules'
+import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
 
 const { t } = useI18n()
-const { permanentDelete, whenRulesSaved } = useCleanerRules()
+const { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved } = useCleanerRules()
 
 // Reactive state
 const folders = ref<FolderItem[]>([])
@@ -66,10 +67,30 @@ const selectedSize = computed(() => {
     }, 0)
 })
 
-// Selection helpers
+const thresholdRules = () => ({
+    minAgeDays: minAgeDays.value,
+    minSizeMb: minSizeMb.value
+})
+
+// Selection helpers. Select-all adds rows that pass and leaves hand-checked rows alone.
 const selectAll = () => {
-    selectedFolders.value = folders.value.map((f) => f.path)
+    const rules = thresholdRules()
+    const selected = new Set(selectedFolders.value)
+    for (const folder of folders.value) {
+        if (!failsThreshold(folder.size, folder.modifiedAt, rules)) selected.add(folder.path)
+    }
+    selectedFolders.value = folders.value.map(folder => folder.path).filter(path => selected.has(path))
 }
+
+watch([minAgeDays, minSizeMb], () => {
+    if (!cleanerThresholdsActive(minAgeDays.value, minSizeMb.value)) return
+    const rules = thresholdRules()
+    selectedFolders.value = selectedFolders.value.filter(path => {
+        const folder = folders.value.find(item => item.path === path)
+        if (!folder) return true
+        return !failsThreshold(folder.size, folder.modifiedAt, rules)
+    })
+})
 
 const deselectAll = () => {
     selectedFolders.value = []
@@ -135,9 +156,9 @@ const startScan = async (): Promise<void> => {
             // Sort at the end for display
             folders.value.sort((a, b) => b.size - a.size)
             // Save folders after successful scan
-            await window.electronAPI.saveFolders(folders.value.map(f => ({
-                path: f.path,
-                size: f.size
+            await window.electronAPI.saveFolders(folders.value.map(folder => ({
+                ...folder,
+                modifiedAt: folder.modifiedAt ?? null
             })))
             statusText.value = t('common.found_folders_count', { count: folders.value.length })
             if (folders.value.length === 0) {

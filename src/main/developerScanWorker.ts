@@ -257,11 +257,13 @@ export async function processMatchingPath(
 ): Promise<number> {
   let exists = false;
   let isDirectory = false;
+  let modifiedAt: string | null = null;
 
   try {
     const stats = await fs.stat(cachePath);
     exists = true;
     isDirectory = stats.isDirectory();
+    modifiedAt = stats.mtime instanceof Date ? stats.mtime.toISOString() : null;
   } catch {
     return 0; // Path doesn't exist, return 0 size
   }
@@ -283,7 +285,8 @@ export async function processMatchingPath(
       size,
       category,
       pattern,
-      allMatches
+      allMatches,
+      modifiedAt
     );
   }
 
@@ -297,7 +300,8 @@ export function addMatchToCollection(
   size: number,
   category: Category,
   pattern: string,
-  allMatches: Map<string, CacheMatch>
+  allMatches: Map<string, CacheMatch>,
+  modifiedAt?: string | null
 ): void {
   const normalizedPath = cachePath.toLowerCase();
   const relativePath = path.relative(projectPath, cachePath);
@@ -312,6 +316,9 @@ export function addMatchToCollection(
     if (!existing.patterns.includes(pattern)) {
       existing.patterns.push(pattern);
     }
+    if (existing.modifiedAt == null && modifiedAt != null) {
+      existing.modifiedAt = modifiedAt;
+    }
   } else {
     // New path, add it
     allMatches.set(normalizedPath, {
@@ -320,7 +327,8 @@ export function addMatchToCollection(
       size: size,
       selected: false,
       categories: [category.name],
-      patterns: [pattern]
+      patterns: [pattern],
+      modifiedAt: modifiedAt ?? null
     });
   }
 }

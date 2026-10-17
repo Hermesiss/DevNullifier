@@ -7,6 +7,7 @@ export interface CacheMatch {
   selected: boolean;
   categories?: string[];
   patterns?: string[];
+  modifiedAt?: string | null;
 }
 
 export interface CacheGroup {

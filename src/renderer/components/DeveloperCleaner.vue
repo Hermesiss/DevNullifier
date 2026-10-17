@@ -33,7 +33,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
+import { failsThreshold } from '../../main/thresholds'
 import { summarizeDeleteResults } from '../utils/deleteResults'
 import { useI18n } from 'vue-i18n'
 import DeleteDialog from './DeleteDialog.vue'
@@ -44,10 +45,10 @@ import ControlPanel from './DeveloperCleaner/ControlPanel.vue'
 import ResultsTable from './DeveloperCleaner/ResultsTable.vue'
 import CategoryInfoDialog from './DeveloperCleaner/CategoryInfoDialog.vue'
 import type { DeveloperCategory, ProjectInfo } from '@/types'
-import { useCleanerRules } from '../composables/useCleanerRules'
+import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
 
 const { t } = useI18n()
-const { permanentDelete, whenRulesSaved } = useCleanerRules()
+const { permanentDelete, minAgeDays, minSizeMb, whenRulesSaved } = useCleanerRules()
 
 // Reactive state
 const projects = ref<ProjectInfo[]>([])
@@ -234,6 +235,22 @@ const onCategoriesChanged = (updatedCategories: DeveloperCategory[]): void => {
     hasEnabledCategories.value = updatedCategories.some(cat => cat.enabled)
 }
 
+watch([minAgeDays, minSizeMb], () => {
+    if (!cleanerThresholdsActive(minAgeDays.value, minSizeMb.value)) return
+    const rules = { minAgeDays: minAgeDays.value, minSizeMb: minSizeMb.value }
+    for (const project of projects.value) {
+        for (const group of project.caches) {
+            for (const match of group.matches) {
+                if (failsThreshold(match.size, match.modifiedAt, rules)) match.selected = false
+            }
+            group.selectedSize = group.matches
+                .filter(match => match.selected)
+                .reduce((sum, match) => sum + match.size, 0)
+        }
+        project.selectedCacheSize = project.caches.reduce((sum, group) => sum + group.selectedSize, 0)
+    }
+})
+
 const onCacheSelectionChanged = (): void => {
     // Update project cache sizes when selections change
     projects.value.forEach(project => {
@@ -333,7 +350,8 @@ const startScan = async (basePaths: string[]): Promise<void> => {
                     size: match.size,
                     selected: false,
                     categories: match.categories,
-                    patterns: match.patterns
+                    patterns: match.patterns,
+                    modifiedAt: match.modifiedAt ?? null
                 }))
             }))
         }))

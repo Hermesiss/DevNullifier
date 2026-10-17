@@ -77,8 +77,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { failsThreshold } from '../../../main/thresholds'
+import { minAgeDays, minSizeMb } from '../../composables/useCleanerRules'
 import CacheGroup from './CacheGroup.vue'
-import type { ProjectInfo, CacheGroup as CacheGroupType, CacheCategory } from '@/types'
+import type { ProjectInfo, CacheGroup as CacheGroupType, CacheCategory, CacheMatch } from '@/types'
 import { getTypeColor } from '@/utils/categoryColors'
 import { formatSize, formatDate } from '@/utils/formatters'
 
@@ -127,10 +129,21 @@ const openFolderTree = (folderPath: string): void => {
     emit('open-folder-tree', folderPath)
 }
 
+const thresholdRules = () => ({
+    minAgeDays: minAgeDays.value,
+    minSizeMb: minSizeMb.value
+})
+
+const canAutoSelect = (match: Pick<CacheMatch, 'size' | 'modifiedAt'>): boolean => {
+    return !failsThreshold(match.size, match.modifiedAt, thresholdRules())
+}
+
 const selectAllCaches = (): void => {
     props.projects.forEach(project => {
         project.caches.forEach(group => {
-            group.matches.forEach(match => match.selected = true)
+            group.matches.forEach(match => {
+                if (canAutoSelect(match)) match.selected = true
+            })
             updateCacheGroupSelection(group)
         })
         updateCacheSelection(project)
