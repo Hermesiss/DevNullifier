@@ -13,3 +13,4 @@ dist-renderer
 dist-main
 /src/renderer/coverage/
 /coverage/
+/docs/superpowers/*

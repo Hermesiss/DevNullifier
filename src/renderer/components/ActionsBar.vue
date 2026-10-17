@@ -85,8 +85,10 @@ const diskLabel = computed(() => {
 .disk-bar {
     display: flex;
     width: 100%;
-    height: 18px;
+    height: 16px;
     overflow: hidden;
+    border-radius: 6px;
+    border: 1px solid var(--dn-border, rgba(var(--v-theme-on-surface), 0.12));
     background: rgba(var(--v-theme-on-surface), 0.08);
 }
 
@@ -112,7 +114,7 @@ const diskLabel = computed(() => {
     right: 0;
     top: 0;
     bottom: 0;
-    background: rgb(var(--v-theme-error));
+    background: rgb(var(--v-theme-primary));
 }
 
 .disk-free {
@@ -147,7 +149,7 @@ const diskLabel = computed(() => {
 }
 
 .swatch-selected {
-    background: rgb(var(--v-theme-error));
+    background: rgb(var(--v-theme-primary));
 }
 
 .swatch-free {

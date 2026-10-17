@@ -1,14 +1,16 @@
 <template>
   <v-app>
-    <v-app-bar color="primary" dark>
+    <v-app-bar color="surface" density="comfortable" flat>
       <v-app-bar-title>
-        <v-icon left>mdi-broom</v-icon>
-        DevNullifier
+        <div class="dn-app-title">
+          <img :src="appIcon" alt="" class="dn-app-logo" width="28" height="28" />
+          DevNullifier
+        </div>
       </v-app-bar-title>
 
       <v-spacer></v-spacer>
 
-      <v-btn v-if="showRelaunchElevated" class="mr-2" variant="text" @click="relaunchElevated">
+      <v-btn v-if="showRelaunchElevated" class="mr-2" variant="text" color="info" @click="relaunchElevated">
         <v-icon left>mdi-shield-account</v-icon>
         {{ t('common.relaunch_elevated') }}
         <v-tooltip activator="parent" location="bottom">{{ t('common.relaunch_elevated_hint') }}</v-tooltip>
@@ -16,12 +18,12 @@
 
       <UpdateButton class="mr-2" />
 
-      <v-btn icon class="mr-2" @click="showDeletionLog = true">
+      <v-btn icon variant="text" color="info" class="mr-2" @click="showDeletionLog = true">
         <v-icon>mdi-history</v-icon>
         <v-tooltip activator="parent" location="bottom">{{ t('common.deletion_log') }}</v-tooltip>
       </v-btn>
 
-      <v-btn icon @click="showSettings = true">
+      <v-btn icon variant="text" color="info" @click="showSettings = true">
         <v-icon>mdi-cog</v-icon>
         <v-tooltip activator="parent" location="bottom">{{ t('common.settings') }}</v-tooltip>
       </v-btn>
@@ -29,7 +31,7 @@
 
     <v-main>
       <v-container fluid>
-        <v-tabs v-model="activeTab" color="primary" class="mb-4">
+        <v-tabs v-model="activeTab" color="info" class="mb-4">
           <v-tab value="appdata">
             <v-icon left>mdi-folder-remove</v-icon>
             {{ t('app.tabs.appdata') }}
@@ -81,8 +83,8 @@
             <tbody>
               <tr v-for="(entry, index) in deletionLog" :key="`${entry.at}-${index}`">
                 <td class="text-no-wrap">{{ formatDate(entry.at) }}</td>
-                <td class="deletion-log-path" :title="entry.path">{{ entry.path }}</td>
-                <td class="text-end text-no-wrap">{{ formatSize(entry.size) }}</td>
+                <td class="dn-path deletion-log-path" :title="entry.path">{{ entry.path }}</td>
+                <td class="text-end text-no-wrap dn-num">{{ formatSize(entry.size) }}</td>
                 <td class="text-no-wrap">{{ t('common.log_status_' + entry.status) }}</td>
               </tr>
             </tbody>
@@ -90,7 +92,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn color="primary" variant="text" @click="exportDeletionLog">
+          <v-btn color="info" variant="text" @click="exportDeletionLog">
             {{ t('common.export_csv') }}
           </v-btn>
           <v-btn variant="text" @click="showDeletionLog = false">{{ t('common.close') }}</v-btn>
@@ -112,6 +114,7 @@ import SettingsDialog from './components/SettingsDialog.vue'
 import { formatDate, formatSize } from './utils/formatters'
 import type { DeletionLogEntry } from '../main/deletionLog'
 import { accessDeniedOutsideProfile } from './composables/useElevationPrompt'
+import appIcon from '../assets/icon-256.png'
 
 const { t, locale } = useI18n()
 
@@ -264,6 +267,7 @@ const exportDeletionLog = async (): Promise<void> => {
 }
 
 .deletion-log-path {
+  white-space: normal;
   word-break: break-all;
 }
 </style>

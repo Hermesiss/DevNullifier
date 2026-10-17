@@ -1,6 +1,6 @@
 # DevNullifier — agent context
 
-Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Version lives in `package.json` (currently 1.4.1). Selected items are moved to the trash. The Windows installer does not request administrator rights (`requestedExecutionLevel: asInvoker`).
+Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Version lives in `package.json` (currently 1.4.2). Selected items are moved to the trash. The Windows installer does not request administrator rights (`requestedExecutionLevel: asInvoker`).
 
 ## Processes
 

@@ -2,6 +2,13 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.4.2]
+
+### Changed
+
+- Light and dark themes use a shared DevNullifier palette (yellow primary actions, blue navigation, graphite surfaces) instead of default Vuetify Material colors.
+- The app bar shows the duck logo; scan tables, paths, category chips, and the disk bar follow the same compact utility look.
+
 ## [1.4.1]
 
 ### Changed

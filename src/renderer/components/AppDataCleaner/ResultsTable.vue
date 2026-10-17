@@ -21,7 +21,7 @@
         <v-data-table v-model="selected" v-model:expanded="expanded" :headers="translatedHeaders"
             :items="filteredItems" :items-per-page="50" :item-value="rowItemValue" show-select
             :select-strategy="tableSelectStrategy" :loading="isScanning" :loading-text="t('common.loading')"
-            :sort-by="[{ key: 'size', order: 'desc' }]" class="elevation-1">
+            :sort-by="[{ key: 'size', order: 'desc' }]" class="dn-results-table">
             <template #item.data-table-select="{ item, internalItem, isSelected, toggleSelect, index }">
                 <v-checkbox-btn v-if="item.kind === 'group'" :model-value="groupCheckState(item.group) === true"
                     :indeterminate="groupCheckState(item.group) === null" :aria-label="t('common.app_group')"
@@ -35,7 +35,7 @@
             </template>
 
             <template #item.size="{ item }">
-                {{ formatSize(item.size) }}
+                <span class="dn-num">{{ formatSize(item.size) }}</span>
             </template>
 
             <template #item.path="{ item, internalItem, isExpanded, toggleExpand }">
@@ -47,7 +47,7 @@
                     </v-btn>
                     <v-btn v-else icon variant="text" size="small" class="ml-2" :disabled="isScanning"
                         @click="openFolderTree(item.path)">
-                        <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                        <v-icon size="small" color="info">mdi-folder-open</v-icon>
                     </v-btn>
                     <v-btn icon variant="text" size="small" :disabled="isScanning" :aria-label="t('common.open_folder')"
                         @click="openInFileManager(item.path)">
@@ -62,7 +62,7 @@
                             {{ copiedPath === item.path ? t('common.copied') : t('common.copy_path') }}
                         </v-tooltip>
                     </v-btn>
-                    <span class="flex-grow-1">{{ item.path }}</span>
+                    <span class="flex-grow-1 dn-path" :title="item.path">{{ item.path }}</span>
                     <v-chip v-if="item.kind === 'group'" size="x-small" variant="tonal" class="ml-2">
                         {{ t('common.app_group') }}
                     </v-chip>
@@ -78,7 +78,7 @@
                         <div v-else-if="column.key === 'path'" class="d-flex align-center appdata-child-path">
                             <v-btn icon variant="text" size="small" class="ml-2" :disabled="isScanning"
                                 @click="openFolderTree(child.path)">
-                                <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                                <v-icon size="small" color="info">mdi-folder-open</v-icon>
                             </v-btn>
                             <v-btn icon variant="text" size="small" :disabled="isScanning"
                                 :aria-label="t('common.open_folder')" @click="openInFileManager(child.path)">
@@ -93,10 +93,10 @@
                                     {{ copiedPath === child.path ? t('common.copied') : t('common.copy_path') }}
                                 </v-tooltip>
                             </v-btn>
-                            <span class="flex-grow-1">{{ child.path }}</span>
+                            <span class="flex-grow-1 dn-path" :title="child.path">{{ child.path }}</span>
                         </div>
                         <template v-else-if="column.key === 'keyword'">{{ child.keyword }}</template>
-                        <template v-else-if="column.key === 'size'">{{ formatSize(child.size) }}</template>
+                        <template v-else-if="column.key === 'size'"><span class="dn-num">{{ formatSize(child.size) }}</span></template>
                     </td>
                 </tr>
             </template>

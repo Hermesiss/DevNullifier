@@ -11,7 +11,7 @@
                         <v-chip v-if="totalSelectedCacheSize > 0" color="success" size="small">
                             {{ formatSize(totalSelectedCacheSize) }} {{ t('common.cache_selected') }}
                         </v-chip>
-                        <v-btn variant="outlined" color="primary" size="small"
+                        <v-btn variant="outlined" color="info" size="small"
                             :disabled="projects.length === 0 || isScanning || isDeleting" @click="selectAllCaches">
                             <v-icon left size="small">mdi-folder-check</v-icon>
                             {{ t('common.select_all_caches') }}
@@ -35,7 +35,7 @@
                             :label="t('common.filter_category')" density="compact" variant="outlined" hide-details />
                     </div>
                     <v-data-table :headers="translatedHeaders" :items="tableRows" :items-per-page="50"
-                        :loading="isScanning" :item-value="rowItemValue" class="elevation-1">
+                        :loading="isScanning" :item-value="rowItemValue" class="dn-results-table">
                         <template v-slot:item.path="{ item }">
                             <div class="d-flex align-center project-path-cell"
                                 :style="{ paddingLeft: `${item.depth * 1.25}rem` }">
@@ -51,7 +51,7 @@
                                 <span v-else-if="item.depth === 0" class="expand-spacer" aria-hidden="true" />
                                 <v-btn icon variant="text" size="small" @click="openFolderTree(item.project.path)"
                                     :disabled="isScanning || isDeleting" class="ml-2">
-                                    <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                                    <v-icon size="small" color="info">mdi-folder-open</v-icon>
                                 </v-btn>
                                 <v-btn icon variant="text" size="small" :disabled="isScanning || isDeleting"
                                     :aria-label="t('common.open_folder')" @click="openInFileManager(item.project.path)">
@@ -66,7 +66,7 @@
                                         {{ copiedPath === item.project.path ? t('common.copied') : t('common.copy_path') }}
                                     </v-tooltip>
                                 </v-btn>
-                                <div class="flex-grow-1 text-truncate mr-2">
+                                <div class="flex-grow-1 dn-path mr-2" :title="item.project.path">
                                     {{ item.project.path }}
                                 </div>
                                 <v-chip v-if="item.depth === 0 && item.nestedCount > 0" size="x-small" variant="tonal"
@@ -78,8 +78,8 @@
                         <template v-slot:item.type="{ item }">
                             <div
                                 :class="item.project.caches.length > 1 ? 'd-flex flex-column align-start ga-1' : 'd-flex flex-wrap ga-1'">
-                                <v-chip v-for="type in item.project.type.split(', ')" :key="type" size="small"
-                                    :color="getTypeColor(type.trim() as CacheCategory)">
+                                <v-chip v-for="type in item.project.type.split(', ')" :key="type" size="x-small"
+                                    variant="tonal" :color="getTypeColor(type.trim() as CacheCategory)">
                                     {{ type.trim() }}
                                 </v-chip>
                             </div>
@@ -87,13 +87,13 @@
                         <template v-slot:item.lastModified="{ item }">
                             <div class="text-caption">
                                 <div>{{ formatDate(item.project.lastModified) }}</div>
-                                <div class="text-grey">{{ getRelativeTime(item.project.lastModified) }}</div>
+                                <div class="text-medium-emphasis">{{ getRelativeTime(item.project.lastModified) }}</div>
                             </div>
                         </template>
                         <template v-slot:item.totalCacheSize="{ item }">
-                            <div>
+                            <div class="dn-num">
                                 <div class="font-weight-medium">{{ formatSize(item.project.selectedCacheSize || 0) }}</div>
-                                <div class="text-caption text-grey"
+                                <div class="text-caption text-medium-emphasis"
                                     v-if="item.project.selectedCacheSize !== item.project.totalCacheSize">
                                     {{ t('common.of') }} {{ formatSize(item.project.totalCacheSize) }} {{ t('common.total') }}
                                 </div>

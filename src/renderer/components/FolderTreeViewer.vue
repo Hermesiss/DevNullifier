@@ -298,20 +298,20 @@ const loadItemChildren = async (item: TreeItem): Promise<void> => {
 
 <style scoped>
 .tree-container {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 14px;
+    font-family: var(--dn-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+    font-size: 12.5px;
 }
 
 .tree-item {
     cursor: pointer;
-    min-height: 36px;
-    border-radius: 0;
-    transition: all 0.2s ease;
+    min-height: 32px;
+    border-radius: 6px;
+    transition: background-color 150ms ease;
     position: relative;
 }
 
 .tree-item:hover {
-    background-color: rgba(0, 0, 0, 0.06);
+    background-color: rgba(var(--v-theme-on-surface), 0.06);
 }
 
 .tree-item:before {
@@ -322,15 +322,15 @@ const loadItemChildren = async (item: TreeItem): Promise<void> => {
     bottom: 0;
     width: 2px;
     background-color: transparent;
-    transition: background-color 0.2s;
+    transition: background-color 150ms ease;
 }
 
 .tree-item:hover:before {
-    background-color: rgba(25, 118, 210, 0.3);
+    background-color: rgba(var(--v-theme-info), 0.35);
 }
 
 .tree-item.selected {
-    background-color: rgba(25, 118, 210, 0.12);
+    background-color: rgba(var(--v-theme-primary), 0.14);
 }
 
 .flex-shrink-0 {

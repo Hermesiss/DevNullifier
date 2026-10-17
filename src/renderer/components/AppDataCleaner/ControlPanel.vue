@@ -1,7 +1,7 @@
 <template>
     <v-row class="mb-4">
         <v-col cols="12">
-            <v-card>
+            <v-card class="dn-surface-card">
                 <v-card-text>
                     <v-row align="center">
                         <!-- Scan button -->

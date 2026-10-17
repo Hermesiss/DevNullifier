@@ -2,7 +2,7 @@
     <div class="text-caption">
         <div v-for="cacheGroup in cacheGroups" :key="cacheGroup.pattern" class="mb-2">
             <!-- Cache Group Header -->
-            <div class="d-flex align-center pa-2 rounded" :class="headerBackgroundClass">
+            <div class="d-flex align-center pa-2 rounded dn-cache-header">
                 <!-- Master checkbox for the group -->
                 <v-checkbox :model-value="getCacheGroupCheckboxState(cacheGroup) ?? false"
                     :indeterminate="getCacheGroupCheckboxState(cacheGroup) === null" color="primary" hide-details
@@ -21,32 +21,31 @@
                 <v-btn v-if="cacheGroup.matches.length === 1" icon variant="text" size="x-small"
                     @click="openFolderTree(cacheGroup.matches[0].path)" :disabled="isScanning || isDeleting"
                     class="mr-2">
-                    <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                    <v-icon size="small" color="info">mdi-folder-open</v-icon>
                 </v-btn>
 
                 <div class="flex-grow-1" :class="cacheGroup.matches.length > 1 ? 'ml-2' : 'ml-0'">
                     <div class="font-weight-medium">
                         <!-- For single match, show actual path and size -->
-                        <span v-if="cacheGroup.matches.length === 1">
-                            {{ cacheGroup.matches[0].relativePath }} • {{
-                                formatSize(cacheGroup.matches[0].size) }}
+                        <span v-if="cacheGroup.matches.length === 1" class="dn-path" style="white-space: normal">
+                            {{ cacheGroup.matches[0].relativePath }} • <span class="dn-num">{{
+                                formatSize(cacheGroup.matches[0].size) }}</span>
                         </span>
                         <!-- For multiple matches, show pattern -->
                         <span v-else>{{ cacheGroup.pattern }}</span>
                     </div>
-                    <div v-if="cacheGroup.matches.length === 1" :class="secondaryTextClass">
+                    <div v-if="cacheGroup.matches.length === 1" class="text-medium-emphasis">
                         {{ matchReason(cacheGroup.matches[0]) }}
                     </div>
-                    <div :class="secondaryTextClass">
+                    <div class="text-medium-emphasis">
                         {{ cacheGroup.matches.length }}
                         {{ cacheGroup.matches.length === 1 ? t('common.match') : t('common.matches') }} •
-                        {{ formatSize(cacheGroup.selectedSize) }} {{ t('common.of') }} {{
-                            formatSize(cacheGroup.totalSize) }} {{ t('common.selected') }}
+                        <span class="dn-num">{{ formatSize(cacheGroup.selectedSize) }}</span> {{ t('common.of') }}
+                        <span class="dn-num">{{ formatSize(cacheGroup.totalSize) }}</span> {{ t('common.selected') }}
                     </div>
                 </div>
 
-                <v-chip size="x-small"
-                    :color="cacheGroup.category === 'Unity' ? 'purple' : getTypeColor(cacheGroup.category)">
+                <v-chip size="x-small" variant="tonal" :color="getTypeColor(cacheGroup.category)">
                     {{ cacheGroup.category }}
                 </v-chip>
             </div>
@@ -77,12 +76,12 @@
                             @change="updateCacheGroupSelection(cacheGroup)" />
                         <v-btn icon variant="text" size="x-small" @click="openFolderTree(match.path)"
                             :disabled="isScanning || isDeleting">
-                            <v-icon size="small" color="primary">mdi-folder-open</v-icon>
+                            <v-icon size="small" color="info">mdi-folder-open</v-icon>
                         </v-btn>
                         <div class="flex-grow-1">
-                            <div class="font-weight-medium">{{ match.relativePath }}</div>
-                            <div :class="secondaryTextClass">{{ matchReason(match) }}</div>
-                            <div :class="secondaryTextClass">{{ formatSize(match.size) }}</div>
+                            <div class="font-weight-medium dn-path" style="white-space: normal">{{ match.relativePath }}</div>
+                            <div class="text-medium-emphasis">{{ matchReason(match) }}</div>
+                            <div class="text-medium-emphasis dn-num">{{ formatSize(match.size) }}</div>
                         </div>
                     </div>
                 </div>
@@ -109,7 +108,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useTheme } from 'vuetify'
 import { failsThreshold } from '../../../main/thresholds'
 import { minAgeDays, minSizeMb } from '../../composables/useCleanerRules'
 import type { CacheGroup, CacheMatch } from '@/types'
@@ -118,9 +116,6 @@ import { formatSize } from '@/utils/formatters'
 
 // i18n
 const { t } = useI18n()
-
-// Theme
-const theme = useTheme()
 
 // Props
 const props = defineProps<{
@@ -134,15 +129,6 @@ const emit = defineEmits<{
     'cache-selection-changed': []
     'open-folder-tree': [folderPath: string]
 }>()
-
-// Theme-aware computed properties
-const headerBackgroundClass = computed(() => {
-    return theme.global.name.value === 'dark' ? 'bg-grey-darken-3' : 'bg-grey-lighten-4'
-})
-
-const secondaryTextClass = computed(() => {
-    return theme.global.name.value === 'dark' ? 'text-grey-lighten-1' : 'text-grey'
-})
 
 const thresholdRules = () => ({
     minAgeDays: minAgeDays.value,
