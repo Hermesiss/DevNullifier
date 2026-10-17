@@ -21,7 +21,8 @@
             <template #item.artwork="{ item }">
                 <div class="game-art">
                     <img v-if="artworkSrc(item)" :src="artworkSrc(item)!" :alt="item.name" class="game-art__img"
-                        loading="lazy" referrerpolicy="no-referrer" />
+                        loading="lazy" referrerpolicy="no-referrer" data-art-step="0"
+                        @error="onArtworkError($event, item)" />
                     <v-icon v-else size="28" class="game-art__placeholder">mdi-controller</v-icon>
                 </div>
             </template>
@@ -128,6 +129,33 @@ const filteredItems = computed(() =>
 
 const artworkSrc = (item: GameApp): string | null =>
     item.artworkDataUrl || item.artworkUrl || null
+
+const steamCdnFallbacks = (appId: string): string[] => [
+    `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`,
+    `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`,
+    `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/capsule_231x87.jpg`,
+]
+
+const onArtworkError = (event: Event, item: GameApp): void => {
+    const img = event.target as HTMLImageElement | null
+    if (!img) return
+    if (item.launcherId !== 'steam') {
+        img.style.display = 'none'
+        return
+    }
+    const fallbacks = steamCdnFallbacks(item.appId)
+    let step = Number(img.dataset.artStep || '0')
+    while (step < fallbacks.length) {
+        const next = fallbacks[step]
+        step += 1
+        img.dataset.artStep = String(step)
+        const file = next.slice(next.lastIndexOf('/') + 1)
+        if (img.src.includes(file)) continue
+        img.src = next
+        return
+    }
+    img.style.display = 'none'
+}
 
 const kindLabel = (kind: GameAppKind): string => t(`common.games_kind_${kind}`)
 

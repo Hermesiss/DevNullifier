@@ -6,7 +6,13 @@ import { loadSteamLastPlayed, parseLastPlayedMap } from "../games/steam/lastPlay
 import { steamUninstallUrl, uninstallSteamApp } from "../games/steam/uninstall";
 import { createSteamProvider } from "../games/steam/provider";
 import { scanGames, uninstallGame } from "../games/scanGames";
-import { resolveSteamArtworkPath, steamArtworkCandidates } from "../games/steam/artwork";
+import {
+  findArtworkInAppDir,
+  loadSteamArtwork,
+  resolveSteamArtworkPath,
+  steamArtworkCandidates,
+  steamPrimaryArtworkUrl
+} from "../games/steam/artwork";
 import type { GameApp, LauncherProvider } from "../games/types";
 
 const steamRoot = path.join("C:", "Steam");
@@ -169,15 +175,39 @@ describe("Steam last played", () => {
 });
 
 describe("Steam artwork", () => {
-  it("prefers library_600x900 then header then logo", async () => {
+  it("prefers library_600x900 then header/hero then logo", async () => {
     const candidates = steamArtworkCandidates(steamRoot, "440");
     expect(candidates[0]).toBe(
       path.join(steamRoot, "appcache", "librarycache", "440", "library_600x900.jpg")
     );
+    expect(candidates.some(c => c.endsWith(path.join("440", "library_hero.jpg")))).toBe(true);
     const hit = await resolveSteamArtworkPath(steamRoot, "440", {
       pathExists: async target => target.endsWith(path.join("440", "header.jpg"))
     });
     expect(hit).toBe(path.join(steamRoot, "appcache", "librarycache", "440", "header.jpg"));
+  });
+
+  it("falls back to any useful image in the app cache dir", async () => {
+    const appDir = path.join(steamRoot, "appcache", "librarycache", "570");
+    const hit = await findArtworkInAppDir(appDir, {
+      pathExists: async () => true,
+      readdir: async () => ["deadbeef", "tiny.jpg", "logo.png", "library_hero_blur.jpg"],
+      statSize: async filePath => {
+        if (filePath.endsWith("tiny.jpg")) return 800;
+        if (filePath.endsWith("logo.png")) return 40_000;
+        return 100;
+      }
+    });
+    expect(hit).toBe(path.join(appDir, "logo.png"));
+  });
+
+  it("uses CDN URL when local artwork is missing", async () => {
+    const art = await loadSteamArtwork(steamRoot, "999001", {
+      pathExists: async () => false
+    });
+    expect(art.dataUrl).toBeNull();
+    expect(art.url).toBe(steamPrimaryArtworkUrl("999001"));
+    expect(art.url).toContain("/steam/apps/999001/library_600x900.jpg");
   });
 });
 
@@ -250,7 +280,18 @@ describe("Steam uninstall + scan routing", () => {
         }
         throw new Error(`unexpected read ${filePath}`);
       },
-      readArtworkFile: async () => Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      readArtworkFile: async () => {
+        const buf = Buffer.alloc(4096, 0);
+        buf[0] = 0x89;
+        buf[1] = 0x50;
+        buf[2] = 0x4e;
+        buf[3] = 0x47;
+        buf[4] = 0x0d;
+        buf[5] = 0x0a;
+        buf[6] = 0x1a;
+        buf[7] = 0x0a;
+        return buf;
+      },
       readdir: async dir => {
         if (dir.endsWith("steamapps")) return ["appmanifest_570.acf"];
         if (dir.endsWith("userdata")) return ["42"];
@@ -272,6 +313,7 @@ describe("Steam uninstall + scan routing", () => {
       lastPlayedAt: 1700000000 * 1000
     });
     expect(apps[0].artworkDataUrl).toMatch(/^data:image\/png;base64,/);
+    expect(apps[0].artworkUrl).toBeNull();
   });
 
   it("routes uninstall-game through provider registry", async () => {

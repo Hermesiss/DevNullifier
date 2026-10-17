@@ -1,5 +1,5 @@
 import type { GameApp, LauncherProvider, UninstallGameResult } from "../types";
-import { loadSteamArtworkDataUrl, type ArtworkDeps } from "./artwork";
+import { loadSteamArtwork, type ArtworkDeps } from "./artwork";
 import { detectSteamPath, type SteamDetectDeps } from "./detect";
 import { listSteamLibraryPaths, type LibraryDeps } from "./library";
 import { loadSteamLastPlayed, type LastPlayedDeps } from "./lastPlayed";
@@ -60,7 +60,9 @@ export function createSteamProvider(deps: SteamProviderDeps = {}): LauncherProvi
       const apps = [...byAppId.values()].sort((a, b) => b.size - a.size);
       await Promise.all(
         apps.map(async app => {
-          app.artworkDataUrl = await loadSteamArtworkDataUrl(steamRoot, app.appId, deps);
+          const art = await loadSteamArtwork(steamRoot, app.appId, deps);
+          app.artworkDataUrl = art.dataUrl;
+          app.artworkUrl = art.url;
         })
       );
       return apps;

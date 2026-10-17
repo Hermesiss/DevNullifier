@@ -83,7 +83,7 @@ const filteredItems = computed(() =>
 const foundSize = computed(() => items.value.reduce((sum, item) => sum + item.size, 0))
 const selectedSize = computed(() => previewSize.value)
 
-const { diskStatus } = useDiskStatus(scanRoot, selectedSize, foundSize)
+const { diskStatus, refreshDiskStatus } = useDiskStatus(scanRoot, selectedSize, foundSize)
 
 const previewUninstall = (item: GameApp | null): void => {
     previewSize.value = item?.size ?? 0
@@ -98,6 +98,7 @@ const startScan = async (): Promise<void> => {
         const next = await window.electronAPI.scanGames()
         items.value = next
         scanRoot.value = next.find(item => item.installPath)?.installPath ?? null
+        await refreshDiskStatus()
         statusText.value =
             next.length === 0
                 ? t('common.games_none_found')
