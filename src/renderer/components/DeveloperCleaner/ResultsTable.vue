@@ -26,6 +26,7 @@
                     </div>
                 </v-card-title>
                 <v-card-text>
+                    <div v-if="compareText" class="text-body-2 text-medium-emphasis mb-2">{{ compareText }}</div>
                     <div class="d-flex flex-wrap ga-3 mb-4">
                         <v-text-field v-model="pathQuery" class="filter-path" :label="t('common.search_path')"
                             prepend-inner-icon="mdi-magnify" density="compact" variant="outlined" hide-details
@@ -135,6 +136,7 @@ const props = defineProps<{
     projects: ProjectInfo[]
     isScanning?: boolean
     isDeleting?: boolean
+    compareText?: string
 }>()
 
 // Emits

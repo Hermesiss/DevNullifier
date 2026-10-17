@@ -2,6 +2,12 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.3.17]
+
+### Added
+
+- After a full scan, the results say what is new, what grew, and how much disappeared since the previous scan.
+
 ## [1.3.16]
 
 ### Added

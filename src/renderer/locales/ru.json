@@ -36,6 +36,7 @@
     "quick_scan": "Быстрое сканирование",
     "delete_selected": "Удалить выбранные",
     "found_folders": "Найденные папки",
+    "scan_compare": "{added} новых, {grown} выросли, освобождено {freed}",
     "path": "Путь",
     "size": "Размер",
     "matched_keyword": "Совпадение",

@@ -73,16 +73,57 @@ export async function getSavedFoldersPath(): Promise<string> {
     return path.join(userDataPath, 'saved-folders-appdata.json');
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function finiteNumber(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeSavedEntry(entry: unknown): (Record<string, unknown> & { path: string }) | null {
+    if (typeof entry === 'string') {
+        return entry ? { path: entry } : null;
+    }
+    if (!isRecord(entry) || typeof entry.path !== 'string' || !entry.path) return null;
+
+    const next: Record<string, unknown> & { path: string } = { ...entry, path: entry.path };
+    const size = finiteNumber(entry.size);
+    if (size === undefined) delete next.size;
+    else next.size = size;
+    return next;
+}
+
+function normalizeSavedList(parsed: unknown): Array<Record<string, unknown> & { path: string }> {
+    if (!Array.isArray(parsed)) return [];
+    const items: Array<Record<string, unknown> & { path: string }> = [];
+    for (const entry of parsed) {
+        const normalized = normalizeSavedEntry(entry);
+        if (normalized) items.push(normalized);
+    }
+    return items;
+}
+
+function withSavedSize<T>(items: T[]): T[] {
+    return items.map(item => {
+        if (!isRecord(item) || typeof item.path !== 'string') return item;
+        if (finiteNumber(item.size) !== undefined) return item;
+        const totalCacheSize = finiteNumber(item.totalCacheSize);
+        if (totalCacheSize === undefined) return item;
+        return { ...item, size: totalCacheSize } as T;
+    });
+}
+
 export async function saveFolders(folders: FolderItem[]): Promise<void> {
     const filePath = await getSavedFoldersPath();
-    await fs.writeFile(filePath, JSON.stringify(folders, null, 2), 'utf-8');
+    await fs.writeFile(filePath, JSON.stringify(withSavedSize(folders), null, 2), 'utf-8');
 }
 
 export async function loadSavedFolders(): Promise<FolderItem[]> {
     try {
         const filePath = await getSavedFoldersPath();
         const data = await fs.readFile(filePath, 'utf-8');
-        return JSON.parse(data);
+        return normalizeSavedList(JSON.parse(data)) as unknown as FolderItem[];
     } catch {
         return [];
     }
@@ -102,14 +143,14 @@ export async function getSavedDeveloperProjectsPath(): Promise<string> {
 
 export async function saveDeveloperProjects(projects: ProjectInfo[]): Promise<void> {
     const filePath = await getSavedDeveloperProjectsPath();
-    await fs.writeFile(filePath, JSON.stringify(projects, null, 2), 'utf-8');
+    await fs.writeFile(filePath, JSON.stringify(withSavedSize(projects), null, 2), 'utf-8');
 }
 
 export async function loadSavedDeveloperProjects(): Promise<ProjectInfo[]> {
     try {
         const filePath = await getSavedDeveloperProjectsPath();
         const data = await fs.readFile(filePath, 'utf-8');
-        return JSON.parse(data);
+        return normalizeSavedList(JSON.parse(data)) as unknown as ProjectInfo[];
     } catch {
         return [];
     }

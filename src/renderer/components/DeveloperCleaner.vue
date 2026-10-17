@@ -59,7 +59,8 @@
 
         <!-- Results Table -->
         <ResultsTable :projects="projects" :is-scanning="isScanning" :is-deleting="isDeleting"
-            @open-folder-tree="openFolderTree" @cache-selection-changed="onCacheSelectionChanged" />
+            :compare-text="scanCompareText" @open-folder-tree="openFolderTree"
+            @cache-selection-changed="onCacheSelectionChanged" />
 
         <!-- Category Info Dialog -->
         <CategoryInfoDialog v-model="showInfoDialog" :category="selectedCategory" />
@@ -87,6 +88,7 @@ import ResultsTable from './DeveloperCleaner/ResultsTable.vue'
 import CategoryInfoDialog from './DeveloperCleaner/CategoryInfoDialog.vue'
 import type { DeveloperCategory, ProjectInfo, ToolCacheItem } from '@/types'
 import { formatSize } from '../utils/formatters'
+import { compareScans, toScanSnapshot, type ScanComparison, type ScanSnapshotItem } from '../utils/scanCompare'
 import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
 
 const { t } = useI18n()
@@ -111,6 +113,16 @@ const scanProgress = ref(0)
 const toolCaches = ref<Array<ToolCacheItem & { selected: boolean }>>([])
 const toolCachesScanned = ref(false)
 const isScanningToolCaches = ref(false)
+const scanComparison = ref<ScanComparison | null>(null)
+const scanCompareText = computed(() => {
+    const comparison = scanComparison.value
+    if (!comparison) return ''
+    return t('common.scan_compare', {
+        added: comparison.added.length,
+        grown: comparison.grown.length,
+        freed: formatSize(comparison.freedBytes)
+    })
+})
 
 // Component refs
 const categoriesPanel = ref<InstanceType<typeof CategoriesPanel> | null>(null)
@@ -352,6 +364,15 @@ const removeScanStatusListeners = (): void => {
     window.electronAPI.removeAllListeners?.('developer-scan-visited')
 }
 
+const loadPreviousSnapshot = async (): Promise<ScanSnapshotItem[]> => {
+    try {
+        return toScanSnapshot(await window.electronAPI.loadSavedDeveloperProjects())
+    } catch (error) {
+        console.error('Failed to load previous developer scan:', error)
+        return []
+    }
+}
+
 const startScan = async (basePaths: string[]): Promise<void> => {
     if (!window.electronAPI.scanDeveloperCaches) {
         showNotification(t('common.dev_scan_not_implemented'), 'warning')
@@ -362,7 +383,9 @@ const startScan = async (basePaths: string[]): Promise<void> => {
 
     try {
         isScanning.value = true
+        scanComparison.value = null
         projects.value = []
+        const previous = await loadPreviousSnapshot()
 
         // Clean up any existing listeners
         if (window.electronAPI.removeAllListeners) {
@@ -419,6 +442,9 @@ const startScan = async (basePaths: string[]): Promise<void> => {
 
         // Final sort
         projects.value.sort((a, b) => b.totalCacheSize - a.totalCacheSize)
+        if (previous.length > 0) {
+            scanComparison.value = compareScans(previous, toScanSnapshot(projects.value))
+        }
 
         // Save projects after successful scan
         // Convert reactive objects to plain objects to avoid cloning issues
@@ -469,6 +495,7 @@ const startQuickScan = async (): Promise<void> => {
     try {
         window.electronAPI.removeAllListeners?.('developer-project-found')
         isScanning.value = true
+        scanComparison.value = null
         statusText.value = t('common.loading_saved_projects')
         projects.value = []
 
@@ -533,6 +560,7 @@ const rescanSpecificProjects = async (projectPaths: string[]): Promise<void> => 
 
     try {
         window.electronAPI.removeAllListeners?.('developer-project-found')
+        scanComparison.value = null
         statusText.value = t('common.updating_projects_count', { count: projectPaths.length })
 
         // Create serializable data - convert Vue reactive arrays to plain arrays/objects

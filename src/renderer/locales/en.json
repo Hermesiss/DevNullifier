@@ -36,6 +36,7 @@
     "quick_scan": "Quick Scan",
     "delete_selected": "Delete Selected",
     "found_folders": "Found Folders",
+    "scan_compare": "{added} new, {grown} grew, freed {freed}",
     "path": "Path",
     "size": "Size",
     "matched_keyword": "Matched",

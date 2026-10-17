@@ -8,6 +8,8 @@
             </v-chip>
         </v-card-title>
 
+        <div v-if="compareText" class="px-4 pb-2 text-body-2 text-medium-emphasis">{{ compareText }}</div>
+
         <div class="d-flex flex-wrap ga-3 px-4 pb-2">
             <v-text-field v-model="pathQuery" class="filter-path" :label="t('common.search_path')"
                 prepend-inner-icon="mdi-magnify" density="compact" variant="outlined" hide-details clearable
@@ -193,6 +195,7 @@ const props = defineProps<{
     folders?: FolderItem[]
     modelValue?: string[]
     isScanning?: boolean
+    compareText?: string
 }>()
 
 const emits = defineEmits<{

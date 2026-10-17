@@ -7,7 +7,7 @@
 
         <!-- Results Table -->
         <ResultsTable v-model="selectedFolders" :folders="folders" :is-scanning="isScanning"
-            @open-folder-tree="openFolderTree" />
+            :compare-text="scanCompareText" @open-folder-tree="openFolderTree" />
 
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedFolders.length" :selected-size="selectedSize"
             :permanent="permanentDelete" @confirm="deleteFolders" />
@@ -35,6 +35,8 @@ import DeleteDialog from './DeleteDialog.vue'
 import ActionsBar from './ActionsBar.vue'
 import FolderTreeViewer from './FolderTreeViewer.vue'
 import type { FolderItem } from '@/types'
+import { formatSize } from '../utils/formatters'
+import { compareScans, toScanSnapshot, type ScanComparison, type ScanSnapshotItem } from '../utils/scanCompare'
 import { cleanerThresholdsActive, useCleanerRules } from '../composables/useCleanerRules'
 
 const { t } = useI18n()
@@ -56,6 +58,16 @@ const scanProgress = ref(0)
 const scannedDirectoryCount = ref(0)
 const currentScanPath = ref('')
 const acceptScanDetail = ref(false)
+const scanComparison = ref<ScanComparison | null>(null)
+const scanCompareText = computed(() => {
+    const comparison = scanComparison.value
+    if (!comparison) return ''
+    return t('common.scan_compare', {
+        added: comparison.added.length,
+        grown: comparison.grown.length,
+        freed: formatSize(comparison.freedBytes)
+    })
+})
 
 // Emit events to parent
 const emit = defineEmits<{
@@ -137,14 +149,25 @@ const stopScan = async (): Promise<void> => {
     }
 }
 
+const loadPreviousSnapshot = async (): Promise<ScanSnapshotItem[]> => {
+    try {
+        return toScanSnapshot(await window.electronAPI.loadSavedFolders())
+    } catch (error) {
+        console.error('Failed to load previous scan:', error)
+        return []
+    }
+}
+
 const startScan = async (): Promise<void> => {
     try {
         isScanning.value = true
+        scanComparison.value = null
         scanProgress.value = -1
         statusText.value = t('common.getting_app_data_paths')
         folders.value = []
         selectedFolders.value = []
         const seenPaths = new Set<string>()
+        const previous = await loadPreviousSnapshot()
 
         const paths = await window.electronAPI.getAppDataPaths()
         if (paths.length === 0) {
@@ -175,6 +198,9 @@ const startScan = async (): Promise<void> => {
         if (isScanning.value) {
             // Sort at the end for display
             folders.value.sort((a, b) => b.size - a.size)
+            if (previous.length > 0) {
+                scanComparison.value = compareScans(previous, toScanSnapshot(folders.value))
+            }
             // Save folders after successful scan
             await window.electronAPI.saveFolders(folders.value.map(folder => ({
                 ...folder,
@@ -205,6 +231,7 @@ const startScan = async (): Promise<void> => {
 const startQuickScan = async (): Promise<void> => {
     try {
         isScanning.value = true
+        scanComparison.value = null
         statusText.value = t('common.loading_saved_folders')
         folders.value = []
         selectedFolders.value = []
@@ -255,6 +282,7 @@ const startQuickScan = async (): Promise<void> => {
 
 const rescanAffectedDirectories = async (deletedPaths: string[]): Promise<void> => {
     try {
+        scanComparison.value = null
         selectedFolders.value = []
         statusText.value = t('common.updating_dirs')
 

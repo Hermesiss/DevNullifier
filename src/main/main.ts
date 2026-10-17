@@ -71,7 +71,7 @@ function dropExcludedProject<T extends {
   selectedCacheSize?: number;
 }>(project: T, globs: readonly string[]): T | null {
   if (!project?.path || pathMatchesExclude(project.path, globs)) return null;
-  if (globs.length === 0) return project;
+  if (globs.length === 0 || project.caches == null) return project;
 
   const caches = [];
   for (const group of project.caches ?? []) {
