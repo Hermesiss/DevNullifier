@@ -186,18 +186,6 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Ensure latest-dev release
-        if: github.ref_name == 'develop'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release view latest-dev >/dev/null 2>&1 || \
-            gh release create latest-dev \
-              --title "DevNullifier [Latest Development Build]" \
-              --notes "Moving development build" \
-              --prerelease \
-              --target "${{ github.sha }}"
-
       # Upload assets with error handling
       - name: Upload Release Assets
         id: upload_assets
@@ -284,78 +272,3 @@ jobs:
           echo "Upload failed, cleaning up..."
           gh release delete "${{ needs.build-windows.outputs.version }}" --yes --cleanup-tag || true
           exit 1
-
-      # Upload to latest-dev release if on develop branch and main upload succeeded
-      - name: Upload assets to latest-dev release
-        if: github.ref_name == 'develop' && steps.upload_assets.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Function to upload asset
-          upload_asset() {
-            local file="$1"
-            local name="$2"
-            local type="$3"
-            local max_retries=3
-            local retry_count=0
-            
-            while [ $retry_count -lt $max_retries ]; do
-              echo "Uploading $name to latest-dev (attempt $((retry_count + 1))/$max_retries)..."
-              
-              # Check if file exists and is readable
-              if [ ! -f "$file" ]; then
-                echo "::warning::File $file not found, skipping..."
-                return 0
-              fi
-              
-              local staged
-              staged="$(mktemp -d)/${name}"
-              cp "$file" "$staged"
-              response=$(gh release upload "latest-dev" "$staged" --clobber 2>&1)
-              
-              if [ $? -eq 0 ]; then
-                echo "Successfully uploaded $name to latest-dev"
-                return 0
-              else
-                echo "Failed to upload $name to latest-dev (attempt $((retry_count + 1))/$max_retries)"
-                echo "Error: $response"
-                retry_count=$((retry_count + 1))
-                if [ $retry_count -lt $max_retries ]; then
-                  echo "Retrying in 10 seconds..."
-                  sleep 10
-                fi
-              fi
-            done
-            
-            echo "::error::Failed to upload $name to latest-dev after $max_retries attempts"
-            return 1
-          }
-
-          # Windows assets
-          upload_asset "artifacts/windows/DevNullifier-Setup.exe" "DevNullifier-Setup.exe" "application/octet-stream"
-          upload_asset "artifacts/windows/DevNullifier-Setup.exe.blockmap" "DevNullifier-Setup.exe.blockmap" "application/octet-stream"
-          upload_asset "artifacts/windows/latest.yml" "latest.yml" "text/yaml"
-          upload_asset "artifacts/windows/DevNullifier-win-unpacked.zip" "DevNullifier-win-unpacked.zip" "application/zip"
-
-          # Linux assets
-          APPIMAGE=$(find artifacts/linux -name "*.AppImage" -type f | head -1)
-          DEB=$(find artifacts/linux -name "*.deb" -type f | head -1)
-          BLOCKMAP=$(find artifacts/linux -name "*.AppImage.blockmap" -type f | head -1)
-          if [ -n "$APPIMAGE" ]; then
-            upload_asset "$APPIMAGE" "DevNullifier-linux-x64.AppImage" "application/octet-stream"
-          fi
-          if [ -n "$BLOCKMAP" ]; then
-            upload_asset "$BLOCKMAP" "DevNullifier-linux-x64.AppImage.blockmap" "application/octet-stream"
-          fi
-          if [ -n "$DEB" ]; then
-            upload_asset "$DEB" "DevNullifier-linux-x64.deb" "application/octet-stream"
-          fi
-          upload_asset "artifacts/linux/DevNullifier-linux-unpacked.zip" "DevNullifier-linux-unpacked.zip" "application/zip"
-          upload_asset "artifacts/linux/latest-linux.yml" "latest-linux.yml" "text/yaml"
-
-          while IFS= read -r mac_file; do
-            [ -n "$mac_file" ] || continue
-            upload_asset "$mac_file" "$(basename "$mac_file")" "application/octet-stream"
-          done < <(find artifacts/macos -type f \( -name "*.dmg" -o -name "*.dmg.blockmap" \) | sort)
-          upload_asset "artifacts/macos/DevNullifier-mac-unpacked.zip" "DevNullifier-mac-unpacked.zip" "application/zip"
-          upload_asset "artifacts/macos/latest-mac.yml" "latest-mac.yml" "text/yaml"
