@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from "electron";
+import { openAboutRepository } from "./aboutLink";
 import { spawn } from "child_process";
 import type { OpenDialogOptions, OpenDialogReturnValue } from "electron";
 import path from "path";
@@ -773,6 +774,10 @@ ipcMain.handle("open-path", (_event, target: string) => {
   if (!target) return "";
   return shell.openPath(target);
 });
+
+ipcMain.handle("open-about-link", (_event, url: unknown) =>
+  openAboutRepository(url, target => shell.openExternal(target))
+);
 
 ipcMain.handle("copy-text", (_event, text: string) => {
   if (!text) return;

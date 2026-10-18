@@ -281,6 +281,14 @@
       "ides": "IDEs / Editors"
     }
   },
+  "about": {
+    "open": "About",
+    "title": "About",
+    "description": "Cleans application data, developer caches, and leftover launcher files. Selected items go to the trash.",
+    "license": "MIT License",
+    "source": "GitHub",
+    "changelog_empty": "Changelog is unavailable."
+  },
   "update": {
     "title": "Software Update",
     "beta": "Use Beta Channel",

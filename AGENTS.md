@@ -1,6 +1,6 @@
 # DevNullifier — agent context
 
-Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Version lives in `package.json` (currently 1.7.1). Tabs: AppData, Developer, Tool Caches, System (temp/browsers/messengers/shaders/creative/launcher caches), Games. Selected items are moved to the trash. The Windows installer does not request administrator rights (`requestedExecutionLevel: asInvoker`).
+Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Version lives in `package.json` (currently 1.7.2). Tabs: AppData, Developer, Tool Caches, System (temp/browsers/messengers/shaders/creative/launcher caches), Games. Selected items are moved to the trash. The Windows installer does not request administrator rights (`requestedExecutionLevel: asInvoker`).
 
 ## Processes
 
@@ -18,6 +18,14 @@ Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Versi
 - `npm run type-check` — `vue-tsc` and main `tsc`
 - Husky pre-commit already runs `type-check` and `npm test`. Do not disable it.
 - Build: `npm run build:win|linux|mac`. Artifacts land in `dist/`. Do not publish (`--publish=never`). Releases go only through `.github/workflows/build-and-release.yml`.
+
+## Version and changelog
+
+A version bump in `package.json` updates `CHANGELOG.md` and `CHANGELOG.ru.md` in the same change. Headings look like `## [x.y.z] - two or three words`. Both files list the same versions.
+
+On a feature branch, keep notes under the current minor, `## [x.y.0]`. Later patch bumps on that branch add bullets there, not a new heading.
+
+On `develop` or `main`, a version bump adds a new heading at the top of both files.
 
 ## Do not break
 

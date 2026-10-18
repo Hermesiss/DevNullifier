@@ -23,6 +23,11 @@
         <v-tooltip activator="parent" location="bottom">{{ t('common.deletion_log') }}</v-tooltip>
       </v-btn>
 
+      <v-btn icon variant="text" color="info" class="mr-2" @click="showAbout = true">
+        <v-icon>mdi-information-outline</v-icon>
+        <v-tooltip activator="parent" location="bottom">{{ t('about.open') }}</v-tooltip>
+      </v-btn>
+
       <v-btn icon variant="text" color="info" @click="showSettings = true">
         <v-icon>mdi-cog</v-icon>
         <v-tooltip activator="parent" location="bottom">{{ t('common.settings') }}</v-tooltip>
@@ -79,6 +84,7 @@
     </v-main>
 
     <NotificationSnackbar v-model="showSnackbar" :text="snackbarText" :color="snackbarColor" />
+    <AboutDialog v-model="showAbout" />
     <SettingsDialog
       v-model="showSettings"
       :language="locale"
@@ -138,6 +144,7 @@ import GamesCleaner from './components/GamesCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import AboutDialog from './components/AboutDialog.vue'
 import { formatDate, formatSize } from './utils/formatters'
 import type { DeletionLogEntry } from '../main/deletionLog'
 import { accessDeniedOutsideProfile } from './composables/useElevationPrompt'
@@ -251,6 +258,7 @@ watch(themeMode, (newMode) => {
 // Reactive state
 const activeTab = ref<'appdata' | 'developer' | 'tools' | 'games'>('appdata')
 const showSettings = ref(false)
+const showAbout = ref(false)
 const showDeletionLog = ref(false)
 const deletionLog = ref<DeletionLogEntry[]>([])
 const showSnackbar = ref(false)

@@ -1,4 +1,3 @@
-import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import { createBattleNetProvider } from "../games/battlenet/provider";
 import { createEaProvider } from "../games/ea/provider";
@@ -15,7 +14,7 @@ describe("extra launcher providers", () => {
   });
 
   it("lists GOG games from mocked registry values", async () => {
-    const install = path.join("D:", "GOG Games", "Witcher");
+    const install = "D:\\GOG Games\\Witcher";
     const provider = createGogProvider({
       platform: "win32",
       pathExists: async target => target === install,
@@ -53,7 +52,7 @@ describe("extra launcher providers", () => {
   });
 
   it("filters Battle.net uninstall entries by publisher", async () => {
-    const install = path.join("C:", "Games", "Overwatch");
+    const install = "C:\\Games\\Overwatch";
     const provider = createBattleNetProvider({
       platform: "win32",
       pathExists: async target => target === install,

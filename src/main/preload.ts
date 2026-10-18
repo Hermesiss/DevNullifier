@@ -171,6 +171,7 @@ const api: ElectronAPI = {
   getLocale: () => ipcRenderer.invoke('get-locale'),
 
   openPath: (target: string) => ipcRenderer.invoke("open-path", target),
+  openAboutLink: (url: string) => ipcRenderer.invoke("open-about-link", url),
   copyText: (text: string) => ipcRenderer.invoke("copy-text", text),
   platform: process.platform,
   getPlatform: () => ipcRenderer.invoke("get-platform"),

@@ -152,6 +152,7 @@ export interface ElectronAPI {
   setUpdateChannel: (channel: 'latest' | 'latest-dev') => Promise<void>;
   getLocale: () => Promise<string>;
   openPath: (target: string) => Promise<string>;
+  openAboutLink: (url: string) => Promise<boolean>;
   copyText: (text: string) => Promise<void>;
   platform: string;
   getPlatform: () => Promise<NodeJS.Platform>;
