@@ -29,6 +29,10 @@ describe("toolCacheCandidates", () => {
     expect(win.map(item => item.id)).toContain("android/avd");
     expect(win.map(item => item.id)).toContain("cargo/bin");
     expect(win.map(item => item.id)).toContain("gradle/caches");
+    expect(win.map(item => item.id)).toContain("uv");
+    expect(win.map(item => item.id)).toContain("playwright");
+    expect(win.map(item => item.id)).toContain("scoop");
+    expect(win.map(item => item.id)).toContain("conan/p");
 
     expect(await candidate("win32", "npm/cacache")).toBe(
       path.join(home, "AppData", "Local", "npm-cache", "_cacache")

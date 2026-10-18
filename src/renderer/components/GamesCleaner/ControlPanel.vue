@@ -83,6 +83,10 @@ const launcherOptions = computed(() => [
     { title: t('common.games_filter_all'), value: 'all' as const },
     { title: t('common.games_launcher_steam'), value: 'steam' as const },
     { title: t('common.games_launcher_epic'), value: 'epic' as const },
+    { title: t('common.games_launcher_gog'), value: 'gog' as const },
+    { title: t('common.games_launcher_battlenet'), value: 'battlenet' as const },
+    { title: t('common.games_launcher_riot'), value: 'riot' as const },
+    { title: t('common.games_launcher_ea'), value: 'ea' as const },
 ])
 
 const lastPlayedOptions = computed(() => [

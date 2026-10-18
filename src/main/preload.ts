@@ -43,6 +43,9 @@ const api: ElectronAPI = {
 
   scanGlobalCaches: (locale) => ipcRenderer.invoke("scan-global-caches", locale),
   getToolCacheCatalog: (locale) => ipcRenderer.invoke("get-tool-cache-catalog", locale),
+  pruneContainerEngine: (engine) => ipcRenderer.invoke("prune-container-engine", engine),
+  scanSystemCaches: (locale) => ipcRenderer.invoke("scan-system-caches", locale),
+  getSystemCacheCatalog: (locale) => ipcRenderer.invoke("get-system-cache-catalog", locale),
   scanGames: () => ipcRenderer.invoke("scan-games"),
   uninstallGame: (request) => ipcRenderer.invoke("uninstall-game", request),
   onToolCacheScanProgress: (callback) => {
@@ -50,6 +53,12 @@ const api: ElectronAPI = {
   },
   onToolCacheFound: (callback) => {
     ipcRenderer.on("tool-cache-found", (_event, item) => callback(item));
+  },
+  onSystemCacheScanProgress: (callback) => {
+    ipcRenderer.on("system-cache-scan-progress", (_event, progress) => callback(progress));
+  },
+  onSystemCacheFound: (callback) => {
+    ipcRenderer.on("system-cache-found", (_event, item) => callback(item));
   },
 
   // Stop scanning

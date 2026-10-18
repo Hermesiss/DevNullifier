@@ -40,11 +40,22 @@ import {
   type ToolCacheFound,
   type ToolCacheLocale
 } from "./globalToolCaches";
+import {
+  AGGREGATED_SYSTEM_PARENT_IDS,
+  collectExistingSystemCaches,
+  presentSystemCaches,
+  systemCacheCandidates,
+  systemCacheCatalog,
+  type SystemCacheFound,
+  type SystemCacheLocale
+} from "./systemAppCaches";
 import { pathMatchesExclude } from "./excludeGlobs";
 import { queryLockingProcess } from "./lockingProcess";
 import { elevationCommandEnv } from "./elevation";
 import { scanGames, uninstallGame } from "./games/scanGames";
 import type { UninstallGameRequest } from "./games/types";
+import { detectSteamPath } from "./games/steam/detect";
+import { pruneContainerEngine, type ContainerEngine } from "./containerPrune";
 
 // Set user data path early
 fileUtils.setUserDataPath(app.getPath('userData'));
@@ -55,6 +66,12 @@ let currentDeveloperScanWorker: Worker | null = null;
 let updateService: UpdateService | null = null;
 const scanAllowlist = new ScanAllowlist();
 let acceptedToolCaches: string[] = [];
+let acceptedSystemCaches: string[] = [];
+
+function reseedKnownCaches(protection: ProtectionContext): void {
+  scanAllowlist.addDeveloper(acceptedToolCaches, protection);
+  scanAllowlist.addDeveloper(acceptedSystemCaches, protection);
+}
 
 async function protectionContext(
   rules?: Pick<CleanerRules, "protectedPaths" | "excludeGlobs">
@@ -465,12 +482,88 @@ ipcMain.handle("scan-global-caches", async (_event, locale?: ToolCacheLocale) =>
 
   acceptedToolCaches = accepted;
   scanAllowlist.addDeveloper(accepted, protection);
+  reseedKnownCaches(protection);
   return presentToolCaches(visible, resolved);
 });
 
 ipcMain.handle("get-tool-cache-catalog", async (_event, locale?: ToolCacheLocale) => {
   const resolved: ToolCacheLocale = locale === "ru" ? "ru" : "en";
   return toolCacheCatalog(os.homedir(), process.platform, resolved);
+});
+
+ipcMain.handle("prune-container-engine", async (_event, engine: unknown) => {
+  if (engine !== "docker" && engine !== "podman") {
+    return {
+      ok: false,
+      engine: "docker" as ContainerEngine,
+      error: "Invalid container engine",
+      output: "",
+      commands: []
+    };
+  }
+  return pruneContainerEngine(engine);
+});
+
+ipcMain.handle("scan-system-caches", async (_event, locale?: SystemCacheLocale) => {
+  const resolved: SystemCacheLocale = locale === "ru" ? "ru" : "en";
+  const home = os.homedir();
+  const protection = await protectionContext();
+  const steamRoot = await detectSteamPath();
+  const scanOptions = {
+    extraRoots: steamRoot ? { steam: steamRoot } : undefined
+  };
+  const fsOps = {
+    stat: (target: string) => fsPromises.lstat(target),
+    getDirSize: (target: string) => fileUtils.getDirSize(target),
+    readdir: async (dir: string) => {
+      const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+      return entries
+        .filter(entry => entry.isDirectory() || entry.isFile())
+        .map(entry => entry.name);
+    }
+  };
+  const candidates = await systemCacheCandidates(home, process.platform, fsOps, scanOptions);
+  const total = candidates.length;
+  const accepted: string[] = [];
+  const visible: SystemCacheFound[] = [];
+
+  sendToRenderer("system-cache-scan-progress", { checked: 0, total, path: "" });
+
+  await collectExistingSystemCaches(
+    home,
+    process.platform,
+    fsOps,
+    async (progress, hit) => {
+      sendToRenderer("system-cache-scan-progress", progress);
+      if (!hit) return;
+      if (!canDelete(hit.path, new Set([normalizePathKey(hit.path)]), protection)) return;
+      accepted.push(hit.path);
+      visible.push(hit);
+      // TEMP children are collapsed at the end — don't flood the UI stream.
+      if (AGGREGATED_SYSTEM_PARENT_IDS.has(hit.parentId)) return;
+      sendToRenderer("system-cache-found", presentSystemCaches([hit], resolved)[0]);
+    },
+    scanOptions
+  );
+
+  acceptedSystemCaches = accepted;
+  scanAllowlist.addDeveloper(accepted, protection);
+  reseedKnownCaches(protection);
+  const presented = presentSystemCaches(visible, resolved);
+  for (const item of presented) {
+    if (item.aggregated) {
+      sendToRenderer("system-cache-found", item);
+    }
+  }
+  return presented;
+});
+
+ipcMain.handle("get-system-cache-catalog", async (_event, locale?: SystemCacheLocale) => {
+  const resolved: SystemCacheLocale = locale === "ru" ? "ru" : "en";
+  const steamRoot = await detectSteamPath();
+  return systemCacheCatalog(os.homedir(), process.platform, resolved, {
+    extraRoots: steamRoot ? { steam: steamRoot } : undefined
+  });
 });
 
 ipcMain.handle("scan-games", async () => {
@@ -496,7 +589,7 @@ ipcMain.handle(
     const protection = await protectionContext();
     if (resetAllowlist) {
       scanAllowlist.beginDeveloperScan();
-      scanAllowlist.addDeveloper(acceptedToolCaches, protection);
+      reseedKnownCaches(protection);
     }
 
     return new Promise((resolve, reject) => {

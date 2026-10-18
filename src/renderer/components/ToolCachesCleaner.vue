@@ -1,8 +1,9 @@
 <template>
     <div>
-        <ControlPanel :is-scanning="isScanning" :is-deleting="isDeleting" :items-length="items.length"
-            :scan-progress="scanProgress" @scan="startScan" @select-all="selectAll" @deselect-all="deselectAll"
-            @show-info="showInfo = true" />
+        <ControlPanel :is-scanning="isScanning" :is-deleting="isDeleting" :is-pruning="isPruning"
+            :items-length="items.length" :scan-progress="scanProgress" @scan="startScan" @select-all="selectAll"
+            @deselect-all="deselectAll" @show-info="showInfo = true" @prune-docker="askPrune('docker')"
+            @prune-podman="askPrune('podman')" />
 
         <ResultsTable v-model="selectedPaths" :items="items" :is-scanning="isScanning" :is-deleting="isDeleting"
             @open-folder-tree="openFolderTree" />
@@ -11,6 +12,18 @@
 
         <DeleteDialog v-model="showDeleteDialog" :selected-count="selectedPaths.length" :selected-size="selectedSize"
             :permanent="permanentDelete" @confirm="deleteSelected" />
+
+        <v-dialog v-model="showPruneDialog" max-width="520">
+            <v-card>
+                <v-card-title>{{ t('common.prune_container_title', { engine: pruneEngineLabel }) }}</v-card-title>
+                <v-card-text>{{ t('common.prune_container_body') }}</v-card-text>
+                <v-card-actions>
+                    <v-spacer />
+                    <v-btn variant="text" @click="showPruneDialog = false">{{ t('common.cancel') }}</v-btn>
+                    <v-btn color="info" :loading="isPruning" @click="runPrune">{{ t('common.prune_container_confirm') }}</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
 
         <FolderTreeViewer v-model="showFolderTree" :folder-path="selectedFolderPath" />
         <ToolCachesInfoDialog v-model="showInfo" />
@@ -52,9 +65,16 @@ const items = ref<ToolCacheItem[]>([])
 const selectedPaths = ref<string[]>([])
 const isScanning = ref(false)
 const isDeleting = ref(false)
+const isPruning = ref(false)
 const showDeleteDialog = ref(false)
+const showPruneDialog = ref(false)
+const pruneEngine = ref<'docker' | 'podman'>('docker')
 const showFolderTree = ref(false)
 const showInfo = ref(false)
+
+const pruneEngineLabel = computed(() =>
+    pruneEngine.value === 'docker' ? 'Docker' : 'Podman'
+)
 const selectedFolderPath = ref('')
 const statusText = ref(t('common.ready'))
 const failedDeletes = ref<DeleteResult[]>([])
@@ -176,6 +196,53 @@ const confirmDelete = (): void => {
         return
     }
     showDeleteDialog.value = true
+}
+
+const askPrune = (engine: 'docker' | 'podman'): void => {
+    pruneEngine.value = engine
+    showPruneDialog.value = true
+}
+
+const runPrune = async (): Promise<void> => {
+    showPruneDialog.value = false
+    if (!window.electronAPI.pruneContainerEngine) {
+        showNotification(t('common.error'), 'error')
+        return
+    }
+    isPruning.value = true
+    statusText.value = t('common.prune_container_running', { engine: pruneEngineLabel.value })
+    try {
+        const result = await window.electronAPI.pruneContainerEngine(pruneEngine.value)
+        if (result.ok) {
+            const detail = result.output ? ` — ${result.output.slice(0, 200)}` : ''
+            showNotification(
+                `${t('common.prune_container_ok', { engine: pruneEngineLabel.value })}${detail}`,
+                'success'
+            )
+            statusText.value = t('common.prune_container_ok', { engine: pruneEngineLabel.value })
+        } else {
+            showNotification(
+                t('common.prune_container_failed', {
+                    engine: pruneEngineLabel.value,
+                    error: result.error || t('common.error')
+                }),
+                'error'
+            )
+            statusText.value = t('common.ready')
+        }
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        showNotification(
+            t('common.prune_container_failed', {
+                engine: pruneEngineLabel.value,
+                error: errorMessage
+            }),
+            'error'
+        )
+        statusText.value = t('common.ready')
+    } finally {
+        isPruning.value = false
+    }
 }
 
 const recordDeletionLog = async (
