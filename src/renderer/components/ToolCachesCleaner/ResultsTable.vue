@@ -1,7 +1,7 @@
 <template>
     <v-card>
         <v-card-title>
-            <span>{{ t('common.found_tool_caches') }}</span>
+            <span>{{ t(titleKey) }}</span>
             <v-spacer />
             <v-chip v-if="totalSize > 0" color="info" variant="outlined">
                 {{ formatSize(selectedSize) }} / {{ formatSize(totalSize) }}
@@ -49,7 +49,7 @@
             <template #item.parts="{ item }">
                 <ToolCacheParts :parts="item.parts" :selected-paths="modelValue" :is-scanning="isScanning"
                     :is-deleting="isDeleting" @update:selected-paths="emit('update:modelValue', $event)"
-                    @open-folder-tree="openFolderTree" />
+                    @open-folder-tree="openFolderTree" @open-details="openDetails" />
             </template>
 
             <template #item.size="{ item }">
@@ -69,6 +69,7 @@ import { computed, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatSize } from '@/utils/formatters'
 import { matchesCategory, matchesPathQuery } from '@/utils/tableFilter'
+import { selectedSizeForItems } from '@/utils/toolCacheSelection'
 import type { ToolCacheItem } from '@/types'
 import ToolCacheParts from './ToolCacheParts.vue'
 
@@ -84,16 +85,20 @@ interface ToolCacheGroup {
 
 const { t } = useI18n()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     items: ToolCacheItem[]
     modelValue: string[]
     isScanning: boolean
     isDeleting: boolean
-}>()
+    titleKey?: string
+}>(), {
+    titleKey: 'common.found_tool_caches'
+})
 
 const emit = defineEmits<{
     'update:modelValue': [value: string[]]
     'open-folder-tree': [path: string]
+    'open-details': [item: ToolCacheItem]
 }>()
 
 const pathQuery = ref('')
@@ -158,19 +163,17 @@ const filteredGroups = computed(() =>
 
 const totalSize = computed(() => props.items.reduce((sum, item) => sum + item.size, 0))
 
-const selectedSize = computed(() =>
-    props.items
-        .filter(item => props.modelValue.includes(item.path))
-        .reduce((sum, item) => sum + item.size, 0)
-)
+const selectedSize = computed(() => selectedSizeForItems(props.items, props.modelValue))
 
 const selectedSizeFor = (group: ToolCacheGroup): number =>
-    group.parts
-        .filter(part => props.modelValue.includes(part.path))
-        .reduce((sum, part) => sum + part.size, 0)
+    selectedSizeForItems(group.parts, props.modelValue)
 
 const openFolderTree = (folderPath: string): void => {
     emit('open-folder-tree', folderPath)
+}
+
+const openDetails = (item: ToolCacheItem): void => {
+    emit('open-details', item)
 }
 
 const openInFileManager = async (target: string): Promise<void> => {

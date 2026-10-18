@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from "electron";
+import { openAboutRepository } from "./aboutLink";
 import { spawn } from "child_process";
 import type { OpenDialogOptions, OpenDialogReturnValue } from "electron";
 import path from "path";
@@ -40,11 +41,22 @@ import {
   type ToolCacheFound,
   type ToolCacheLocale
 } from "./globalToolCaches";
+import {
+  AGGREGATED_SYSTEM_PARENT_IDS,
+  collectExistingSystemCaches,
+  presentSystemCaches,
+  systemCacheCandidates,
+  systemCacheCatalog,
+  type SystemCacheFound,
+  type SystemCacheLocale
+} from "./systemAppCaches";
 import { pathMatchesExclude } from "./excludeGlobs";
 import { queryLockingProcess } from "./lockingProcess";
 import { elevationCommandEnv } from "./elevation";
-import { scanGames, uninstallGame } from "./games/scanGames";
+import { LAUNCHER_SCAN_TIMEOUT_MS, scanGames, uninstallGame } from "./games/scanGames";
 import type { UninstallGameRequest } from "./games/types";
+import { detectSteamPath } from "./games/steam/detect";
+import { pruneContainerEngine, type ContainerEngine } from "./containerPrune";
 
 // Set user data path early
 fileUtils.setUserDataPath(app.getPath('userData'));
@@ -55,6 +67,12 @@ let currentDeveloperScanWorker: Worker | null = null;
 let updateService: UpdateService | null = null;
 const scanAllowlist = new ScanAllowlist();
 let acceptedToolCaches: string[] = [];
+let acceptedSystemCaches: string[] = [];
+
+function reseedKnownCaches(protection: ProtectionContext): void {
+  scanAllowlist.addDeveloper(acceptedToolCaches, protection);
+  scanAllowlist.addDeveloper(acceptedSystemCaches, protection);
+}
 
 async function protectionContext(
   rules?: Pick<CleanerRules, "protectedPaths" | "excludeGlobs">
@@ -120,6 +138,9 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
+    minWidth: 720,
+    minHeight: 480,
+    frame: false,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -127,8 +148,11 @@ function createWindow() {
       sandbox: true,
       preload: path.join(__dirname, "preload.js")
     },
-    icon: path.join(__dirname, "../assets/icon-256.png")
+    icon: path.join(__dirname, "../../src/assets/icon.ico")
   });
+
+  mainWindow.on("maximize", () => sendToRenderer("window-maximized", true));
+  mainWindow.on("unmaximize", () => sendToRenderer("window-maximized", false));
 
   mainWindow.on("closed", () => {
     void currentAppDataScanWorker?.terminate();
@@ -465,6 +489,7 @@ ipcMain.handle("scan-global-caches", async (_event, locale?: ToolCacheLocale) =>
 
   acceptedToolCaches = accepted;
   scanAllowlist.addDeveloper(accepted, protection);
+  reseedKnownCaches(protection);
   return presentToolCaches(visible, resolved);
 });
 
@@ -473,8 +498,90 @@ ipcMain.handle("get-tool-cache-catalog", async (_event, locale?: ToolCacheLocale
   return toolCacheCatalog(os.homedir(), process.platform, resolved);
 });
 
-ipcMain.handle("scan-games", async () => {
-  return scanGames();
+ipcMain.handle("prune-container-engine", async (_event, engine: unknown) => {
+  if (engine !== "docker" && engine !== "podman") {
+    return {
+      ok: false,
+      engine: "docker" as ContainerEngine,
+      error: "Invalid container engine",
+      output: "",
+      commands: []
+    };
+  }
+  return pruneContainerEngine(engine);
+});
+
+ipcMain.handle("scan-system-caches", async (_event, locale?: SystemCacheLocale) => {
+  const resolved: SystemCacheLocale = locale === "ru" ? "ru" : "en";
+  const home = os.homedir();
+  const protection = await protectionContext();
+  const steamRoot = await detectSteamPath();
+  const scanOptions = {
+    extraRoots: steamRoot ? { steam: steamRoot } : undefined
+  };
+  const fsOps = {
+    stat: (target: string) => fsPromises.lstat(target),
+    getDirSize: (target: string) => fileUtils.getDirSize(target),
+    readdir: async (dir: string) => {
+      const entries = await fsPromises.readdir(dir, { withFileTypes: true });
+      return entries
+        .filter(entry => entry.isDirectory() || entry.isFile())
+        .map(entry => entry.name);
+    }
+  };
+  const candidates = await systemCacheCandidates(home, process.platform, fsOps, scanOptions);
+  const total = candidates.length;
+  const accepted: string[] = [];
+  const visible: SystemCacheFound[] = [];
+
+  sendToRenderer("system-cache-scan-progress", { checked: 0, total, path: "" });
+
+  await collectExistingSystemCaches(
+    home,
+    process.platform,
+    fsOps,
+    async (progress, hit) => {
+      sendToRenderer("system-cache-scan-progress", progress);
+      if (!hit) return;
+      if (!canDelete(hit.path, new Set([normalizePathKey(hit.path)]), protection)) return;
+      accepted.push(hit.path);
+      visible.push(hit);
+      // TEMP children are collapsed at the end — don't flood the UI stream.
+      if (AGGREGATED_SYSTEM_PARENT_IDS.has(hit.parentId)) return;
+      sendToRenderer("system-cache-found", presentSystemCaches([hit], resolved)[0]);
+    },
+    scanOptions
+  );
+
+  acceptedSystemCaches = accepted;
+  scanAllowlist.addDeveloper(accepted, protection);
+  reseedKnownCaches(protection);
+  const presented = presentSystemCaches(visible, resolved);
+  for (const item of presented) {
+    if (item.aggregated) {
+      sendToRenderer("system-cache-found", item);
+    }
+  }
+  return presented;
+});
+
+ipcMain.handle("get-system-cache-catalog", async (_event, locale?: SystemCacheLocale) => {
+  const resolved: SystemCacheLocale = locale === "ru" ? "ru" : "en";
+  const steamRoot = await detectSteamPath();
+  return systemCacheCatalog(os.homedir(), process.platform, resolved, {
+    extraRoots: steamRoot ? { steam: steamRoot } : undefined
+  });
+});
+
+ipcMain.handle("scan-games", async event => {
+  return scanGames(undefined, {
+    timeoutMs: LAUNCHER_SCAN_TIMEOUT_MS,
+    devLog: !app.isPackaged,
+    onLauncher: label => {
+      if (event.sender.isDestroyed()) return;
+      event.sender.send("games-scan-launcher", label);
+    }
+  });
 });
 
 ipcMain.handle("uninstall-game", async (_event, request: UninstallGameRequest) => {
@@ -496,7 +603,7 @@ ipcMain.handle(
     const protection = await protectionContext();
     if (resetAllowlist) {
       scanAllowlist.beginDeveloperScan();
-      scanAllowlist.addDeveloper(acceptedToolCaches, protection);
+      reseedKnownCaches(protection);
     }
 
     return new Promise((resolve, reject) => {
@@ -681,12 +788,33 @@ ipcMain.handle("open-path", (_event, target: string) => {
   return shell.openPath(target);
 });
 
+ipcMain.handle("open-about-link", (_event, url: unknown) =>
+  openAboutRepository(url, target => shell.openExternal(target))
+);
+
 ipcMain.handle("copy-text", (_event, text: string) => {
   if (!text) return;
   clipboard.writeText(text);
 });
 
 ipcMain.handle("get-platform", () => process.platform);
+
+ipcMain.handle("window-minimize", () => {
+  mainWindow?.minimize();
+});
+
+ipcMain.handle("window-toggle-maximize", () => {
+  if (!mainWindow) return false;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+  return mainWindow.isMaximized();
+});
+
+ipcMain.handle("window-is-maximized", () => mainWindow?.isMaximized() ?? false);
+
+ipcMain.handle("window-close", () => {
+  mainWindow?.close();
+});
 
 ipcMain.handle("relaunch-elevated", () => {
   if (process.platform !== "win32") return;

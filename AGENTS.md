@@ -1,6 +1,6 @@
 # DevNullifier — agent context
 
-Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Version lives in `package.json` (currently 1.6.0). Selected items are moved to the trash. The Windows installer does not request administrator rights (`requestedExecutionLevel: asInvoker`).
+Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Version lives in `package.json` (currently 1.7.4). Tabs: AppData, Developer, Tool Caches, System (temp/browsers/messengers/shaders/creative/launcher caches), Games. Selected items are moved to the trash. The Windows installer does not request administrator rights (`requestedExecutionLevel: asInvoker`).
 
 ## Processes
 
@@ -19,6 +19,16 @@ Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Versi
 - Husky pre-commit already runs `type-check` and `npm test`. Do not disable it.
 - Build: `npm run build:win|linux|mac`. Artifacts land in `dist/`. Do not publish (`--publish=never`). Releases go only through `.github/workflows/build-and-release.yml`.
 
+## Version and changelog
+
+A version bump in `package.json` updates `CHANGELOG.md` and `CHANGELOG.ru.md` in the same change. Headings look like `## [x.y.z] - two or three words`. Both files list the same versions.
+
+On a feature branch, keep notes under the current minor, `## [x.y.0]`. Later patch bumps on that branch add bullets there, not a new heading.
+
+On `develop` or `main`, a version bump adds a new heading at the top of both files.
+
+Copy both changelog files into `docs/` in the same change. GitHub Pages publishes `docs/`. `index.html` loads `docs/CHANGELOG.md` and `ru.html` loads `docs/CHANGELOG.ru.md`, at the bottom of the page, collapsed.
+
 ## Do not break
 
 - Any new delete path must stay an explicit user choice. `delete-folders` accepts only paths from the current scan allowlist. Do not delete a drive root, the user profile, the app `userData` directory, or anything inside `userData`.
@@ -30,7 +40,8 @@ Desktop cache cleaner: Electron 37 + Vue 3 + Vuetify 3 + vue-i18n (en/ru). Versi
 - Types are split: `src/types/developer-cleaner.ts` (main/worker) and `src/renderer/types/` (UI). `CacheMatch` on both sides has `categories` and `patterns`. Change both sides when the cache or project shape changes.
 - Directory size is `fileUtils.getDirSize`. `appDataCleaner.getDirectorySize` calls it. The walk skips symlinks and stops when `shouldContinue` returns false.
 - IPC `set-update-channel` is registered only in `UpdateService`, and only once per process.
-- Icons live in `src/assets/icon-256.png` and `icon-512.png`. `LICENSE` is MIT.
+- Icons: `src/assets/icon.ico` (16, 24, 32, 48, 64, 128, 256) is the Windows icon. `icon-256.png`, `icon-512.png`, and `icon-1024.png` stay for Linux, macOS, and the large source. The window has no system title bar (`frame: false`). Minimize, maximize, and close are the buttons at the right of the app bar.
+- `LICENSE` is MIT.
 - Do not commit unless explicitly asked. Do not touch git config and do not push.
 
 ## Tests

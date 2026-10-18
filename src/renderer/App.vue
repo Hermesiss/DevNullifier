@@ -1,6 +1,6 @@
 <template>
   <v-app>
-    <v-app-bar color="surface" density="comfortable" flat>
+    <v-app-bar class="dn-titlebar" color="surface" density="comfortable" flat @dblclick="onTitlebarDblclick">
       <v-app-bar-title>
         <div class="dn-app-title">
           <img :src="appIcon" alt="" class="dn-app-logo" width="28" height="28" />
@@ -23,10 +23,32 @@
         <v-tooltip activator="parent" location="bottom">{{ t('common.deletion_log') }}</v-tooltip>
       </v-btn>
 
+      <v-btn icon variant="text" color="info" class="mr-2" @click="showAbout = true">
+        <v-icon>mdi-information-outline</v-icon>
+        <v-tooltip activator="parent" location="bottom">{{ t('about.open') }}</v-tooltip>
+      </v-btn>
+
       <v-btn icon variant="text" color="info" @click="showSettings = true">
         <v-icon>mdi-cog</v-icon>
         <v-tooltip activator="parent" location="bottom">{{ t('common.settings') }}</v-tooltip>
       </v-btn>
+
+      <div class="dn-window-controls">
+        <v-btn icon variant="text" class="dn-window-btn" @click="minimizeWindow">
+          <v-icon>mdi-minus</v-icon>
+          <v-tooltip activator="parent" location="bottom">{{ t('common.window_minimize') }}</v-tooltip>
+        </v-btn>
+        <v-btn icon variant="text" class="dn-window-btn" @click="toggleMaximizeWindow">
+          <v-icon>{{ maximized ? 'mdi-window-restore' : 'mdi-window-maximize' }}</v-icon>
+          <v-tooltip activator="parent" location="bottom">
+            {{ t(maximized ? 'common.window_restore' : 'common.window_maximize') }}
+          </v-tooltip>
+        </v-btn>
+        <v-btn icon variant="text" class="dn-window-btn dn-window-close" @click="closeWindow">
+          <v-icon>mdi-close</v-icon>
+          <v-tooltip activator="parent" location="bottom">{{ t('common.window_close') }}</v-tooltip>
+        </v-btn>
+      </div>
     </v-app-bar>
 
     <v-main>
@@ -43,6 +65,10 @@
           <v-tab value="tools">
             <v-icon left>mdi-toolbox-outline</v-icon>
             {{ t('app.tabs.tools') }}
+          </v-tab>
+          <v-tab value="system">
+            <v-icon left>mdi-desktop-classic</v-icon>
+            {{ t('app.tabs.system') }}
           </v-tab>
           <v-tab value="games">
             <v-icon left>mdi-controller</v-icon>
@@ -63,6 +89,10 @@
             <ToolCachesCleaner @showNotification="showNotification" />
           </v-tabs-window-item>
 
+          <v-tabs-window-item value="system">
+            <SystemCleaner @showNotification="showNotification" />
+          </v-tabs-window-item>
+
           <v-tabs-window-item value="games">
             <GamesCleaner @showNotification="showNotification" />
           </v-tabs-window-item>
@@ -71,6 +101,7 @@
     </v-main>
 
     <NotificationSnackbar v-model="showSnackbar" :text="snackbarText" :color="snackbarColor" />
+    <AboutDialog v-model="showAbout" />
     <SettingsDialog
       v-model="showSettings"
       :language="locale"
@@ -125,14 +156,16 @@ import { useI18n } from 'vue-i18n'
 import AppDataCleaner from './components/AppDataCleaner.vue'
 import DeveloperCleaner from './components/DeveloperCleaner.vue'
 import ToolCachesCleaner from './components/ToolCachesCleaner.vue'
+import SystemCleaner from './components/SystemCleaner.vue'
 import GamesCleaner from './components/GamesCleaner.vue'
 import NotificationSnackbar from './components/NotificationSnackbar.vue'
 import UpdateButton from './components/UpdateButton.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import AboutDialog from './components/AboutDialog.vue'
 import { formatDate, formatSize } from './utils/formatters'
 import type { DeletionLogEntry } from '../main/deletionLog'
 import { accessDeniedOutsideProfile } from './composables/useElevationPrompt'
-import appIcon from '../assets/icon-256.png'
+import appIcon from '../assets/icon-32.png'
 
 const { t, locale } = useI18n()
 
@@ -215,6 +248,10 @@ onMounted(async () => {
 
   try {
     platform.value = await window.electronAPI.getPlatform()
+    maximized.value = await window.electronAPI.isWindowMaximized()
+    window.electronAPI.onWindowMaximized(value => {
+      maximized.value = value
+    })
   } catch (error) {
     console.error('Failed to read platform:', error)
   }
@@ -242,6 +279,27 @@ watch(themeMode, (newMode) => {
 // Reactive state
 const activeTab = ref<'appdata' | 'developer' | 'tools' | 'games'>('appdata')
 const showSettings = ref(false)
+const showAbout = ref(false)
+const maximized = ref(false)
+
+const minimizeWindow = async (): Promise<void> => {
+  await window.electronAPI.minimizeWindow()
+}
+
+const toggleMaximizeWindow = async (): Promise<void> => {
+  maximized.value = await window.electronAPI.toggleMaximizeWindow()
+}
+
+const closeWindow = async (): Promise<void> => {
+  await window.electronAPI.closeWindow()
+}
+
+const onTitlebarDblclick = (event: MouseEvent): void => {
+  const target = event.target
+  if (!(target instanceof Element) || target.closest('.v-btn')) return
+  void toggleMaximizeWindow()
+}
+
 const showDeletionLog = ref(false)
 const deletionLog = ref<DeletionLogEntry[]>([])
 const showSnackbar = ref(false)
@@ -279,6 +337,34 @@ const exportDeletionLog = async (): Promise<void> => {
 </script>
 
 <style scoped>
+.dn-titlebar {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.dn-titlebar :deep(.v-btn) {
+  -webkit-app-region: no-drag;
+}
+
+.dn-window-controls {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  margin-left: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.dn-window-controls :deep(.dn-window-btn) {
+  width: 46px;
+  height: auto;
+  border-radius: 0;
+}
+
+.dn-window-controls :deep(.dn-window-close:hover) {
+  background: #c42b1c;
+  color: #fff;
+}
+
 .deletion-log-body {
   max-height: 60vh;
   overflow: auto;

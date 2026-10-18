@@ -43,13 +43,25 @@ const api: ElectronAPI = {
 
   scanGlobalCaches: (locale) => ipcRenderer.invoke("scan-global-caches", locale),
   getToolCacheCatalog: (locale) => ipcRenderer.invoke("get-tool-cache-catalog", locale),
+  pruneContainerEngine: (engine) => ipcRenderer.invoke("prune-container-engine", engine),
+  scanSystemCaches: (locale) => ipcRenderer.invoke("scan-system-caches", locale),
+  getSystemCacheCatalog: (locale) => ipcRenderer.invoke("get-system-cache-catalog", locale),
   scanGames: () => ipcRenderer.invoke("scan-games"),
+  onGamesScanLauncher: (callback: (launcher: string) => void) => {
+    ipcRenderer.on("games-scan-launcher", (_event, launcher: string) => callback(launcher));
+  },
   uninstallGame: (request) => ipcRenderer.invoke("uninstall-game", request),
   onToolCacheScanProgress: (callback) => {
     ipcRenderer.on("tool-cache-scan-progress", (_event, progress) => callback(progress));
   },
   onToolCacheFound: (callback) => {
     ipcRenderer.on("tool-cache-found", (_event, item) => callback(item));
+  },
+  onSystemCacheScanProgress: (callback) => {
+    ipcRenderer.on("system-cache-scan-progress", (_event, progress) => callback(progress));
+  },
+  onSystemCacheFound: (callback) => {
+    ipcRenderer.on("system-cache-found", (_event, item) => callback(item));
   },
 
   // Stop scanning
@@ -162,6 +174,7 @@ const api: ElectronAPI = {
   getLocale: () => ipcRenderer.invoke('get-locale'),
 
   openPath: (target: string) => ipcRenderer.invoke("open-path", target),
+  openAboutLink: (url: string) => ipcRenderer.invoke("open-about-link", url),
   copyText: (text: string) => ipcRenderer.invoke("copy-text", text),
   platform: process.platform,
   getPlatform: () => ipcRenderer.invoke("get-platform"),
@@ -172,6 +185,14 @@ const api: ElectronAPI = {
   },
 
   relaunchElevated: () => ipcRenderer.invoke("relaunch-elevated"),
+
+  minimizeWindow: () => ipcRenderer.invoke("window-minimize"),
+  toggleMaximizeWindow: () => ipcRenderer.invoke("window-toggle-maximize"),
+  isWindowMaximized: () => ipcRenderer.invoke("window-is-maximized"),
+  closeWindow: () => ipcRenderer.invoke("window-close"),
+  onWindowMaximized: (callback: (maximized: boolean) => void) => {
+    ipcRenderer.on("window-maximized", (_event, maximized: boolean) => callback(maximized));
+  },
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

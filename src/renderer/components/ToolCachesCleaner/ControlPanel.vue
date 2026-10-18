@@ -24,14 +24,27 @@
                             </v-btn>
                         </v-col>
 
+                        <v-col cols="auto">
+                            <v-btn variant="outlined" color="info" :disabled="isScanning || isDeleting || isPruning"
+                                @click="$emit('prune-docker')">
+                                {{ t('common.prune_docker') }}
+                            </v-btn>
+                        </v-col>
+                        <v-col cols="auto">
+                            <v-btn variant="outlined" color="info" :disabled="isScanning || isDeleting || isPruning"
+                                @click="$emit('prune-podman')">
+                                {{ t('common.prune_podman') }}
+                            </v-btn>
+                        </v-col>
+
                         <v-spacer />
 
                         <v-col cols="auto">
-                            <v-btn icon variant="text" :aria-label="t('common.tool_caches_info')"
+                            <v-btn icon variant="text" :aria-label="t(infoLabelKey)"
                                 @click="$emit('show-info')">
                                 <v-icon>mdi-information-outline</v-icon>
                                 <v-tooltip activator="parent" location="bottom">
-                                    {{ t('common.tool_caches_info') }}
+                                    {{ t(infoLabelKey) }}
                                 </v-tooltip>
                             </v-btn>
                         </v-col>
@@ -49,17 +62,24 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-defineProps<{
+withDefaults(defineProps<{
     isScanning: boolean
     isDeleting: boolean
+    isPruning?: boolean
     itemsLength: number
     scanProgress: number
-}>()
+    infoLabelKey?: string
+}>(), {
+    infoLabelKey: 'common.tool_caches_info',
+    isPruning: false
+})
 
 defineEmits<{
     scan: []
     'select-all': []
     'deselect-all': []
     'show-info': []
+    'prune-docker': []
+    'prune-podman': []
 }>()
 </script>

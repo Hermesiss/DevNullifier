@@ -12,7 +12,8 @@ export type ToolCacheCategoryId =
   | "containers"
   | "gamedev"
   | "php"
-  | "ide";
+  | "ide"
+  | "pkgmanagers";
 
 export interface LocalizedText {
   en: string;
@@ -123,7 +124,8 @@ const CATEGORY_ORDER: ToolCacheCategoryId[] = [
   "containers",
   "gamedev",
   "php",
-  "ide"
+  "ide",
+  "pkgmanagers"
 ];
 
 const CATEGORY_LABELS: Record<ToolCacheCategoryId, LocalizedText> = {
@@ -136,7 +138,8 @@ const CATEGORY_LABELS: Record<ToolCacheCategoryId, LocalizedText> = {
   containers: { en: "Containers", ru: "Контейнеры" },
   gamedev: { en: "Game engines", ru: "Игровые движки" },
   php: { en: "PHP", ru: "PHP" },
-  ide: { en: "IDE caches", ru: "Кэши IDE" }
+  ide: { en: "IDE caches", ru: "Кэши IDE" },
+  pkgmanagers: { en: "OS package managers", ru: "Пакетные менеджеры ОС" }
 };
 
 function sameRelative(segments: string[]): PlatformPaths {
@@ -1098,6 +1101,265 @@ const TOOL_CACHE_DEFINITIONS: ToolCacheDefinition[] = [
         en: "One CachedData version folder. Safe; Cursor recreates it.",
         ru: "Одна версия CachedData. Безопасно; Cursor создаст снова."
       }
+    }
+  },
+  {
+    id: "uv",
+    category: "python",
+    label: "uv",
+    description: {
+      en: "uv package cache. Safe; packages re-download on next sync.",
+      ru: "Кэш пакетов uv. Безопасно; пакеты скачаются при следующем sync."
+    },
+    paths: {
+      win32: ["AppData", "Local", "uv", "cache"],
+      darwin: [".cache", "uv"],
+      linux: [".cache", "uv"]
+    }
+  },
+  {
+    id: "pixi",
+    category: "python",
+    label: "Pixi",
+    description: {
+      en: "Pixi/rattler package cache. Environments may need re-resolve after delete.",
+      ru: "Кэш пакетов Pixi/rattler. После удаления окружения могут потребовать re-resolve."
+    },
+    paths: {
+      win32: ["AppData", "Local", "pixi", "cache"],
+      darwin: [".cache", "rattler"],
+      linux: [".cache", "rattler"]
+    }
+  },
+  {
+    id: "playwright",
+    category: "javascript",
+    label: "Playwright",
+    description: {
+      en: "Playwright browser downloads. Re-run npx playwright install after delete.",
+      ru: "Скачанные браузеры Playwright. После удаления: npx playwright install."
+    },
+    paths: {
+      win32: ["AppData", "Local", "ms-playwright"],
+      darwin: ["Library", "Caches", "ms-playwright"],
+      linux: [".cache", "ms-playwright"]
+    }
+  },
+  {
+    id: "cypress",
+    category: "javascript",
+    label: "Cypress",
+    description: {
+      en: "Cypress binary cache. Cypress re-downloads the binary on next run.",
+      ru: "Кэш бинарников Cypress. При следующем запуске скачает снова."
+    },
+    paths: {
+      win32: ["AppData", "Local", "Cypress", "Cache"],
+      darwin: ["Library", "Caches", "Cypress"],
+      linux: [".cache", "Cypress"]
+    }
+  },
+  {
+    id: "electron",
+    category: "javascript",
+    label: "Electron",
+    description: {
+      en: "electron-download cache of Electron binaries.",
+      ru: "Кэш бинарников Electron (electron-download)."
+    },
+    paths: {
+      win32: ["AppData", "Local", "electron", "Cache"],
+      darwin: ["Library", "Caches", "electron"],
+      linux: [".cache", "electron"]
+    }
+  },
+  {
+    id: "puppeteer",
+    category: "javascript",
+    label: "Puppeteer",
+    description: {
+      en: "Puppeteer Chrome-for-Testing cache.",
+      ru: "Кэш Chrome-for-Testing для Puppeteer."
+    },
+    paths: {
+      win32: ["AppData", "Local", "puppeteer"],
+      darwin: [".cache", "puppeteer"],
+      linux: [".cache", "puppeteer"]
+    }
+  },
+  {
+    id: "conan",
+    category: "systems",
+    label: "Conan",
+    description: {
+      en: "Conan package cache (.conan2/p). Safe; packages re-download.",
+      ru: "Кэш пакетов Conan (.conan2/p). Безопасно; пакеты скачаются снова."
+    },
+    paths: {
+      win32: [".conan2"],
+      darwin: [".conan2"],
+      linux: [".conan2"]
+    },
+    parts: [
+      {
+        id: "p",
+        label: "p",
+        description: {
+          en: "Conan 2 package cache.",
+          ru: "Кэш пакетов Conan 2."
+        },
+        relative: sameRelative(["p"])
+      }
+    ]
+  },
+  {
+    id: "vcpkg",
+    category: "systems",
+    label: "vcpkg",
+    description: {
+      en: "Default vcpkg downloads/buildtrees under the user vcpkg tree when present.",
+      ru: "downloads/buildtrees пользовательского vcpkg, если каталог есть."
+    },
+    paths: {
+      win32: ["vcpkg"],
+      darwin: ["vcpkg"],
+      linux: ["vcpkg"]
+    },
+    parts: [
+      {
+        id: "downloads",
+        label: "downloads",
+        description: {
+          en: "vcpkg source downloads cache.",
+          ru: "Кэш загрузок исходников vcpkg."
+        },
+        relative: sameRelative(["downloads"])
+      },
+      {
+        id: "buildtrees",
+        label: "buildtrees",
+        description: {
+          en: "vcpkg buildtrees. Safe; rebuilds on next install.",
+          ru: "buildtrees vcpkg. Безопасно; пересоберётся при установке."
+        },
+        relative: sameRelative(["buildtrees"])
+      }
+    ]
+  },
+  {
+    id: "hex",
+    category: "systems",
+    label: "Hex (Elixir)",
+    description: {
+      en: "Hex package cache for Elixir/Erlang.",
+      ru: "Кэш пакетов Hex для Elixir/Erlang."
+    },
+    paths: {
+      win32: [".hex", "packages"],
+      darwin: [".hex", "packages"],
+      linux: [".hex", "packages"]
+    }
+  },
+  {
+    id: "stack",
+    category: "systems",
+    label: "Stack (Haskell)",
+    description: {
+      en: "Stack program/cache directories. Snapshots re-download as needed.",
+      ru: "Кэш Stack. Снапшоты скачаются при необходимости."
+    },
+    paths: {
+      win32: ["AppData", "Roaming", "stack"],
+      darwin: [".stack"],
+      linux: [".stack"]
+    },
+    parts: [
+      {
+        id: "snapshots",
+        label: "snapshots",
+        description: {
+          en: "Stack snapshots cache.",
+          ru: "Кэш snapshots Stack."
+        },
+        relative: sameRelative(["snapshots"])
+      },
+      {
+        id: "programs",
+        label: "programs",
+        description: {
+          en: "Stack installed GHC programs cache.",
+          ru: "Кэш установленных GHC/программ Stack."
+        },
+        relative: sameRelative(["programs"])
+      }
+    ]
+  },
+  {
+    id: "chocolatey",
+    category: "pkgmanagers",
+    label: "Chocolatey",
+    description: {
+      en: "Chocolatey lib/cache under ProgramData when present. CAUTION: may need admin to delete.",
+      ru: "lib/cache Chocolatey в ProgramData. ОСТОРОЖНО: для удаления могут нужны права админа."
+    },
+    paths: {
+      win32: ["AppData", "Local", "Temp", "chocolatey"],
+      darwin: null,
+      linux: null
+    }
+  },
+  {
+    id: "winget",
+    category: "pkgmanagers",
+    label: "winget",
+    description: {
+      en: "winget package installer cache under LocalState.",
+      ru: "Кэш установщиков winget в LocalState."
+    },
+    paths: {
+      win32: [
+        "AppData",
+        "Local",
+        "Packages",
+        "Microsoft.DesktopAppInstaller_8wekyb3d8bbwe",
+        "LocalState",
+        "DiagOutputDir"
+      ],
+      darwin: null,
+      linux: null
+    }
+  },
+  {
+    id: "winget-packages",
+    category: "pkgmanagers",
+    label: "winget packages",
+    description: {
+      en: "Downloaded winget package payloads cache.",
+      ru: "Кэш скачанных пакетов winget."
+    },
+    paths: {
+      win32: [
+        "AppData",
+        "Local",
+        "Temp",
+        "WinGet"
+      ],
+      darwin: null,
+      linux: null
+    }
+  },
+  {
+    id: "scoop",
+    category: "pkgmanagers",
+    label: "Scoop",
+    description: {
+      en: "Scoop cache of downloaded installers. Apps in ~/scoop/apps are not listed.",
+      ru: "Кэш установщиков Scoop. Приложения в ~/scoop/apps не перечисляются."
+    },
+    paths: {
+      win32: ["scoop", "cache"],
+      darwin: null,
+      linux: null
     }
   }
 ];

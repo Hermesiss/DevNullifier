@@ -43,6 +43,12 @@ export interface Folder {
   keyword?: string;
 }
 
+export interface ToolCacheChild {
+  path: string;
+  label: string;
+  size: number;
+}
+
 export interface ToolCacheItem {
   id: string;
   parentId: string;
@@ -55,6 +61,9 @@ export interface ToolCacheItem {
   category: string;
   categoryLabel: string;
   description: string;
+  /** Collapsed group (e.g. User TEMP). path is display-only; delete child paths. */
+  aggregated?: boolean;
+  children?: ToolCacheChild[];
 }
 
 export interface ToolCacheCatalogPart {
@@ -90,10 +99,22 @@ export interface ElectronAPI {
   ) => Promise<ProjectInfo[]>;
   scanGlobalCaches: (locale?: string) => Promise<ToolCacheItem[]>;
   getToolCacheCatalog: (locale?: string) => Promise<ToolCacheCatalogCategory[]>;
+  pruneContainerEngine: (engine: "docker" | "podman") => Promise<{
+    ok: boolean;
+    engine: "docker" | "podman";
+    error?: string;
+    output: string;
+    commands: string[];
+  }>;
+  scanSystemCaches: (locale?: string) => Promise<ToolCacheItem[]>;
+  getSystemCacheCatalog: (locale?: string) => Promise<ToolCacheCatalogCategory[]>;
   scanGames: () => Promise<GameApp[]>;
+  onGamesScanLauncher: (callback: (launcher: string) => void) => void;
   uninstallGame: (request: UninstallGameRequest) => Promise<UninstallGameResult>;
   onToolCacheScanProgress: (callback: (progress: { checked: number; total: number; path: string }) => void) => void;
   onToolCacheFound: (callback: (item: ToolCacheItem) => void) => void;
+  onSystemCacheScanProgress: (callback: (progress: { checked: number; total: number; path: string }) => void) => void;
+  onSystemCacheFound: (callback: (item: ToolCacheItem) => void) => void;
   stopAppDataScan: () => Promise<void>;
   stopDeveloperScan: () => Promise<void>;
   deleteFolders: (folderPaths: string[]) => Promise<DeleteResult[]>;
@@ -132,11 +153,17 @@ export interface ElectronAPI {
   setUpdateChannel: (channel: 'latest' | 'latest-dev') => Promise<void>;
   getLocale: () => Promise<string>;
   openPath: (target: string) => Promise<string>;
+  openAboutLink: (url: string) => Promise<boolean>;
   copyText: (text: string) => Promise<void>;
   platform: string;
   getPlatform: () => Promise<NodeJS.Platform>;
   lockingProcess: (target: string) => Promise<string | null>;
   relaunchElevated: () => Promise<void>;
+  minimizeWindow: () => Promise<void>;
+  toggleMaximizeWindow: () => Promise<boolean>;
+  isWindowMaximized: () => Promise<boolean>;
+  closeWindow: () => Promise<void>;
+  onWindowMaximized: (callback: (maximized: boolean) => void) => void;
 }
 
 // Add global type augmentation for Window interface

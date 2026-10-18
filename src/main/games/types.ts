@@ -1,4 +1,4 @@
-export type LauncherId = "steam" | "epic";
+export type LauncherId = "steam" | "epic" | "gog" | "battlenet" | "riot" | "ea";
 
 export type GameAppKind = "game" | "app" | "tool" | "other";
 

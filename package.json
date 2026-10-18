@@ -1,6 +1,6 @@
 {
   "name": "devnullifier",
-  "version": "1.6.0",
+  "version": "1.7.4",
   "description": "DevNullifier: Clean application data, dev caches (node_modules, .cache, Library, Binary, Intermediate, etc) with Electron, Vue 3, and Vuetify 3.",
   "main": "dist-main/main/main.js",
   "scripts": {
@@ -90,7 +90,8 @@
     "files": [
       "dist-renderer/**/*",
       "dist-main/**/*",
-      "package.json"
+      "package.json",
+      "src/assets/icon.ico"
     ],
     "publish": {
       "provider": "github",
@@ -115,7 +116,7 @@
       ],
       "artifactName": "DevNullifier-Setup.${ext}",
       "requestedExecutionLevel": "asInvoker",
-      "icon": "src/assets/icon-256.png"
+      "icon": "src/assets/icon.ico"
     },
     "linux": {
       "target": [
