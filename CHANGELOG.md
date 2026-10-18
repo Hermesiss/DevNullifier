@@ -2,6 +2,13 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.7.4] - Games scan
+
+### Changed
+
+- The Games scan names the launcher it is checking. A launcher that runs longer than 1 second is skipped. Developer builds log each launcher in the console.
+- The project site uses the app palette: warm background, yellow edges, and sticker cards.
+
 ## [1.7.3] - Window frame
 
 ### Added

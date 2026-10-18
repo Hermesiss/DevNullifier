@@ -53,7 +53,7 @@ import {
 import { pathMatchesExclude } from "./excludeGlobs";
 import { queryLockingProcess } from "./lockingProcess";
 import { elevationCommandEnv } from "./elevation";
-import { scanGames, uninstallGame } from "./games/scanGames";
+import { LAUNCHER_SCAN_TIMEOUT_MS, scanGames, uninstallGame } from "./games/scanGames";
 import type { UninstallGameRequest } from "./games/types";
 import { detectSteamPath } from "./games/steam/detect";
 import { pruneContainerEngine, type ContainerEngine } from "./containerPrune";
@@ -573,8 +573,15 @@ ipcMain.handle("get-system-cache-catalog", async (_event, locale?: SystemCacheLo
   });
 });
 
-ipcMain.handle("scan-games", async () => {
-  return scanGames();
+ipcMain.handle("scan-games", async event => {
+  return scanGames(undefined, {
+    timeoutMs: LAUNCHER_SCAN_TIMEOUT_MS,
+    devLog: !app.isPackaged,
+    onLauncher: label => {
+      if (event.sender.isDestroyed()) return;
+      event.sender.send("games-scan-launcher", label);
+    }
+  });
 });
 
 ipcMain.handle("uninstall-game", async (_event, request: UninstallGameRequest) => {

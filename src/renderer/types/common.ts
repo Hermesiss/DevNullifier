@@ -109,6 +109,7 @@ export interface ElectronAPI {
   scanSystemCaches: (locale?: string) => Promise<ToolCacheItem[]>;
   getSystemCacheCatalog: (locale?: string) => Promise<ToolCacheCatalogCategory[]>;
   scanGames: () => Promise<GameApp[]>;
+  onGamesScanLauncher: (callback: (launcher: string) => void) => void;
   uninstallGame: (request: UninstallGameRequest) => Promise<UninstallGameResult>;
   onToolCacheScanProgress: (callback: (progress: { checked: number; total: number; path: string }) => void) => void;
   onToolCacheFound: (callback: (item: ToolCacheItem) => void) => void;

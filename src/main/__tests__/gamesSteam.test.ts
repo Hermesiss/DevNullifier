@@ -335,3 +335,46 @@ describe("Steam uninstall + scan routing", () => {
     ).resolves.toEqual({ ok: false, error: "Unknown launcher: steam" });
   });
 });
+
+describe("scanGames launcher timeout", () => {
+  const epicApp: GameApp = {
+    id: "epic:1",
+    launcherId: "epic",
+    launcherLabel: "Epic Games",
+    appId: "1",
+    name: "Fortnite",
+    installPath: "C:\\Games\\Fortnite",
+    size: 10,
+    kind: "game",
+    lastPlayedAt: null,
+    artworkDataUrl: null,
+    artworkUrl: null
+  };
+
+  it("skips a launcher that does not finish and keeps the rest", async () => {
+    const seen: string[] = [];
+    const hanging: LauncherProvider = {
+      id: "steam",
+      label: "Steam",
+      detect: () => new Promise(() => undefined),
+      listInstalled: async () => [],
+      uninstall: async () => ({ ok: false })
+    };
+    const epic: LauncherProvider = {
+      id: "epic",
+      label: "Epic Games",
+      detect: async () => true,
+      listInstalled: async () => [epicApp],
+      uninstall: async () => ({ ok: false })
+    };
+
+    const apps = await scanGames([hanging, epic], {
+      timeoutMs: 30,
+      devLog: false,
+      onLauncher: label => seen.push(label)
+    });
+
+    expect(seen).toEqual(["Steam", "Epic Games"]);
+    expect(apps).toEqual([epicApp]);
+  });
+});

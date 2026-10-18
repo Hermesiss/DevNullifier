@@ -106,7 +106,7 @@
     "system_caches_info_hint": "Safe regenerable caches only (temp entries, browser disk caches). Cookies, passwords, and chat databases are never selected.",
     "no_system_caches": "No system caches found",
     "found_games": "Installed games & apps",
-    "games_scanning": "Scanning launchers...",
+    "games_scanning": "Scanning {launcher}...",
     "games_none_found": "No installed launcher apps found",
     "games_found_count": "Found {count} installed apps",
     "games_launcher": "Launcher",

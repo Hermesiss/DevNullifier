@@ -68,21 +68,21 @@ const vuetify = createVuetify({
   directives,
   defaults: {
     VBtn: {
-      rounded: "md",
+      rounded: "lg",
       style: "text-transform: none; letter-spacing: normal;"
     },
     VCard: {
-      rounded: "md",
+      rounded: "lg",
       elevation: 0
     },
     VTextField: {
-      rounded: "md"
+      rounded: "lg"
     },
     VSelect: {
-      rounded: "md"
+      rounded: "lg"
     },
     VChip: {
-      rounded: "md"
+      rounded: "lg"
     },
     VDialog: {
       scrim: true

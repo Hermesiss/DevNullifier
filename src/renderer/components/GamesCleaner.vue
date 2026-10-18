@@ -93,7 +93,10 @@ const startScan = async (): Promise<void> => {
     if (isScanning.value || isUninstalling.value) return
     isScanning.value = true
     previewSize.value = 0
-    statusText.value = t('common.games_scanning')
+    window.electronAPI.removeAllListeners('games-scan-launcher')
+    window.electronAPI.onGamesScanLauncher((launcher: string) => {
+        statusText.value = t('common.games_scanning', { launcher })
+    })
     try {
         const next = await window.electronAPI.scanGames()
         items.value = next
@@ -110,6 +113,7 @@ const startScan = async (): Promise<void> => {
         statusText.value = t('common.error_scan')
         emit('showNotification', t('common.error_scan'), 'error')
     } finally {
+        window.electronAPI.removeAllListeners('games-scan-launcher')
         isScanning.value = false
     }
 }
