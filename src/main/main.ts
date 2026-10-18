@@ -138,6 +138,9 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
+    minWidth: 720,
+    minHeight: 480,
+    frame: false,
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -145,8 +148,11 @@ function createWindow() {
       sandbox: true,
       preload: path.join(__dirname, "preload.js")
     },
-    icon: path.join(__dirname, "../assets/icon-256.png")
+    icon: path.join(__dirname, "../../src/assets/icon.ico")
   });
+
+  mainWindow.on("maximize", () => sendToRenderer("window-maximized", true));
+  mainWindow.on("unmaximize", () => sendToRenderer("window-maximized", false));
 
   mainWindow.on("closed", () => {
     void currentAppDataScanWorker?.terminate();
@@ -785,6 +791,23 @@ ipcMain.handle("copy-text", (_event, text: string) => {
 });
 
 ipcMain.handle("get-platform", () => process.platform);
+
+ipcMain.handle("window-minimize", () => {
+  mainWindow?.minimize();
+});
+
+ipcMain.handle("window-toggle-maximize", () => {
+  if (!mainWindow) return false;
+  if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+  return mainWindow.isMaximized();
+});
+
+ipcMain.handle("window-is-maximized", () => mainWindow?.isMaximized() ?? false);
+
+ipcMain.handle("window-close", () => {
+  mainWindow?.close();
+});
 
 ipcMain.handle("relaunch-elevated", () => {
   if (process.platform !== "win32") return;

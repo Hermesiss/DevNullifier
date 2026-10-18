@@ -67,7 +67,7 @@ import { useI18n } from "vue-i18n";
 import pkg from "../../../package.json";
 import changelogEn from "../../../CHANGELOG.md?raw";
 import changelogRu from "../../../CHANGELOG.ru.md?raw";
-import appIcon from "../../assets/icon-256.png";
+import appIcon from "../../assets/icon-48.png";
 import { aboutRepositoryUrl } from "../../main/aboutLink";
 import {
   expandedReleaseIndex,

@@ -158,6 +158,11 @@ export interface ElectronAPI {
   getPlatform: () => Promise<NodeJS.Platform>;
   lockingProcess: (target: string) => Promise<string | null>;
   relaunchElevated: () => Promise<void>;
+  minimizeWindow: () => Promise<void>;
+  toggleMaximizeWindow: () => Promise<boolean>;
+  isWindowMaximized: () => Promise<boolean>;
+  closeWindow: () => Promise<void>;
+  onWindowMaximized: (callback: (maximized: boolean) => void) => void;
 }
 
 // Add global type augmentation for Window interface

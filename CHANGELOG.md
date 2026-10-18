@@ -2,6 +2,17 @@
 
 All notable changes to DevNullifier will be documented in this file.
 
+## [1.7.3] - Window frame
+
+### Added
+
+- The system title bar is hidden. Minimize, maximize, and close sit in the app bar, to the right of Settings.
+- The Windows icon includes sizes from 16 to 256 pixels, so the taskbar does not scale the large picture.
+
+### Changed
+
+- The project site shows the changelog at the bottom, collapsed. The English page reads `CHANGELOG.md` and the Russian page reads `CHANGELOG.ru.md` from the GitHub Pages files.
+
 ## [1.7.2] - About window
 
 ### Added

@@ -182,6 +182,14 @@ const api: ElectronAPI = {
   },
 
   relaunchElevated: () => ipcRenderer.invoke("relaunch-elevated"),
+
+  minimizeWindow: () => ipcRenderer.invoke("window-minimize"),
+  toggleMaximizeWindow: () => ipcRenderer.invoke("window-toggle-maximize"),
+  isWindowMaximized: () => ipcRenderer.invoke("window-is-maximized"),
+  closeWindow: () => ipcRenderer.invoke("window-close"),
+  onWindowMaximized: (callback: (maximized: boolean) => void) => {
+    ipcRenderer.on("window-maximized", (_event, maximized: boolean) => callback(maximized));
+  },
 };
 
 contextBridge.exposeInMainWorld("electronAPI", api);

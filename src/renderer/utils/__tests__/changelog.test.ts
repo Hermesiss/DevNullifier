@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import changelogEn from "../../../../CHANGELOG.md?raw";
 import changelogRu from "../../../../CHANGELOG.ru.md?raw";
+import pkg from "../../../../package.json";
 import {
   expandedReleaseIndex,
   parseChangelog,
@@ -59,7 +60,7 @@ describe("parseChangelog", () => {
   it("reads the same versions from both changelog files", () => {
     const english = parseChangelog(changelogEn).map(release => release.version);
     const russian = parseChangelog(changelogRu).map(release => release.version);
-    expect(english[0]).toBe("1.7.2");
+    expect(english[0]).toBe(pkg.version);
     expect(russian).toEqual(english);
   });
 });
